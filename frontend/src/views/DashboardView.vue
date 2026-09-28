@@ -145,7 +145,7 @@ const loadData = async () => {
   try {
     await Promise.all([
       memberStore.fetchMembers(),
-      roleService.getRoles(authStore.activeTenantId).then(r => totalRoles.value = r.length)
+      roleService.getRoles().then(r => totalRoles.value = r.length)
     ]);
   } catch (error) {
     console.error('Error cargando métricas del dashboard', error);

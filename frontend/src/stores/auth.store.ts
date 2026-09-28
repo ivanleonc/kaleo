@@ -26,7 +26,10 @@ export const useAuthStore = defineStore('auth', () => {
     TokenService.saveTokens(access, refresh);
 
     if (userData?.tenants?.length > 0 && !activeTenantId.value) {
-      activeTenantId.value = userData.tenants[0].id;
+      const firstTenant = userData.tenants[0];
+      if (firstTenant) {
+        activeTenantId.value = firstTenant.id;
+      }
     }
   };
 
@@ -114,7 +117,10 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.getProfile();
       user.value = response.data;
       if (response.data?.tenants?.length > 0 && !activeTenantId.value) {
-        activeTenantId.value = response.data.tenants[0].id;
+        const firstTenant = response.data.tenants[0];
+        if (firstTenant) {
+          activeTenantId.value = firstTenant.id;
+        }
       }
     } catch {
       // Silently fail — the interceptor will handle 401
@@ -174,8 +180,13 @@ export const useAuthStore = defineStore('auth', () => {
     hasRole,
   };
 }, {
+  // `persist` lo provee pinia-plugin-persistedstate en runtime.
+  // Se castea a any porque pinia v3 + plugin v4 no exponen el tipo
+  // en DefineSetupStoreOptions y rompía `vue-tsc --build`.
+  // TODO: migrar a pinia-plugin-persistedstate v5 (compatible con pinia v3)
+  // y retirar este cast.
   persist: {
     key: 'saas_auth_storage',
     pick: ['user', 'activeTenantId', 'refreshToken'],
   },
-});
+} as any);

@@ -309,7 +309,7 @@ const SECTION_LABELS: Record<string, string> = {
 
 const breadcrumbs = computed(() => {
   const match = route.path.match(/\/companies\/[^/]+\/(.+)/);
-  if (!match) return [];
+  if (!match?.[1]) return [];
 
   const segments = match[1].split('/').filter(Boolean);
   const companyIdParam = route.params.companyId as string;

@@ -310,14 +310,14 @@ function groupPermissionsByModule(perms: Permission[]): Record<string, Permissio
   const groups: Record<string, Permission[]> = {};
   for (const p of perms) {
     if (!groups[p.module]) groups[p.module] = [];
-    groups[p.module].push(p);
+    groups[p.module]!.push(p);
   }
   return groups;
 }
 
 function toggleModule(roleId: string, module: string) {
   if (!expandedModules.value[roleId]) expandedModules.value[roleId] = new Set();
-  const set = expandedModules.value[roleId];
+  const set = expandedModules.value[roleId]!;
   if (set.has(module)) set.delete(module);
   else set.add(module);
 }

@@ -2,6 +2,7 @@
   <div :class="['ui-alert', `ui-alert-${type}`]" role="alert">
     <IconAlertCircle v-if="type === 'error'" class="alert-icon" :size="16" stroke-width="2" />
     <IconCircleCheck v-else-if="type === 'success'" class="alert-icon" :size="16" stroke-width="2" />
+    <IconAlertTriangle v-else-if="type === 'warning'" class="alert-icon" :size="16" stroke-width="2" />
     <IconInfoCircle v-else class="alert-icon" :size="16" stroke-width="2" />
     <div class="alert-content">
       <slot></slot>
@@ -10,10 +11,10 @@
 </template>
 
 <script setup lang="ts">
-import { IconAlertCircle, IconCircleCheck, IconInfoCircle } from '@tabler/icons-vue';
+import { IconAlertCircle, IconCircleCheck, IconInfoCircle, IconAlertTriangle } from '@tabler/icons-vue';
 
 withDefaults(defineProps<{
-  type?: 'error' | 'success' | 'info';
+  type?: 'error' | 'success' | 'info' | 'warning';
 }>(), {
   type: 'error'
 });
@@ -46,6 +47,12 @@ withDefaults(defineProps<{
   background-color: var(--bg-hover);
   color: var(--text-main);
   border: 1px solid var(--border);
+}
+
+.ui-alert-warning {
+  background-color: rgba(234, 179, 8, 0.12);
+  color: var(--text-main);
+  border: 1px solid rgba(234, 179, 8, 0.4);
 }
 
 .alert-icon {

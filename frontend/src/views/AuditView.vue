@@ -387,7 +387,7 @@ function formatValue(val: any): string {
 function hasChanges(log: any): boolean {
   const oldVals = getChangedOldValues(log);
   const newVals = getChangedNewValues(log);
-  return (oldVals && Object.keys(oldVals).length > 0) || (newVals && Object.keys(newVals).length > 0);
+  return Boolean((oldVals && Object.keys(oldVals).length > 0) || (newVals && Object.keys(newVals).length > 0));
 }
 
 function getChangedOldValues(log: any): Record<string, any> | null {

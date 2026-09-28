@@ -455,7 +455,7 @@ onMounted(async () => {
   if (authStore.activeTenantId) {
     await Promise.all([
       memberStore.fetchMembers(),
-      roleService.getRoles(authStore.activeTenantId).then(r => availableRoles.value = r)
+      roleService.getRoles().then(r => availableRoles.value = r)
     ]);
   }
 });
@@ -487,6 +487,9 @@ const handleAddSubmit = async () => {
     };
 
     const data = await memberStore.addMember(payload);
+    if (!data?.email || !data?.temporary_password) {
+      throw new Error('Respuesta inválida del servidor al crear el miembro');
+    }
     newMemberCredentials.value = { email: data.email, password: data.temporary_password };
 
     addForm.name = '';
@@ -507,7 +510,7 @@ const editForm = reactive({
   id: '',
   name: '',
   roleIds: [] as string[],
-  status: 'active',
+  status: 'active' as 'active' | 'inactive',
   phone: '',
   position: '',
   document_type: '',

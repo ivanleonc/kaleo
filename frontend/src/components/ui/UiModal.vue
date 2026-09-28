@@ -74,10 +74,10 @@ const onKeydown = (event: KeyboardEvent) => {
 
   if (event.shiftKey && (active === first || !contentRef.value?.contains(active))) {
     event.preventDefault();
-    last.focus();
+    last?.focus();
   } else if (!event.shiftKey && active === last) {
     event.preventDefault();
-    first.focus();
+    first?.focus();
   }
 };
 
