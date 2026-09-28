@@ -42,4 +42,7 @@ CREATE TABLE IF NOT EXISTS password_history (
 CREATE INDEX IF NOT EXISTS idx_password_history_user_id ON password_history(user_id);
 
 -- 5. Trigger para updated_at en las nuevas tablas
-CREATE TRIGGER trg_refresh_tokens_updated_at BEFORE UPDATE ON refresh_tokens FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+-- NOTA: refresh_tokens NO lleva trigger update_timestamp() porque no tiene
+-- columna updated_at (un trigger así rompería cada UPDATE/revoke de tokens).
+-- Se deja DROP IF EXISTS por si alguna ejecución parcial lo hubiera creado.
+DROP TRIGGER IF EXISTS trg_refresh_tokens_updated_at ON refresh_tokens;
