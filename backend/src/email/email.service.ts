@@ -27,7 +27,7 @@ export class EmailService {
   }
 
   async sendPasswordReset(email: string, resetToken: string): Promise<void> {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
     await this.send({
       to: email,
       subject: 'Recuperación de contraseña - SaaS',
@@ -44,7 +44,7 @@ export class EmailService {
   }
 
   async sendEmailVerification(email: string, verificationToken: string): Promise<void> {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
     await this.send({
       to: email,
       subject: 'Verifica tu email - SaaS',
