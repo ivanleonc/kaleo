@@ -57,6 +57,8 @@ export class EmailService {
     }
 
     const from = this.configService.get<string>('EMAIL_FROM') || 'no-reply@localhost';
+    const host = this.configService.get<string>('SMTP_HOST');
+    const port = this.configService.get<string>('SMTP_PORT') || '587';
 
     try {
       await transporter.sendMail({
@@ -67,7 +69,9 @@ export class EmailService {
       });
       this.logger.log(`Email enviado a ${options.to}: ${options.subject}`);
     } catch (error: any) {
-      this.logger.error(`Fallo el envío a ${options.to}: ${error.message}`);
+      this.logger.error(
+        `Fallo el envío a ${options.to} vía ${host}:${port}: ${error.message} (code: ${error.code || 'N/A'})`,
+      );
       throw new InternalServerErrorException('No se pudo enviar el correo. Intenta de nuevo.');
     }
   }
