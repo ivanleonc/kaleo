@@ -18,10 +18,7 @@
         <UiCard>
           <template #header>
             <div class="company-hero">
-              <div class="company-logo">
-                <img v-if="company.logo_url" :src="company.logo_url" alt="Logo de la empresa" />
-                <span v-else>{{ getInitials(company.name) }}</span>
-              </div>
+              <UiAvatar :src="company.logo_url" :name="company.name" size="lg" loading="eager" />
               <div>
                 <h3 class="card-title">{{ company.name }}</h3>
                 <p v-if="company.slug" class="card-description">{{ company.slug }}</p>
@@ -146,13 +143,18 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiModal from '@/components/ui/UiModal.vue';
+import UiAvatar from '@/components/ui/UiAvatar.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
+import { useCompanyPath } from '@/composables/useCompanyPath';
+import { useDirtyForm } from '@/composables/useDirtyForm';
+import { emptyToUndefined } from '@/utils/text';
 import { Permissions } from '@/constants/permissions';
 
 const companyStore = useCompanyStore();
 const authStore = useAuthStore();
 const toast = useToast();
+const { companyId } = useCompanyPath();
 
 const isEditModalOpen = ref(false);
 const isLoadingDetail = ref(false);
@@ -179,11 +181,6 @@ const fullAddress = computed(() => {
     .join(', ');
 });
 
-const getInitials = (name?: string): string => {
-  if (!name) return '?';
-  return name.split(' ').map((w) => w[0]).join('').substring(0, 2).toUpperCase();
-};
-
 const fillForm = () => {
   if (!company.value) return;
   form.name = company.value.name || '';
@@ -200,19 +197,10 @@ const fillForm = () => {
   form.slug = company.value.slug || '';
 };
 
-const formSnapshot = ref('');
-
-const snapshotForm = () => {
-  formSnapshot.value = JSON.stringify({ ...form });
-};
-
-const isFormDirty = computed(() => JSON.stringify({ ...form }) !== formSnapshot.value);
-
-const emptyToUndefined = (value: string): string | undefined =>
-  value.trim() === '' ? undefined : value.trim();
+const { isDirty: isFormDirty, capture: snapshotForm } = useDirtyForm(() => ({ ...form }));
 
 const loadCompanyData = async () => {
-  const activeId = authStore.activeTenantId;
+  const activeId = companyId.value;
   if (!activeId) return;
   isLoadingDetail.value = true;
   try {
@@ -244,10 +232,10 @@ const openEditModal = () => {
 };
 
 const handleSubmit = async () => {
-  if (!authStore.activeTenantId) return;
+  if (!companyId.value) return;
 
   try {
-    const result = await companyStore.updateCompany(authStore.activeTenantId, {
+    const result = await companyStore.updateCompany(companyId.value, {
       name: form.name,
       tax_id: emptyToUndefined(form.tax_id),
       logo_url: emptyToUndefined(form.logo_url),
@@ -264,7 +252,7 @@ const handleSubmit = async () => {
 
     if (result && (result as CompanyDetail).id) {
       company.value = result as CompanyDetail;
-      const tenant = authStore.user?.tenants?.find((t: any) => t.id === authStore.activeTenantId);
+      const tenant = authStore.user?.tenants?.find((t: any) => t.id === companyId.value);
       if (tenant) {
         tenant.name = company.value.name;
         tenant.tax_id = company.value.tax_id;
@@ -321,27 +309,5 @@ const handleSubmit = async () => {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-}
-
-.company-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius);
-  background: var(--bg-app);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--text-main);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.company-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 </style>

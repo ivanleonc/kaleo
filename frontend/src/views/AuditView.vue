@@ -55,7 +55,7 @@
       <!-- Timeline -->
       <div v-else class="timeline">
         <div v-for="(log, idx) in auditStore.logs" :key="log.id" class="timeline-item">
-          <div class="timeline-dot" :class="getActionClass(log.action)">
+          <div class="timeline-dot" :class="getActionDotClass(log.action)">
             <component :is="getActionIcon(log.action)" :size="14" />
           </div>
           <div class="timeline-connector" v-if="idx < auditStore.logs.length - 1" />
@@ -63,17 +63,17 @@
           <div class="timeline-card">
             <div class="timeline-card-header">
               <div class="timeline-action">
-                <span class="action-badge" :class="getActionClass(log.action)">
+                <UiBadge size="sm" :variant="getActionVariant(log.action)">
                   {{ getMethodLabel(log.action) }}
-                </span>
+                </UiBadge>
                 <span class="action-path">{{ cleanPath(log.action) }}</span>
-                <span
+                <UiBadge
                   v-if="log.response_status"
-                  class="status-badge"
-                  :class="getStatusClass(log.response_status)"
+                  size="sm"
+                  :variant="getStatusVariant(log.response_status)"
                 >
                   {{ log.response_status }}
-                </span>
+                </UiBadge>
               </div>
               <div class="timeline-right">
                 <span v-if="log.duration_ms" class="duration-badge">
@@ -88,11 +88,11 @@
             <div class="timeline-card-body">
               <div class="timeline-meta">
                 <div class="meta-user" v-if="log.user_name || log.user_email" title="Quién realizó la acción">
-                  <div class="user-avatar-sm">{{ getInitials(log.user_name) }}</div>
+                  <UiAvatar :name="log.user_name" size="sm" />
                   <span>{{ log.user_name || log.user_email }}</span>
                 </div>
                 <div class="meta-user" v-else-if="log.user_id" title="Quién realizó la acción">
-                  <div class="user-avatar-sm unknown">?</div>
+                  <UiAvatar size="sm" />
                   <span class="text-muted">Usuario eliminado</span>
                 </div>
                 <div class="meta-entity">
@@ -218,16 +218,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuditStore } from '@/stores/audit.store';
 import { useAuthStore } from '@/stores/auth.store';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
+import UiAvatar from '@/components/ui/UiAvatar.vue';
+import UiBadge from '@/components/ui/UiBadge.vue';
+import type { BadgeVariant } from '@/types/ui';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiExportButton from '@/components/ui/UiExportButton.vue';
+import {
+  formatDateTime,
+  formatRelativeTime as formatRelativeTimeUtil,
+  resolveUserTimeZone,
+  useNowTick,
+} from '@/utils/date';
 import { auditService } from '@/services/audit.service';
 import {
   IconClipboardList,
@@ -303,12 +312,12 @@ function toggleResponse(id: string) {
   else expandedResponses.value.add(id);
 }
 
-function getStatusClass(status: number): string {
-  if (status >= 200 && status < 300) return 'status-success';
-  if (status >= 300 && status < 400) return 'status-redirect';
-  if (status >= 400 && status < 500) return 'status-client-error';
-  if (status >= 500) return 'status-server-error';
-  return 'status-default';
+function getStatusVariant(status: number): BadgeVariant {
+  if (status >= 200 && status < 300) return 'success';
+  if (status >= 300 && status < 400) return 'info';
+  if (status >= 400 && status < 500) return 'warning';
+  if (status >= 500) return 'danger';
+  return 'neutral';
 }
 
 function hasDataToShow(data: any): boolean {
@@ -325,7 +334,16 @@ function cleanPath(action: string): string {
   return action.replace(/^(GET|POST|PUT|PATCH|DELETE)\s+/, '').replace(/^\/api/, '');
 }
 
-function getActionClass(action: string): string {
+function getActionVariant(action: string): BadgeVariant {
+  const method = action.split(' ')[0];
+  if (method === 'POST') return 'success';
+  if (method === 'PUT' || method === 'PATCH') return 'info';
+  if (method === 'DELETE') return 'danger';
+  return 'neutral';
+}
+
+/** Clases del punto de la línea de tiempo (colorea el icono, no el chip). */
+function getActionDotClass(action: string): string {
   const method = action.split(' ')[0];
   if (method === 'POST') return 'action-create';
   if (method === 'PUT' || method === 'PATCH') return 'action-update';
@@ -343,43 +361,16 @@ function getActionIcon(action: string) {
   return IconEye;
 }
 
-function getInitials(name?: string): string {
-  if (!name) return '?';
-  return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-}
-
 function userTimeZone(): string | undefined {
-  const tz = authStore.user?.timezone;
-  if (!tz) return undefined;
-  try {
-    Intl.DateTimeFormat('es-ES', { timeZone: tz });
-    return tz;
-  } catch {
-    return undefined;
-  }
+  return resolveUserTimeZone(authStore.user?.timezone);
 }
 
 function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  // nowTick mantiene los tiempos relativos vivos sin recargar
-  const now = new Date(nowTick.value);
-  const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diff < 60) return 'Hace un momento';
-  if (diff < 3600) return `Hace ${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `Hace ${Math.floor(diff / 3600)}h`;
-  if (diff < 604800) return `Hace ${Math.floor(diff / 86400)}d`;
-  const tz = userTimeZone();
-  return date.toLocaleDateString('es-ES', tz ? { day: 'numeric', month: 'short', timeZone: tz } : { day: 'numeric', month: 'short' });
+  return formatRelativeTimeUtil(dateStr, nowTick.value, userTimeZone());
 }
 
 function formatFullDate(dateStr: string): string {
-  const tz = userTimeZone();
-  return new Date(dateStr).toLocaleString('es-ES', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    ...(tz ? { timeZone: tz } : {}),
-  });
+  return formatDateTime(dateStr, userTimeZone());
 }
 
 function formatValue(val: any): string {
@@ -498,19 +489,12 @@ function getChangesLabel(log: any): string {
   return 'Ver datos anteriores';
 }
 
-const nowTick = ref(Date.now());
-let tickTimer: ReturnType<typeof setInterval> | null = null;
+// Mantiene vivos los tiempos relativos ("Hace 5m") sin recargar.
+const nowTick = useNowTick();
 
 onMounted(() => {
   auditStore.fetchLogs();
   auditStore.fetchEntityTypes();
-  tickTimer = setInterval(() => {
-    nowTick.value = Date.now();
-  }, 60000);
-});
-
-onUnmounted(() => {
-  if (tickTimer) clearInterval(tickTimer);
 });
 </script>
 
@@ -615,19 +599,6 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.action-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-.action-badge.action-create { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.action-badge.action-update { background: rgba(234, 179, 8, 0.15); color: #eab308; }
-.action-badge.action-delete { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.action-badge.action-read { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-
 .action-path {
   font-family: var(--font-mono, monospace);
   font-size: var(--text-sm);
@@ -640,19 +611,6 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--space-2);
 }
-
-.status-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 3px;
-  margin-left: var(--space-1);
-}
-.status-success { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.status-redirect { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.status-client-error { background: rgba(234, 179, 8, 0.15); color: #eab308; }
-.status-server-error { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.status-default { background: var(--bg-app); color: var(--text-muted); }
 
 .duration-badge {
   font-size: 10px;
@@ -747,22 +705,6 @@ onUnmounted(() => {
   font-size: var(--text-sm);
   color: var(--text-main);
 }
-
-.user-avatar-sm {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--bg-app);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-.user-avatar-sm.unknown { background: var(--bg-hover); }
 
 .meta-entity {
   display: flex;

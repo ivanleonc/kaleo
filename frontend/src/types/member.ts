@@ -26,6 +26,9 @@ export interface CreateMemberPayload {
 export interface MembersResponse {
   success: boolean;
   data: Member[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface CreateMemberResponse {

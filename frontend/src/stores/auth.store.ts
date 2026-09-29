@@ -4,6 +4,7 @@ import { authService } from '@/services/auth.service';
 import { TokenService } from '@/utils/token.service';
 import type { LoginPayload, RegisterPayload, AuthUser } from '@/types/auth';
 import { SystemRoles } from '@/constants/roles';
+import { apiErrorMessage } from '@/utils/error';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
@@ -72,9 +73,8 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.login(payload);
       const { accessToken: access, refreshToken: refresh, user: userData } = response.data;
       setSession(access, refresh, userData);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al iniciar sesión';
-      error.value = msg;
+    } catch (err: unknown) {
+      error.value = apiErrorMessage(err, 'Error al iniciar sesión');
       throw err;
     } finally {
       isLoading.value = false;
@@ -88,9 +88,8 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.register(payload);
       const { accessToken: access, refreshToken: refresh, user: userData } = response.data;
       setSession(access, refresh, userData);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar usuario';
-      error.value = msg;
+    } catch (err: unknown) {
+      error.value = apiErrorMessage(err, 'Error al registrar usuario');
       throw err;
     } finally {
       isLoading.value = false;

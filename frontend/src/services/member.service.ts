@@ -2,8 +2,14 @@ import { apiClient } from '@/api/axios';
 import type { MembersResponse, CreateMemberResponse, CreateMemberPayload, UpdateMemberPayload } from '@/types/member';
 
 export const memberService = {
-  async getMembers(): Promise<MembersResponse> {
-    const response = await apiClient.get<MembersResponse>('/companies/users');
+  async getMembers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    roleId?: string;
+  }): Promise<MembersResponse> {
+    const response = await apiClient.get<MembersResponse>('/companies/users', { params });
     return response.data;
   },
 

@@ -64,10 +64,12 @@
 
         <div class="user-menu">
           <button class="user-trigger" @click="isUserDropdownOpen = !isUserDropdownOpen" aria-label="Abrir menú de usuario">
-            <div class="user-avatar">
-              <img v-if="authStore.user?.avatar_url" :src="authStore.user.avatar_url" alt="Foto de perfil" />
-              <span v-else>{{ userInitials }}</span>
-            </div>
+            <UiAvatar
+              :src="authStore.user?.avatar_url"
+              :name="authStore.user?.name || authStore.user?.email"
+              size="sm"
+              loading="eager"
+            />
           </button>
           <div v-if="isUserDropdownOpen" class="dropdown-overlay" @click="isUserDropdownOpen = false"></div>
           <div v-if="isUserDropdownOpen" class="user-dropdown">
@@ -203,6 +205,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import UiAvatar from '@/components/ui/UiAvatar.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
 import {
   IconBolt,
@@ -284,11 +287,6 @@ const handleMouseLeave = () => {
 const activeOrg = computed(() =>
   authStore.user?.tenants?.find((t: any) => t.id === authStore.activeTenantId) || null
 );
-
-const userInitials = computed(() => {
-  const name = authStore.user?.name || 'U';
-  return name.substring(0, 2).toUpperCase();
-});
 
 const filteredTenants = computed(() => {
   if (!orgSearchQuery.value) return authStore.user?.tenants || [];
@@ -675,30 +673,6 @@ button.search-box:hover {
   border: none;
   cursor: pointer;
   padding: 0;
-}
-
-.user-avatar {
-  width: 28px;
-  height: 28px;
-  background: var(--bg-hover);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: border-color 0.15s;
-  overflow: hidden;
-}
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.user-avatar:hover {
-  border-color: var(--text-light);
 }
 
 .user-dropdown {

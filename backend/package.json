@@ -25,7 +25,12 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "migrate": "tsx scripts/run-migrations.ts",
+    "migrate:backfill": "tsx scripts/backfill-migrations.ts",
+    "migrate:verify": "tsx scripts/verify-012.ts",
+    "smoke:members": "tsx scripts/smoke-members.ts",
+    "smoke:seed": "tsx scripts/seed-members.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -61,6 +66,7 @@
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^8.0.2",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
     "cross-env": "^10.1.0",
@@ -69,6 +75,7 @@
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.2",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.1.2"

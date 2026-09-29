@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PermissionRepository } from './repositories/permission.repository.js';
 import { RoleRepository } from './repositories/role.repository.js';
-import { SystemRoles, IMMUTABLE_ROLES, PROTECTED_ROLES } from '../common/constants/roles.js';
+import { IMMUTABLE_ROLES, PROTECTED_ROLES } from '../common/constants/roles.js';
 
 @Injectable()
 export class RbacService {
@@ -97,12 +97,6 @@ export class RbacService {
   }
 
   async getUserPermissions(userId: string, companyId: string) {
-    const roles = await this.roleRepository.getUserRolesForCompany(userId, companyId);
-    const permissions = await this.roleRepository.getUserPermissions(userId, companyId);
-
-    return {
-      roles: roles.map((r: any) => r.name),
-      permissions: permissions.map((p: any) => p.code),
-    };
+    return this.roleRepository.getUserAccess(userId, companyId);
   }
 }

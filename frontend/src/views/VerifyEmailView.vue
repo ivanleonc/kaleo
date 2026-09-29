@@ -36,6 +36,7 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import { apiErrorMessage } from '@/utils/error';
 
 const route = useRoute();
 const router = useRouter();
@@ -58,7 +59,7 @@ onMounted(async () => {
     const result = await authService.verifyEmail(token);
     successMsg.value = result.message || 'Correo verificado correctamente.';
   } catch (error: any) {
-    errorMsg.value = error.response?.data?.message || error.response?.data?.error || 'El enlace caducó o es inválido.';
+    errorMsg.value = apiErrorMessage(error, 'El enlace caducó o es inválido.');
   } finally {
     isLoading.value = false;
     done.value = true;

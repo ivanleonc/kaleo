@@ -6,6 +6,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import { apiErrorMessage } from '@/utils/error';
 
 const email = ref('');
 const isLoading = ref(false);
@@ -27,7 +28,7 @@ const handleSubmit = async () => {
     await authService.forgotPassword(email.value.trim());
     successMsg.value = 'Se han enviado las instrucciones a tu correo. Revisa también tu carpeta de spam.';
   } catch (error: any) {
-    errorMsg.value = error.response?.data?.error || 'Error procesando la solicitud.';
+    errorMsg.value = apiErrorMessage(error, 'Error procesando la solicitud.');
   } finally {
     isLoading.value = false;
   }

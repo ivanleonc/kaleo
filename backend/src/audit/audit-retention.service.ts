@@ -23,12 +23,24 @@ export class AuditRetentionService {
     }, this.CHECK_INTERVAL_MS);
   }
 
+  private readonly BATCH_SIZE = 5000;
+
+  async discoverPartitions(): Promise<string[]> {
+    try {
+      const rows = await this.dataSource.query(
+        `SELECT tablename FROM pg_tables
+         WHERE schemaname = 'public' AND tablename LIKE 'audit_logs\\_%' ESCAPE '\\'
+         ORDER BY tablename`,
+      );
+      const found = rows.map((r: any) => r.tablename).filter((t: string) => t !== 'audit_logs');
+      return found.length > 0 ? found : ['audit_logs_default'];
+    } catch {
+      return ['audit_logs_default'];
+    }
+  }
+
   async runCleanup() {
-    const partitions = [
-      'audit_logs_y2026h2',
-      'audit_logs_y2027',
-      'audit_logs_default',
-    ];
+    const partitions = await this.discoverPartitions();
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - this.RETENTION_DAYS);
@@ -37,17 +49,24 @@ export class AuditRetentionService {
     let totalDeleted = 0;
     for (const partitionName of partitions) {
       try {
-        const result = await this.dataSource.query(
-          `DELETE FROM ${partitionName} WHERE created_at < $1`,
-          [cutoffStr]
-        );
-        const count = result.rowCount || 0;
-        if (count > 0) {
+        // Borrado por lotes: evita una transacción gigante (locks, bloat, timeouts)
+        for (;;) {
+          const result = await this.dataSource.query(
+            `DELETE FROM ${partitionName} WHERE ctid IN (
+               SELECT ctid FROM ${partitionName}
+               WHERE created_at < $1
+               LIMIT $2
+             )`,
+            [cutoffStr, this.BATCH_SIZE],
+          );
+          const count = result.rowCount || 0;
           totalDeleted += count;
-          this.logger.log(`Retention: deleted ${count} rows from ${partitionName}`);
+          if (count < this.BATCH_SIZE) break;
         }
-      } catch {
+        this.logger.log(`Retention: cleaned ${partitionName}`);
+      } catch (error: any) {
         // Partition might not exist yet, skip silently
+        this.logger.debug(`Retention skipped ${partitionName}: ${error.message}`);
       }
     }
 

@@ -49,9 +49,9 @@
               </div>
               <div class="role-title-text">
                 <h3 class="role-name">{{ role.name }}</h3>
-                <span class="role-badge" :class="role.is_system ? 'system' : 'custom'">
+                <UiBadge size="sm" :variant="role.is_system ? 'info' : 'neutral'">
                   {{ role.is_system ? 'Sistema' : 'Personalizado' }}
-                </span>
+                </UiBadge>
               </div>
             </div>
             <div class="role-actions" v-if="!role.is_system">
@@ -218,7 +218,8 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { roleService } from '@/services/role.service';
 import type { Role, Permission } from '@/types/role';
-import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
+import { useDirtyForm } from '@/composables/useDirtyForm';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
@@ -231,8 +232,10 @@ import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
+import UiBadge from '@/components/ui/UiBadge.vue';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
+import { apiErrorMessage } from '@/utils/error';
 import {
   IconShield,
   IconUserCog,
@@ -244,8 +247,8 @@ import {
   IconTrash,
 } from '@tabler/icons-vue';
 
-const authStore = useAuthStore();
 const toast = useToast();
+const { companyId } = useCompanyPath();
 const roles = ref<Role[]>([]);
 const allPermissions = ref<Permission[]>([]);
 const isLoading = ref(true);
@@ -335,8 +338,6 @@ function isModuleExpanded(roleId: string, module: string): boolean {
   return expandedModules.value[roleId]?.has(module) ?? true;
 }
 
-const editSnapshot = ref('');
-
 const editableRoleFields = () => ({
   name: editForm.name,
   description: editForm.description,
@@ -344,13 +345,7 @@ const editableRoleFields = () => ({
   permissionIds: [...editForm.permissionIds],
 });
 
-const snapshotEditForm = () => {
-  editSnapshot.value = JSON.stringify(editableRoleFields());
-};
-
-const isEditDirty = computed(() =>
-  JSON.stringify(editableRoleFields()) !== editSnapshot.value
-);
+const { isDirty: isEditDirty, capture: snapshotEditForm } = useDirtyForm(editableRoleFields);
 
 function openEditModal(role: Role) {
   editForm.id = role.id;
@@ -384,7 +379,7 @@ async function handleEditSubmit() {
     await fetchData();
   } catch (error: any) {
     console.error('Error actualizando rol:', error);
-    errorMsg.value = error.response?.data?.message || error.response?.data?.error || 'Error al actualizar el rol';
+    errorMsg.value = apiErrorMessage(error, 'Error al actualizar el rol');
   } finally {
     isSaving.value = false;
   }
@@ -402,14 +397,14 @@ async function handleDeleteSubmit() {
     await fetchData();
   } catch (error: any) {
     console.error('Error eliminando rol:', error);
-    errorMsg.value = error.response?.data?.message || error.response?.data?.error || 'Error al eliminar el rol';
+    errorMsg.value = apiErrorMessage(error, 'Error al eliminar el rol');
   } finally {
     isSaving.value = false;
   }
 }
 
 const fetchData = async () => {
-  if (!authStore.activeTenantId) return;
+  if (!companyId.value) return;
   try {
     const [rolesData, permsData] = await Promise.all([
       roleService.getRoles(),
@@ -426,25 +421,12 @@ const fetchData = async () => {
 
 onMounted(fetchData);
 
-const createSnapshot = ref('');
-
-const snapshotCreateForm = () => {
-  createSnapshot.value = JSON.stringify({
-    name: form.name,
-    description: form.description,
-    color: form.color,
-    permissionIds: [...form.permissionIds],
-  });
-};
-
-const isCreateDirty = computed(() =>
-  JSON.stringify({
-    name: form.name,
-    description: form.description,
-    color: form.color,
-    permissionIds: [...form.permissionIds],
-  }) !== createSnapshot.value
-);
+const { isDirty: isCreateDirty, capture: snapshotCreateForm } = useDirtyForm(() => ({
+  name: form.name,
+  description: form.description,
+  color: form.color,
+  permissionIds: [...form.permissionIds],
+}));
 
 const openCreateModal = () => {
   form.name = ''; form.description = ''; form.color = ''; form.permissionIds = [];
@@ -454,7 +436,7 @@ const openCreateModal = () => {
 };
 
 const handleCreateSubmit = async () => {
-  if (!authStore.activeTenantId) return;
+  if (!companyId.value) return;
   isSaving.value = true;
   errorMsg.value = '';
   try {
@@ -469,7 +451,7 @@ const handleCreateSubmit = async () => {
     await fetchData();
   } catch (error: any) {
     console.error('Error creando rol', error);
-    errorMsg.value = error.response?.data?.message || error.response?.data?.error || 'Error al crear el rol';
+    errorMsg.value = apiErrorMessage(error, 'Error al crear el rol');
   } finally {
     isSaving.value = false;
   }
@@ -530,29 +512,11 @@ const handleCreateSubmit = async () => {
   margin: 0;
 }
 
-.role-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  margin-top: 2px;
-}
-.role-badge.system {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-.role-badge.custom {
-  background: var(--bg-app);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-
 .role-title-text {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .role-actions {

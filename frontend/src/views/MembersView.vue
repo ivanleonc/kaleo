@@ -39,10 +39,7 @@
         >
           <template #cell-name="{ row }">
             <div class="user-cell">
-              <div class="user-avatar">
-                <img v-if="row.avatar_url" :src="row.avatar_url" :alt="row.name" />
-                <span v-else>{{ getInitials(row.name) }}</span>
-              </div>
+              <UiAvatar :src="row.avatar_url" :name="row.name" size="sm" />
               <div class="user-cell-text">
                 <span class="font-medium truncate" :title="row.name">{{ row.name }}</span>
                 <span v-if="row.position" class="user-cell-sub truncate" :title="row.position">{{ row.position }}</span>
@@ -63,16 +60,17 @@
           </template>
           <template #cell-status="{ row }">
             <div class="status-cell">
-              <span class="badge-status" :class="row.status || 'active'">
+              <UiBadge :variant="statusVariant(row.status)" size="sm">
                 {{ statusLabel(row.status) }}
-              </span>
-              <span
+              </UiBadge>
+              <UiBadge
                 v-if="row.must_change_password"
-                class="badge-temp"
+                variant="warning"
+                size="sm"
                 title="Aún usa contraseña temporal: no ha completado el cambio"
               >
                 Temporal
-              </span>
+              </UiBadge>
             </div>
           </template>
           <template #cell-actions="{ row }">
@@ -121,6 +119,14 @@
         </UiDataTable>
       </div>
 
+      <!-- Pagination -->
+      <UiPagination
+        :page="memberStore.page"
+        :total="memberStore.total"
+        :limit="memberStore.limit"
+        @update:page="memberStore.goToPage"
+      />
+
       <!-- Add Member Modal -->
       <UiModal v-model="isAddModalOpen" size="large" :confirm-on-dirty="true" :dirty="isAddDirty">
         <form @submit.prevent="handleAddSubmit">
@@ -138,7 +144,7 @@
                 <p class="password-row">
                   <strong>Clave:</strong>
                   <code class="secret-code">{{ newMemberCredentials.password }}</code>
-                  <button type="button" class="copy-btn" @click="copyToClipboard(newMemberCredentials.password)" title="Copiar contraseña">
+                  <button type="button" class="copy-btn" @click="copyToClipboard(newMemberCredentials.password, 'Contraseña copiada al portapapeles')" title="Copiar contraseña">
                     <IconCopy :size="14" stroke-width="1.8" />
                   </button>
                 </p>
@@ -278,7 +284,7 @@
           <p class="password-row">
             <strong>Clave:</strong>
             <code class="secret-code">{{ resetResult.temporary_password }}</code>
-            <button type="button" class="copy-btn" @click="copyToClipboard(resetResult.temporary_password)" title="Copiar contraseña">
+            <button type="button" class="copy-btn" @click="copyToClipboard(resetResult.temporary_password, 'Contraseña copiada al portapapeles')" title="Copiar contraseña">
               <IconCopy :size="14" stroke-width="1.8" />
             </button>
           </p>
@@ -333,7 +339,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, ref, computed } from 'vue';
+import { reactive, onMounted, ref, computed, watch } from 'vue';
 import { useMemberStore } from '@/stores/member.store';
 import { roleService, type Role } from '@/services/role.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -352,6 +358,14 @@ import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
+import UiPagination from '@/components/ui/UiPagination.vue';
+import UiBadge from '@/components/ui/UiBadge.vue';
+import UiAvatar from '@/components/ui/UiAvatar.vue';
+import { emptyToUndefined } from '@/utils/text';
+import { useClipboard } from '@/composables/useClipboard';
+import { useDebounceFn } from '@/composables/useDebounceFn';
+import { useDirtyForm } from '@/composables/useDirtyForm';
+import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
 import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconMail, IconCopy, IconUsers, IconX } from '@tabler/icons-vue';
 
@@ -368,20 +382,7 @@ const roleItems = computed(() =>
   }))
 );
 
-const copyToClipboard = async (text: string) => {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // Fallback for older browsers
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-  }
-  toast.success('Contraseña copiada al portapapeles');
-};
+const { copyToClipboard } = useClipboard();
 
 const searchQuery = ref('');
 const filterRole = ref('');
@@ -401,7 +402,7 @@ const hasActiveFilters = computed(() => searchQuery.value || filterRole.value ||
 
 const roleFilterOptions = computed(() => [
   { label: 'Todos los roles', value: '' },
-  ...availableRoles.value.map((r) => ({ label: r.name, value: r.name })),
+  ...availableRoles.value.map((r) => ({ label: r.name, value: r.id })),
 ]);
 
 const statusFilterOptions = computed(() => [
@@ -410,31 +411,34 @@ const statusFilterOptions = computed(() => [
   { label: 'Inactivo', value: 'inactive' },
 ]);
 
-const filteredMembers = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  return memberStore.members.filter((m: any) => {
-    if (filterRole.value && !(m.roles || []).includes(filterRole.value)) return false;
-    if (filterStatus.value && (m.status || 'active') !== filterStatus.value) return false;
-    if (query && !`${m.name || ''} ${m.email || ''}`.toLowerCase().includes(query)) return false;
-    return true;
+// El filtrado ocurre en el servidor para que page/total segu siendo coherentes.
+const filteredMembers = computed(() => memberStore.members);
+
+const applyCurrentFilters = useDebounceFn(() => {
+  memberStore.applyFilters({
+    search: emptyToUndefined(searchQuery.value),
+    status: filterStatus.value || undefined,
+    roleId: filterRole.value || undefined,
   });
-});
+}, 350);
+
+watch([searchQuery, filterRole, filterStatus], applyCurrentFilters);
 
 const clearFilters = () => {
   searchQuery.value = '';
   filterRole.value = '';
   filterStatus.value = '';
 };
-
-const getInitials = (name?: string): string => {
-  if (!name) return '?';
-  return name.split(' ').map((w) => w[0]).join('').substring(0, 2).toUpperCase();
-};
-
 const statusLabel = (status?: string): string => {
   if (status === 'inactive') return 'Inactivo';
   if (status === 'pending') return 'Pendiente';
   return 'Activo';
+};
+
+const statusVariant = (status?: string): BadgeVariant => {
+  if (status === 'inactive') return 'danger';
+  if (status === 'pending') return 'warning';
+  return 'success';
 };
 
 const isSelf = (memberId: string): boolean => authStore.user?.id === memberId;
@@ -461,31 +465,15 @@ onMounted(async () => {
   }
 });
 
-const addSnapshot = ref('');
-
-const snapshotAddForm = () => {
-  addSnapshot.value = JSON.stringify({
-    name: addForm.name,
-    email: addForm.email,
-    roleIds: [...addForm.roleIds],
-    phone: addForm.phone,
-    position: addForm.position,
-    document_type: addForm.document_type,
-    document_number: addForm.document_number,
-  });
-};
-
-const isAddDirty = computed(() =>
-  JSON.stringify({
-    name: addForm.name,
-    email: addForm.email,
-    roleIds: [...addForm.roleIds],
-    phone: addForm.phone,
-    position: addForm.position,
-    document_type: addForm.document_type,
-    document_number: addForm.document_number,
-  }) !== addSnapshot.value
-);
+const { isDirty: isAddDirty, capture: captureAddForm } = useDirtyForm(() => ({
+  name: addForm.name,
+  email: addForm.email,
+  roleIds: [...addForm.roleIds],
+  phone: addForm.phone,
+  position: addForm.position,
+  document_type: addForm.document_type,
+  document_number: addForm.document_number,
+}));
 
 const openAddModal = () => {
   addForm.name = '';
@@ -497,7 +485,7 @@ const openAddModal = () => {
   addForm.document_number = '';
   newMemberCredentials.value = null;
   memberStore.error = null;
-  snapshotAddForm();
+  captureAddForm();
   isAddModalOpen.value = true;
 };
 
@@ -508,10 +496,10 @@ const handleAddSubmit = async () => {
       name: addForm.name,
       email: addForm.email,
       roleIds: addForm.roleIds,
-      phone: addForm.phone.trim() || undefined,
-      position: addForm.position.trim() || undefined,
-      document_type: addForm.document_type.trim() || undefined,
-      document_number: addForm.document_number.trim() || undefined,
+      phone: emptyToUndefined(addForm.phone),
+      position: emptyToUndefined(addForm.position),
+      document_type: emptyToUndefined(addForm.document_type),
+      document_number: emptyToUndefined(addForm.document_number),
     };
 
     const data = await memberStore.addMember(payload);
@@ -550,8 +538,6 @@ const statusOptions = [
   { label: 'Inactivo', value: 'inactive' }
 ];
 
-const editSnapshot = ref('');
-
 const editableContactFields = () => ({
   roleIds: [...editForm.roleIds],
   status: editForm.status,
@@ -561,13 +547,7 @@ const editableContactFields = () => ({
   document_number: editForm.document_number,
 });
 
-const snapshotEditForm = () => {
-  editSnapshot.value = JSON.stringify(editableContactFields());
-};
-
-const isEditDirty = computed(() =>
-  JSON.stringify(editableContactFields()) !== editSnapshot.value
-);
+const { isDirty: isEditDirty, capture: captureEditForm } = useDirtyForm(editableContactFields);
 
 const openEditModal = (member: any) => {
   if (isSelf(member.id)) {
@@ -591,7 +571,7 @@ const openEditModal = (member: any) => {
   }
 
   memberStore.error = null;
-  snapshotEditForm();
+  captureEditForm();
   isEditModalOpen.value = true;
 };
 
@@ -600,10 +580,10 @@ const handleEditSubmit = async () => {
     await memberStore.updateMember(editForm.id, {
       roleIds: editForm.roleIds,
       status: editForm.status,
-      phone: editForm.phone.trim() || undefined,
-      position: editForm.position.trim() || undefined,
-      document_type: editForm.document_type.trim() || undefined,
-      document_number: editForm.document_number.trim() || undefined,
+      phone: emptyToUndefined(editForm.phone),
+      position: emptyToUndefined(editForm.position),
+      document_type: emptyToUndefined(editForm.document_type),
+      document_number: emptyToUndefined(editForm.document_number),
     });
     isEditModalOpen.value = false;
     toast.success('Miembro actualizado correctamente');

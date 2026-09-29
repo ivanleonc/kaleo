@@ -44,6 +44,7 @@ import { reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
@@ -52,6 +53,7 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { companyId, companyDashboardPath } = useCompanyPath();
 const companyStore = useCompanyStore();
 
 const form = reactive({
@@ -60,9 +62,8 @@ const form = reactive({
 });
 
 onMounted(() => {
-  const tenantId = authStore.activeTenantId || authStore.user?.tenants?.[0]?.id;
-  if (tenantId) {
-    router.replace(`/companies/${tenantId}/dashboard`);
+  if (companyId.value) {
+    router.replace(companyDashboardPath());
   }
 });
 
@@ -75,9 +76,8 @@ const handleSubmit = async () => {
     // Los tokens del registro no traen tenants/roles: refrescar sesión
     await authStore.refreshTokens();
     await authStore.fetchProfile();
-    const tenantId = authStore.activeTenantId;
-    if (tenantId) {
-      router.push(`/companies/${tenantId}/dashboard`);
+    if (companyId.value) {
+      router.push(companyDashboardPath());
     }
   } catch (error) {
     // Error manejado por el store (UiAlert)

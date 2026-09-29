@@ -69,6 +69,7 @@
 import { reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import { passwordErrorMessage } from '@/utils/password';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import UiCard from '@/components/ui/UiCard.vue';
@@ -78,6 +79,7 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const { companyId, companyDashboardPath } = useCompanyPath();
 
 const form = reactive({
   name: '',
@@ -104,12 +106,11 @@ const handleRegister = async () => {
       email: form.email.trim(),
       password: form.password
     });
-    const tenantId = authStore.activeTenantId || authStore.user?.tenants?.[0]?.id;
-    if (!tenantId) {
+    if (!companyId.value) {
       router.push({ name: 'Onboarding' });
       return;
     }
-    router.push(`/companies/${tenantId}/dashboard`);
+    router.push(companyDashboardPath());
   } catch (error) {
     // Error manejado por Pinia
   }

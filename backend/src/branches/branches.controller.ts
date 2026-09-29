@@ -6,6 +6,8 @@ import { UpdateBranchDto } from './dto/update-branch.dto.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { Ok } from '../common/dto/api-response.dto.js';
+import { Audit } from '../common/decorators/audit-context.decorator.js';
 
 @ApiTags('Branches - Sedes')
 @ApiBearerAuth()
@@ -25,12 +27,13 @@ export class BranchController {
     @Headers('x-company-id') companyId: string,
   ) {
     const branches = await this.branchService.getBranches(companyId);
-    return { success: true, data: branches };
+    return Ok(branches);
   }
 
   @Post()
   @UseGuards(PermissionsGuard)
   @RequirePermissions('branches:create')
+  @Audit({ entityType: 'Branch', resolveCreatedId: (r) => r?.data?.id })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Crear una sede', description: 'Crea una nueva sede para la empresa. Requiere permiso branches:create.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
@@ -43,12 +46,13 @@ export class BranchController {
     @Body() dto: CreateBranchDto,
   ) {
     const branch = await this.branchService.createBranch(companyId, dto);
-    return { success: true, message: 'Sede creada exitosamente', data: branch };
+    return Ok(branch, 'Sede creada exitosamente');
   }
 
   @Patch(':branchId')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('branches:update')
+  @Audit({ entityType: 'Branch', idParam: 'branchId' })
   @ApiOperation({ summary: 'Actualizar una sede', description: 'Actualiza información de la sede. Requiere permiso branches:update.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'branchId', description: 'UUID de la sede', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
@@ -63,12 +67,13 @@ export class BranchController {
     @Body() dto: UpdateBranchDto,
   ) {
     const branch = await this.branchService.updateBranch(companyId, branchId, dto);
-    return { success: true, message: 'Sede actualizada exitosamente', data: branch };
+    return Ok(branch, 'Sede actualizada exitosamente');
   }
 
   @Delete(':branchId')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('branches:delete')
+  @Audit({ entityType: 'Branch', idParam: 'branchId' })
   @ApiOperation({ summary: 'Eliminar una sede', description: 'Soft delete de la sede. No se puede si tiene miembros asignados. Requiere permiso branches:delete.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'branchId', description: 'UUID de la sede' })
@@ -82,6 +87,6 @@ export class BranchController {
     @Param('branchId', ParseUUIDPipe) branchId: string,
   ) {
     const result = await this.branchService.deleteBranch(companyId, branchId);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 }

@@ -66,9 +66,9 @@
             </div>
           </template>
           <template #cell-status="{ row }">
-            <span class="badge-status" :class="row.is_active ? 'active' : 'inactive'">
+            <UiBadge size="sm" :variant="row.is_active ? 'success' : 'danger'">
               {{ row.is_active ? 'Activa' : 'Inactiva' }}
-            </span>
+            </UiBadge>
           </template>
           <template #cell-actions="{ row }">
             <div class="row-actions" v-permission="Permissions.BRANCHES.UPDATE">
@@ -113,60 +113,55 @@
       </div>
 
       <!-- Create/Edit Modal -->
-      <UiModal v-model="isFormModalOpen" :confirm-on-dirty="true" :dirty="isFormDirty">
-        <form @submit.prevent="handleSubmit">
-          <UiCard>
-            <template #header>
-              <h3 class="card-title">{{ editingBranch ? 'Editar Sede' : 'Nueva Sede' }}</h3>
-              <p class="card-description" v-if="editingBranch">Modificando: <strong>{{ editingBranch.name }}</strong></p>
-              <p class="card-description" v-else>Agrega una nueva ubicación a tu empresa.</p>
-            </template>
+      <UiFormModal
+        v-model="isFormModalOpen"
+        :title="editingBranch ? 'Editar Sede' : 'Nueva Sede'"
+        :description="editingBranch ? `Modificando: ${editingBranch.name}` : 'Agrega una nueva ubicación a tu empresa.'"
+        :confirm-on-dirty="true"
+        :dirty="isFormDirty"
+        @submit="handleSubmit"
+      >
+        <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
 
-            <div class="form-body">
-              <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
+        <div class="form-row">
+          <UiInput v-model="form.name" label="Nombre de la Sede" required />
+          <UiInput v-model="form.code" label="Código (Opcional)" placeholder="BOG-01" />
+        </div>
+        <UiInput v-model="form.address" label="Dirección" />
+        <div class="form-row">
+          <UiInput v-model="form.city" label="Ciudad" />
+          <UiInput v-model="form.state" label="Estado / Provincia" />
+        </div>
+        <div class="form-row">
+          <UiInput v-model="form.country" label="País" />
+          <UiInput v-model="form.postal_code" label="Código Postal" />
+        </div>
+        <div class="form-row">
+          <UiInput v-model="form.phone" label="Teléfono" />
+          <UiInput v-model="form.email" label="Email" type="email" />
+        </div>
+        <div class="form-row">
+          <UiSelect v-model="form.manager_user_id" label="Responsable" :options="managerOptions" />
+          <UiInput v-model="form.timezone" label="Zona Horaria" placeholder="America/Bogota" />
+        </div>
+        <UiSelect
+          v-if="editingBranch"
+          v-model="form.is_main_flag"
+          label="Sede principal"
+          :options="mainOptions"
+        />
 
-              <div class="form-row">
-                <UiInput v-model="form.name" label="Nombre de la Sede" required />
-                <UiInput v-model="form.code" label="Código (Opcional)" placeholder="BOG-01" />
-              </div>
-              <UiInput v-model="form.address" label="Dirección" />
-              <div class="form-row">
-                <UiInput v-model="form.city" label="Ciudad" />
-                <UiInput v-model="form.state" label="Estado / Provincia" />
-              </div>
-              <div class="form-row">
-                <UiInput v-model="form.country" label="País" />
-                <UiInput v-model="form.postal_code" label="Código Postal" />
-              </div>
-              <div class="form-row">
-                <UiInput v-model="form.phone" label="Teléfono" />
-                <UiInput v-model="form.email" label="Email" type="email" />
-              </div>
-              <div class="form-row">
-                <UiSelect v-model="form.manager_user_id" label="Responsable" :options="managerOptions" />
-                <UiInput v-model="form.timezone" label="Zona Horaria" placeholder="America/Bogota" />
-              </div>
-              <UiSelect
-                v-if="editingBranch"
-                v-model="form.is_main_flag"
-                label="Sede principal"
-                :options="mainOptions"
-              />
-            </div>
-
-            <template #footer>
-              <div class="modal-footer">
-                <UiButton type="button" variant="outline" @click="isFormModalOpen = false">
-                  Cancelar
-                </UiButton>
-                <UiButton type="submit" :loading="branchStore.isLoading">
-                  {{ editingBranch ? 'Guardar Cambios' : 'Crear Sede' }}
-                </UiButton>
-              </div>
-            </template>
-          </UiCard>
-        </form>
-      </UiModal>
+        <template #footer>
+          <div class="modal-footer">
+            <UiButton type="button" variant="outline" @click="isFormModalOpen = false">
+              Cancelar
+            </UiButton>
+            <UiButton type="submit" :loading="branchStore.isLoading">
+              {{ editingBranch ? 'Guardar Cambios' : 'Crear Sede' }}
+            </UiButton>
+          </div>
+        </template>
+      </UiFormModal>
     </div>
 
     <!-- Delete Confirmation Modal -->
@@ -210,7 +205,12 @@ import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
+import UiBadge from '@/components/ui/UiBadge.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
 import { useToast } from '@/composables/useToast';
+import { useDirtyForm } from '@/composables/useDirtyForm';
+import { emptyToUndefined } from '@/utils/text';
+import { apiErrorMessage } from '@/utils/error';
 import {
   IconPlus,
   IconDotsVertical,
@@ -271,7 +271,7 @@ const handleToggleActive = async (branch: Branch) => {
     await branchStore.updateBranch(branch.id, { is_active: !branch.is_active });
     toast.success(branch.is_active ? 'Sede desactivada' : 'Sede activada');
   } catch (err: any) {
-    toast.error(err.response?.data?.message || err.response?.data?.error || 'Error al cambiar el estado');
+    toast.error(apiErrorMessage(err, 'Error al cambiar el estado'));
   }
 };
 
@@ -313,13 +313,7 @@ const managerOptions = computed(() => [
   })),
 ]);
 
-const formSnapshot = ref('');
-
-const snapshotForm = () => {
-  formSnapshot.value = JSON.stringify({ ...form });
-};
-
-const isFormDirty = computed(() => JSON.stringify({ ...form }) !== formSnapshot.value);
+const { isDirty: isFormDirty, capture: snapshotForm } = useDirtyForm(() => ({ ...form }));
 
 const resetForm = () => {
   form.name = ''; form.address = ''; form.city = ''; form.state = '';
@@ -354,9 +348,6 @@ const openEditModal = (branch: Branch) => {
   snapshotForm();
   isFormModalOpen.value = true;
 };
-
-const emptyToUndefined = (value: string): string | undefined =>
-  value.trim() === '' ? undefined : value.trim();
 
 const handleSubmit = async () => {
   formError.value = '';
@@ -395,7 +386,7 @@ const handleSubmit = async () => {
     }
     isFormModalOpen.value = false;
   } catch (err: any) {
-    formError.value = err.response?.data?.message || err.response?.data?.error || 'Error al guardar la sede';
+    formError.value = apiErrorMessage(err, 'Error al guardar la sede');
   }
 };
 
@@ -411,7 +402,7 @@ const confirmDelete = async () => {
     deletingBranch.value = null;
     toast.success('Sede eliminada correctamente');
   } catch (err: any) {
-    toast.error(err.response?.data?.message || err.response?.data?.error || 'Error al eliminar la sede');
+    toast.error(apiErrorMessage(err, 'Error al eliminar la sede'));
   }
 };
 

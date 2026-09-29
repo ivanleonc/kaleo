@@ -13,6 +13,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from './decorators/public.decorator.js';
 import { SkipPasswordChanged } from './decorators/skip-password-changed.decorator.js';
+import { Ok } from '../common/dto/api-response.dto.js';
+import { Audit } from '../common/decorators/audit-context.decorator.js';
 
 @ApiTags('Auth')
 @Controller('api/auth')
@@ -52,7 +54,7 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'El correo ya está registrado' })
   async register(@Body() registerDto: RegisterDto) {
     const { message, accessToken, refreshToken, user } = await this.authService.register(registerDto.email, registerDto.password, registerDto.name);
-    return { success: true, message, data: { accessToken, refreshToken, user } };
+    return Ok({ accessToken, refreshToken, user }, message);
   }
 
   @Public()
@@ -92,7 +94,7 @@ export class AuthController {
       req.ip,
       req.headers['user-agent'],
     );
-    return { success: true, message, data };
+    return Ok(data, message);
   }
 
   @Public()
@@ -115,12 +117,13 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Refresh token inválido o expirado' })
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     const data = await this.authService.refresh(refreshTokenDto.refreshToken);
-    return { success: true, data };
+    return Ok(data);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @Audit({ entityType: 'Auth', skipDiff: true })
   @ApiOperation({ summary: 'Cerrar sesión', description: 'Invalida el accessToken actual (agrega a blacklist) y opcionalmente un refreshToken específico.' })
   @ApiResponse({
     status: 200,
@@ -141,7 +144,7 @@ export class AuthController {
     const authHeader = req.headers.authorization;
     const accessToken = authHeader?.replace('Bearer ', '');
     const result = await this.authService.logout(userId, accessToken, logoutDto.refreshToken);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 
   @Get('me')
@@ -169,7 +172,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Token JWT inválido' })
   async getProfile(@CurrentUser('id') userId: string) {
     const data = await this.authService.getProfile(userId);
-    return { success: true, data };
+    return Ok(data);
   }
 
   @Put('profile')
@@ -187,30 +190,32 @@ export class AuthController {
     @Body() dto: UpdateProfileDto,
   ) {
     const result = await this.authService.updateProfile(userId, dto);
-    return { success: true, ...result };
+    return Ok({ pending_email: result.pending_email }, result.message);
   }
 
   @Post('profile/email/resend')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @Audit({ entityType: 'Auth', skipDiff: true })
   @ApiOperation({ summary: 'Reenviar verificación al correo pendiente' })
   @ApiResponse({ status: 200, description: 'Correo de verificación reenviado' })
   @ApiResponse({ status: 401, description: 'Token JWT inválido' })
   @ApiResponse({ status: 409, description: 'No hay cambio de correo pendiente' })
   async resendEmailVerification(@CurrentUser('id') userId: string) {
     const result = await this.authService.resendEmailVerification(userId);
-    return { success: true, ...result };
+    return Ok({ email: result.email });
   }
 
   @Post('profile/email/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @Audit({ entityType: 'Auth', skipDiff: true })
   @ApiOperation({ summary: 'Cancelar el cambio de correo pendiente' })
   @ApiResponse({ status: 200, description: 'Cambio de correo cancelado' })
   @ApiResponse({ status: 401, description: 'Token JWT inválido' })
   async cancelEmailChange(@CurrentUser('id') userId: string) {
     const result = await this.authService.cancelEmailChange(userId);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 
   @Public()
@@ -222,13 +227,14 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Enlace inválido o expirado' })
   async verifyEmail(@Body() body: { token: string }) {
     const result = await this.authService.verifyEmail(body?.token);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 
   @SkipPasswordChanged()
   @Post('change-temporary-password')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @Audit({ entityType: 'Auth', skipDiff: true })
   @ApiOperation({ summary: 'Cambiar contraseña temporal (onboarding)' })
   @ApiResponse({
     status: 200,
@@ -243,13 +249,14 @@ export class AuthController {
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     const result = await this.authService.changeTemporaryPassword(userId, changePasswordDto.newPassword);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 
   @SkipPasswordChanged()
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
+  @Audit({ entityType: 'Auth', skipDiff: true })
   @ApiOperation({ summary: 'Cambiar contraseña (usuario autenticado)', description: 'Requiere la contraseña actual. No permite reusar las últimas 3 contraseñas.' })
   @ApiResponse({
     status: 200,
@@ -263,7 +270,7 @@ export class AuthController {
     @Body() body: UpdatePasswordDto,
   ) {
     const result = await this.authService.changePassword(userId, body.currentPassword, body.newPassword);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 
   @Public()
@@ -279,7 +286,7 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Email con formato inválido' })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     const result = await this.authService.requestPasswordReset(forgotPasswordDto.email);
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 
   @Public()
@@ -300,6 +307,6 @@ export class AuthController {
       resetPasswordDto.token,
       resetPasswordDto.newPassword,
     );
-    return { success: true, ...result };
+    return Ok(undefined, result.message);
   }
 }

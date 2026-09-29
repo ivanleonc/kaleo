@@ -107,6 +107,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import { apiErrorMessage } from '@/utils/error';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -202,7 +203,7 @@ const handleSubmit = async () => {
       setTimeout(() => router.push(companyPath('/dashboard')), 1500);
     }
   } catch (error: any) {
-    errorMsg.value = error.response?.data?.message || error.response?.data?.error || 'Error al cambiar contraseña';
+    errorMsg.value = apiErrorMessage(error, 'Error al cambiar contraseña');
   } finally {
     isLoading.value = false;
   }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PROTECTED_ROLES } from '../../common/constants/roles.js';
+import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 
 @Injectable()
 export class RoleRepository {
@@ -60,27 +61,16 @@ export class RoleRepository {
   }
 
   async update(id: string, data: { name?: string; description?: string; color?: string }) {
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    if (data.name !== undefined) {
-      updates.push(`name = $${paramIndex++}`);
-      values.push(data.name);
-    }
-    if (data.description !== undefined) {
-      updates.push(`description = $${paramIndex++}`);
-      values.push(data.description || null);
-    }
-    if (data.color !== undefined) {
-      updates.push(`color = $${paramIndex++}`);
-      values.push(data.color || null);
-    }
+    const { updates, values, startIndex } = buildDynamicUpdate(
+      data,
+      ['name', 'description', 'color'],
+      { nullEmptyStrings: ['description', 'color'] },
+    );
 
     if (updates.length === 0) return;
     values.push(id);
     await this.dataSource.query(
-      `UPDATE roles SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+      `UPDATE roles SET ${updates.join(', ')} WHERE id = $${startIndex}`,
       values,
     );
   }
@@ -187,24 +177,26 @@ export class RoleRepository {
     return this.dataSource.query(query, params);
   }
 
-  async getUserRolesForCompany(userId: string, companyId: string) {
-    return this.dataSource.query(
-      `SELECT r.id, r.name
-       FROM roles r
-       INNER JOIN user_contexts uc ON r.id = uc.role_id
+  /**
+   * Resuelve roles y permisos de un usuario en una empresa con una sola query.
+   * Evita el N+1 de consultar `user_contexts` dos veces por cada tenant.
+   */
+  async getUserAccess(userId: string, companyId: string): Promise<{ roles: string[]; permissions: string[] }> {
+    const result = await this.dataSource.query(
+      `SELECT
+         COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.id IS NOT NULL), '{}'::text[]) AS roles,
+         COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.id IS NOT NULL), '{}'::text[]) AS permissions
+       FROM user_contexts uc
+       INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
+       LEFT JOIN role_permissions rp ON rp.role_id = r.id
+       LEFT JOIN permissions p ON p.id = rp.permission_id
        WHERE uc.user_id = $1 AND uc.company_id = $2`,
       [userId, companyId],
     );
-  }
 
-  async getUserPermissions(userId: string, companyId: string) {
-    return this.dataSource.query(
-      `SELECT DISTINCT p.code
-       FROM permissions p
-       INNER JOIN role_permissions rp ON p.id = rp.permission_id
-       INNER JOIN user_contexts uc ON rp.role_id = uc.role_id
-       WHERE uc.user_id = $1 AND uc.company_id = $2`,
-      [userId, companyId],
-    );
+    return {
+      roles: result[0]?.roles ?? [],
+      permissions: result[0]?.permissions ?? [],
+    };
   }
 }

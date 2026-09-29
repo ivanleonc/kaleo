@@ -11,7 +11,6 @@ import { CompanyService } from '../company/company.service.js';
 import { AuditLogService } from '../audit/audit-log.service.js';
 import { RbacService } from '../rbac/rbac.service.js';
 
-const SALT_ROUNDS = 10;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 const ACCESS_TOKEN_EXPIRY = '15m';
@@ -366,14 +365,16 @@ export class SessionService {
   }
 
   private async buildCompanyRolesAndPermissions(userId: string, tenants: any[]) {
+    const results = await Promise.all(
+      tenants.map((tenant) => this.rbacService.getUserPermissions(userId, tenant.id)),
+    );
+
     const companyRoles: Record<string, string[]> = {};
     const companyPermissions: Record<string, string[]> = {};
-
-    for (const tenant of tenants) {
-      const result = await this.rbacService.getUserPermissions(userId, tenant.id);
-      companyRoles[tenant.id] = result.roles;
-      companyPermissions[tenant.id] = result.permissions;
-    }
+    tenants.forEach((tenant, index) => {
+      companyRoles[tenant.id] = results[index].roles;
+      companyPermissions[tenant.id] = results[index].permissions;
+    });
 
     return { companyRoles, companyPermissions };
   }

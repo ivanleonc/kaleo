@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 
 @Injectable()
 export class UserRepository {
@@ -140,26 +141,17 @@ export class UserRepository {
     position?: string; document_type?: string; document_number?: string;
     timezone?: string; locale?: string;
   }): Promise<void> {
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
+    const { updates, values, startIndex } = buildDynamicUpdate(
+      data,
+      ['name', 'email', 'phone', 'avatar_url', 'position', 'document_type', 'document_number', 'timezone', 'locale'],
+      { nullEmptyStrings: true, extraSet: ['updated_at = NOW()'] },
+    );
 
-    const fields = [
-      'name', 'email', 'phone', 'avatar_url', 'position',
-      'document_type', 'document_number', 'timezone', 'locale',
-    ] as const;
-    for (const field of fields) {
-      if (data[field] !== undefined) {
-        updates.push(`${field} = $${paramIndex++}`);
-        values.push(data[field] === '' ? null : data[field]);
-      }
-    }
-
-    if (updates.length === 0) return;
+    if (updates.length === 1) return;
 
     values.push(userId);
     await this.dataSource.query(
-      `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramIndex}`,
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${startIndex}`,
       values,
     );
   }

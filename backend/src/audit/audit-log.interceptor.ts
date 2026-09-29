@@ -1,7 +1,12 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable, tap, catchError, throwError } from 'rxjs';
 import { AuditLogService } from './audit-log.service.js';
 import { DataSource } from 'typeorm';
+import {
+  AUDIT_CONTEXT_KEY,
+  AuditContextOptions,
+} from '../common/decorators/audit-context.decorator.js';
 
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
@@ -10,6 +15,7 @@ export class AuditLogInterceptor implements NestInterceptor {
   constructor(
     private auditLogService: AuditLogService,
     private dataSource: DataSource,
+    private reflector: Reflector,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -24,18 +30,23 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     const startTime = Date.now();
     const isMutation = method === 'PUT' || method === 'PATCH' || method === 'DELETE' || method === 'POST';
-    const entityType = this.extractEntityType(url);
+    const auditOptions = this.reflector.get<AuditContextOptions | undefined>(
+      AUDIT_CONTEXT_KEY,
+      context.getHandler(),
+    );
+    const entityType = auditOptions?.entityType ?? this.extractEntityType(url);
     const normalizedUrl = this.normalizeUrl(url);
-    const entityId = this.extractEntityId(url, body);
+    const entityId = this.extractEntityId(url, body, request, auditOptions);
+    const captureDiff = isMutation && !auditOptions?.skipDiff;
 
     const sanitizedBody = isMutation ? this.sanitizeBody(body) : undefined;
 
-    const oldValuesPromise = isMutation && companyId
+    const oldValuesPromise = captureDiff && companyId
       ? this.fetchOldValues(entityType, entityId, companyId, user?.id)
       : Promise.resolve(null);
 
-    const newValuesPromise = isMutation
-      ? this.enrichNewValues(entityType, sanitizedBody, companyId).catch(() => sanitizedBody)
+    const newValuesPromise = captureDiff
+      ? this.enrichNewValues(entityType, sanitizedBody).catch(() => sanitizedBody)
       : Promise.resolve(undefined);
 
     return next.handle().pipe(
@@ -44,7 +55,8 @@ export class AuditLogInterceptor implements NestInterceptor {
 
         let newEntityId = entityId;
         if (method === 'POST' && response?.data && typeof response.data === 'object') {
-          newEntityId = response.data.id
+          newEntityId = this.resolveCreatedId(auditOptions, response)
+            || response.data.id
             || response.data.company?.id
             || response.data.user?.id
             || entityId;
@@ -59,24 +71,27 @@ export class AuditLogInterceptor implements NestInterceptor {
         }
         this.logger.debug(`${method} ${normalizedUrl} 200 ${duration}ms`);
 
-        Promise.all([oldValuesPromise.catch(() => null), newValuesPromise]).then(([oldValues, newValues]) => {
-          this.auditLogService.log({
-            userId: resolvedUserId,
-            companyId: effectiveCompanyId,
-            action: `${method} ${normalizedUrl}`,
-            entityType,
-            entityId: newEntityId,
-            oldValues: oldValues || undefined,
-            newValues: newValues || undefined,
-            ipAddress: ip,
-            userAgent,
-            responseStatus: 200,
-            responseData: sanitizedResponse,
-            durationMs: duration,
-          }).catch((err) => {
+        // La auditoría nunca bloquea la respuesta: se escribe en segundo plano.
+        void Promise.all([oldValuesPromise.catch(() => null), newValuesPromise])
+          .then(([oldValues, newValues]) =>
+            this.auditLogService.log({
+              userId: resolvedUserId,
+              companyId: effectiveCompanyId,
+              action: `${method} ${normalizedUrl}`,
+              entityType,
+              entityId: newEntityId,
+              oldValues: oldValues || undefined,
+              newValues: newValues || undefined,
+              ipAddress: ip,
+              userAgent,
+              responseStatus: 200,
+              responseData: sanitizedResponse,
+              durationMs: duration,
+            }),
+          )
+          .catch((err) => {
             this.logger.error(`Audit write failed for ${method} ${normalizedUrl}: ${err.message}`);
           });
-        });
       }),
       catchError((error) => {
         const duration = Date.now() - startTime;
@@ -84,28 +99,30 @@ export class AuditLogInterceptor implements NestInterceptor {
 
         this.logger.debug(`${method} ${normalizedUrl} ${statusCode} ${duration}ms`);
 
-        Promise.all([oldValuesPromise.catch(() => null), newValuesPromise]).then(([oldValues, newValues]) => {
-          this.auditLogService.log({
-            userId: user?.id,
-            companyId,
-            action: `${method} ${normalizedUrl}`,
-            entityType,
-            entityId,
-            oldValues: oldValues || undefined,
-            newValues: newValues || undefined,
-            ipAddress: ip,
-            userAgent,
-            responseStatus: statusCode,
-            responseData: {
-              error: true,
-              message: error.message || 'Unknown error',
-              code: error.code || 'INTERNAL_ERROR',
-            },
-            durationMs: duration,
-          }).catch((err) => {
+        void Promise.all([oldValuesPromise.catch(() => null), newValuesPromise])
+          .then(([oldValues, newValues]) =>
+            this.auditLogService.log({
+              userId: user?.id,
+              companyId,
+              action: `${method} ${normalizedUrl}`,
+              entityType,
+              entityId,
+              oldValues: oldValues || undefined,
+              newValues: newValues || undefined,
+              ipAddress: ip,
+              userAgent,
+              responseStatus: statusCode,
+              responseData: {
+                error: true,
+                message: error.message || 'Unknown error',
+                code: error.code || 'INTERNAL_ERROR',
+              },
+              durationMs: duration,
+            }),
+          )
+          .catch((err) => {
             this.logger.error(`Audit write failed for ${method} ${normalizedUrl}: ${err.message}`);
           });
-        });
 
         return throwError(() => error);
       }),
@@ -229,7 +246,7 @@ export class AuditLogInterceptor implements NestInterceptor {
     }
   }
 
-  private async enrichNewValues(entityType: string, body: any, companyId?: string): Promise<any> {
+  private async enrichNewValues(entityType: string, body: any): Promise<any> {
     if (!body || typeof body !== 'object') return body;
     try {
       if (entityType === 'Member' && Array.isArray(body.roleIds)) {
@@ -284,11 +301,20 @@ export class AuditLogInterceptor implements NestInterceptor {
     return 'Unknown';
   }
 
-  private extractEntityId(url: string, body: any): string {
+  private extractEntityId(url: string, body: any, request: any, options?: AuditContextOptions): string {
+    if (options?.idParam) {
+      const routeId = readParam(request, options.idParam);
+      if (routeId) return routeId;
+    }
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     const match = url.match(uuidRegex);
     if (match) return match[0];
     return body?.id || '00000000-0000-0000-0000-000000000000';
+  }
+
+  private resolveCreatedId(options: AuditContextOptions | undefined, response: any): string | undefined {
+    const resolved = options?.resolveCreatedId?.(response);
+    return typeof resolved === 'string' && resolved.length > 0 ? resolved : undefined;
   }
 
   private sanitizeBody(body: any): any {
@@ -303,4 +329,12 @@ export class AuditLogInterceptor implements NestInterceptor {
     }
     return sanitized;
   }
+}
+
+function readParam(request: any, name: string): string | undefined {
+  for (const source of [request?.params, request?.query, request?.body]) {
+    const value = source?.[name];
+    if (typeof value === 'string' && value.length > 0) return value;
+  }
+  return undefined;
 }

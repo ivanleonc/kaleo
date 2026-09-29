@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException, InternalServerErrorException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
+import { assertMember } from '../../common/utils/membership.helper.js';
 
 @Injectable()
 export class BranchRepository {
@@ -68,26 +70,18 @@ export class BranchRepository {
       );
     }
 
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    const nullable = new Set(['address', 'city', 'state', 'country', 'postal_code', 'phone', 'email', 'code', 'manager_user_id', 'timezone']);
-    const fields = ['name', 'address', 'city', 'state', 'country', 'postal_code', 'phone', 'email', 'is_active', 'code', 'is_main', 'manager_user_id', 'timezone'] as const;
-    for (const field of fields) {
-      if (data[field] !== undefined) {
-        const value = nullable.has(field) && data[field] === '' ? null : data[field];
-        updates.push(`${field} = $${paramIndex++}`);
-        values.push(value);
-      }
-    }
+    const { updates, values, startIndex } = buildDynamicUpdate(
+      data,
+      ['name', 'address', 'city', 'state', 'country', 'postal_code', 'phone', 'email', 'is_active', 'code', 'is_main', 'manager_user_id', 'timezone'],
+      { nullEmptyStrings: ['address', 'city', 'state', 'country', 'postal_code', 'phone', 'email', 'code', 'manager_user_id', 'timezone'] },
+    );
 
     if (updates.length === 0) return this.findById(branchId, companyId);
 
     values.push(branchId, companyId);
     const result = await this.dataSource.query(
       `UPDATE branches SET ${updates.join(', ')}
-       WHERE id = $${paramIndex++} AND company_id = $${paramIndex} AND deleted_at IS NULL
+       WHERE id = $${startIndex} AND company_id = $${startIndex + 1} AND deleted_at IS NULL
        RETURNING id, company_id, name, address, city, state, country, postal_code, phone, email, code, manager_user_id, timezone, is_main, is_active, created_at, updated_at`,
       values,
     );
@@ -95,13 +89,12 @@ export class BranchRepository {
   }
 
   private async assertUserInCompany(userId: string, companyId: string) {
-    const rows = await this.dataSource.query(
-      `SELECT 1 FROM user_contexts WHERE user_id = $1 AND company_id = $2 LIMIT 1`,
-      [userId, companyId],
+    await assertMember(
+      (sql, params) => this.dataSource.query(sql, params),
+      userId,
+      companyId,
+      'El responsable debe ser miembro de la empresa',
     );
-    if (rows.length === 0) {
-      throw new NotFoundException('El responsable debe ser miembro de la empresa');
-    }
   }
 
   async softDelete(branchId: string, companyId: string) {

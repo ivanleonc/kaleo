@@ -4,6 +4,8 @@ import { CompanyService } from './company.service.js';
 import { CreateCompanyDto } from './dto/create-company.dto.js';
 import { UpdateCompanyDto } from './dto/update-company.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { Ok } from '../common/dto/api-response.dto.js';
+import { Audit } from '../common/decorators/audit-context.decorator.js';
 
 @ApiTags('Companies')
 @ApiBearerAuth()
@@ -39,7 +41,7 @@ export class CompanyController {
   @ApiResponse({ status: 401, description: 'Token JWT inválido o expirado' })
   async getUserCompanies(@CurrentUser('id') userId: string) {
     const companies = await this.companyService.getUserCompanies(userId);
-    return { success: true, data: companies };
+    return Ok(companies);
   }
 
   // NOTA: no usar '@Get(":id")' aquí: colisiona con las rutas exactas
@@ -56,10 +58,11 @@ export class CompanyController {
     @Param('id', ParseUUIDPipe) companyId: string,
   ) {
     const company = await this.companyService.getCompanyDetail(userId, companyId);
-    return { success: true, data: company };
+    return Ok(company);
   }
 
   @Post()
+  @Audit({ entityType: 'Company', resolveCreatedId: (r) => r?.data?.company?.id })
   @ApiOperation({ summary: 'Crear nueva empresa', description: 'El usuario autenticado se convierte automáticamente en Owner de la empresa creada' })
   @ApiResponse({
     status: 201,
@@ -89,10 +92,11 @@ export class CompanyController {
       createCompanyDto.name,
       createCompanyDto.tax_id,
     );
-    return { success: true, message: 'Empresa creada exitosamente', data: { company: newCompany } };
+    return Ok({ company: newCompany }, 'Empresa creada exitosamente');
   }
 
   @Put(':id')
+  @Audit({ entityType: 'Company', idParam: 'id' })
   @ApiOperation({ summary: 'Actualizar información de empresa', description: 'Solo el rol Owner puede modificar los datos de la empresa. El id debe ser un UUID válido.' })
   @ApiParam({ name: 'id', description: 'UUID de la empresa', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({
@@ -121,6 +125,6 @@ export class CompanyController {
     @Body() updateCompanyDto: UpdateCompanyDto,
   ) {
     const updatedCompany = await this.companyService.updateCompanyInfo(userId, companyId, updateCompanyDto);
-    return { success: true, message: 'Empresa actualizada exitosamente', data: { company: updatedCompany } };
+    return Ok({ company: updatedCompany }, 'Empresa actualizada exitosamente');
   }
 }

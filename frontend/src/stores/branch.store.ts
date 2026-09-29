@@ -1,25 +1,17 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { branchService } from '@/services/branch.service';
+import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { Branch, CreateBranchPayload, UpdateBranchPayload } from '@/types/branch';
 
 export const useBranchStore = defineStore('branch', () => {
   const branches = ref<Branch[]>([]);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
 
-  const withLoading = async <T>(fn: () => Promise<T>, errorMsg?: string): Promise<T | undefined> => {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      return await fn();
-    } catch (err: any) {
-      error.value = err.response?.data?.error || err.response?.data?.message || errorMsg || 'Error en la operación';
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
-  };
+  const {
+    isLoading,
+    error,
+    execute: withLoading,
+  } = useAsyncOperation({ errorMessage: 'Error en la operación' });
 
   const fetchBranches = async () => {
     await withLoading(async () => {

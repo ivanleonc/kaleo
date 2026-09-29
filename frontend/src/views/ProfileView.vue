@@ -8,10 +8,7 @@
 
       <!-- Profile Hero -->
       <div class="profile-hero">
-        <div class="profile-avatar">
-          <img v-if="profileAvatar" :src="profileAvatar" alt="Foto de perfil" />
-          <span v-else>{{ getInitials(profileName) }}</span>
-        </div>
+        <UiAvatar :src="profileAvatar" :name="profileName || profileEmail" size="xl" loading="eager" />
         <div class="profile-identity">
           <h2 class="profile-hero-name">{{ profileName || '---' }}</h2>
           <span class="profile-hero-email">{{ profileEmail }}</span>
@@ -211,9 +208,13 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiModal from '@/components/ui/UiModal.vue';
+import UiAvatar from '@/components/ui/UiAvatar.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { passwordErrorMessage } from '@/utils/password';
+import { apiErrorMessage } from '@/utils/error';
+import { emptyToUndefined } from '@/utils/text';
+import { useDirtyForm } from '@/composables/useDirtyForm';
 
 const authStore = useAuthStore();
 const toast = useToast();
@@ -251,15 +252,7 @@ const getInitials = (name?: string): string => {
   return name.split(' ').map((w) => w[0]).join('').substring(0, 2).toUpperCase();
 };
 
-const profileSnapshot = ref('');
-
-const snapshotProfileForm = () => {
-  profileSnapshot.value = JSON.stringify({ ...form });
-};
-
-const isProfileDirty = computed(
-  () => JSON.stringify({ ...form }) !== profileSnapshot.value
-);
+const { isDirty: isProfileDirty, capture: snapshotProfileForm } = useDirtyForm(() => ({ ...form }));
 
 const openProfileModal = () => {
   const user = authStore.user;
@@ -276,9 +269,6 @@ const openProfileModal = () => {
   snapshotProfileForm();
   isProfileModalOpen.value = true;
 };
-
-const emptyToUndefined = (value: string): string | undefined =>
-  value.trim() === '' ? undefined : value.trim();
 
 const handleProfileSubmit = async () => {
   isSavingProfile.value = true;
@@ -305,12 +295,12 @@ const handleProfileSubmit = async () => {
       document_number: form.document_number || null,
       timezone: form.timezone || null,
       locale: form.locale || null,
-      pending_email: result?.pending_email ?? authStore.user?.pending_email ?? null,
+      pending_email: result?.data?.pending_email ?? authStore.user?.pending_email ?? null,
     });
     isProfileModalOpen.value = false;
     toast.success(result?.message || 'Perfil actualizado correctamente');
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.message || 'Error al actualizar perfil';
+    errorMessage.value = apiErrorMessage(error, 'Error al actualizar perfil');
   } finally {
     isSavingProfile.value = false;
   }
@@ -322,7 +312,7 @@ const handleResend = async () => {
     const result = await authService.resendEmailVerification();
     toast.success(`Verificación reenviada a ${result.email}`);
   } catch (error: any) {
-    toast.error(error.response?.data?.message || 'No se pudo reenviar la verificación');
+    toast.error(apiErrorMessage(error, 'No se pudo reenviar la verificación'));
   } finally {
     isResending.value = false;
   }
@@ -334,7 +324,7 @@ const handleCancelPending = async () => {
     authStore.updateProfileData({ pending_email: null });
     toast.success('Cambio de correo cancelado');
   } catch (error: any) {
-    toast.error(error.response?.data?.message || 'No se pudo cancelar el cambio');
+    toast.error(apiErrorMessage(error, 'No se pudo cancelar el cambio'));
   }
 };
 
@@ -431,7 +421,7 @@ const handlePasswordChange = async () => {
     isPasswordModalOpen.value = false;
     toast.success('Contraseña actualizada correctamente');
   } catch (error: any) {
-    passwordError.value = error.response?.data?.message || error.response?.data?.error || 'Error al cambiar contraseña';
+    passwordError.value = apiErrorMessage(error, 'Error al cambiar contraseña');
   } finally {
     isChangingPassword.value = false;
   }
@@ -460,28 +450,6 @@ const handlePasswordChange = async () => {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-}
-
-.profile-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--bg-app);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--text-main);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.profile-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .profile-hero-position {

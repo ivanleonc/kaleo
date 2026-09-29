@@ -1,6 +1,8 @@
 import { Controller, Get, Query, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { AuditLogService } from './audit-log.service.js';
+import { PaginationQueryDto, normalizePagination } from '../common/dto/pagination-query.dto.js';
+import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
 
 @ApiTags('Audit')
 @ApiBearerAuth()
@@ -20,25 +22,25 @@ export class AuditController {
   @ApiQuery({ name: 'to', required: false, type: String })
   async getLogs(
     @Headers('x-company-id') companyId: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query() pagination: PaginationQueryDto,
     @Query('entityType') entityType?: string,
     @Query('action') action?: string,
     @Query('userId') userId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
+    const { page, limit } = normalizePagination(pagination);
     const result = await this.auditLogService.findFiltered({
       companyId,
-      page: parseInt(page || '1', 10),
-      limit: Math.min(parseInt(limit || '20', 10), 100),
+      page,
+      limit,
       entityType,
       action,
       userId,
       from,
       to,
     });
-    return { success: true, ...result };
+    return OkPaged(result.data, result.total, result.page, result.limit);
   }
 
   @Get('logs/export')
@@ -72,6 +74,6 @@ export class AuditController {
   @ApiHeader({ name: 'x-company-id', required: true })
   async getEntityTypes(@Headers('x-company-id') companyId: string) {
     const types = await this.auditLogService.getEntityTypes(companyId);
-    return { success: true, data: types.map((t: any) => t.entity_type) };
+    return Ok(types.map((t: any) => t.entity_type));
   }
 }

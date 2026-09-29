@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/axios';
+import type { ApiResponse } from '@/types/api';
 import type { LoginPayload, RegisterPayload, AuthResponse, ProfileResponse, TokenPair } from '@/types/auth';
 
 export class AuthService {
@@ -56,8 +57,8 @@ export class AuthService {
   }
 
   async resendEmailVerification(): Promise<{ success: boolean; email: string }> {
-    const response = await apiClient.post('/auth/profile/email/resend');
-    return response.data;
+    const response = await apiClient.post<ApiResponse<{ email: string }>>('/auth/profile/email/resend');
+    return { success: response.data.success, email: response.data.data?.email ?? '' };
   }
 
   async cancelEmailChange(): Promise<{ success: boolean; message: string }> {

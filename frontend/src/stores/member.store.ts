@@ -1,44 +1,85 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { memberService } from '@/services/member.service';
-import { useAuthStore } from './auth.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
+import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { Member, CreateMemberPayload, UpdateMemberPayload } from '@/types/member';
 
+export interface MemberFilters {
+  search?: string;
+  status?: string;
+  roleId?: string;
+}
+
 export const useMemberStore = defineStore('member', () => {
-  const authStore = useAuthStore();
+  const { companyId } = useCompanyPath();
 
   const members = ref<Member[]>([]);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
 
-  const currentCompanyId = computed(() => authStore.activeTenantId);
+  const {
+    isLoading,
+    error,
+    execute: withLoading,
+  } = useAsyncOperation({ errorMessage: 'Error en la operación' });
 
-  const withLoading = async <T>(fn: () => Promise<T>, errorMsg?: string): Promise<T | undefined> => {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      return await fn();
-    } catch (err: any) {
-      error.value = err.response?.data?.error || errorMsg || 'Error en la operación';
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
-  };
+  const page = ref(1);
+  const limit = ref(20);
+  const total = ref(0);
+  const filters = ref<MemberFilters>({});
 
-  const fetchMembers = async () => {
+  const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
+  const hasPrev = computed(() => page.value > 1);
+  const hasNext = computed(() => page.value < totalPages.value);
+
+  const currentCompanyId = computed(() => companyId.value);
+
+  const fetchMembers = async (targetPage = page.value) => {
     if (!currentCompanyId.value) return;
     await withLoading(async () => {
-      const response = await memberService.getMembers();
+      const response = await memberService.getMembers({
+        page: targetPage,
+        limit: limit.value,
+        ...filters.value,
+      });
       members.value = response.data;
+      total.value = response.total;
+      page.value = response.page;
+      limit.value = response.limit;
     }, 'Error al cargar los miembros');
+  };
+
+  const goToPage = async (targetPage: number) => {
+    const clamped = Math.min(Math.max(1, targetPage), totalPages.value);
+    if (clamped === page.value) return;
+    await fetchMembers(clamped);
+  };
+
+  const setLimit = async (newLimit: number) => {
+    limit.value = newLimit;
+    await fetchMembers(1);
+  };
+
+  /** Aplica filtros en el servidor y vuelve a la primera página. */
+  const applyFilters = async (next: MemberFilters) => {
+    filters.value = next;
+    await fetchMembers(1);
+  };
+
+  const clearFilters = async () => {
+    filters.value = {};
+    await fetchMembers(1);
+  };
+
+  /** Tras agregar/eliminar, vuelve a la primera página si la actual quedó vacía. */
+  const refreshMembers = async () => {
+    await fetchMembers(page.value > totalPages.value ? 1 : page.value);
   };
 
   const addMember = async (payload: CreateMemberPayload) => {
     if (!currentCompanyId.value) throw new Error('No hay una empresa activa seleccionada');
     const result = await withLoading(async () => {
       const response = await memberService.addMember(payload);
-      await fetchMembers();
+      await refreshMembers();
       return response.data;
     }, 'Error al agregar el miembro');
     return result;
@@ -48,7 +89,7 @@ export const useMemberStore = defineStore('member', () => {
     if (!currentCompanyId.value) return;
     await withLoading(async () => {
       await memberService.updateMember(userId, payload);
-      await fetchMembers();
+      await refreshMembers();
     }, 'Error al actualizar el miembro');
   };
 
@@ -56,7 +97,7 @@ export const useMemberStore = defineStore('member', () => {
     if (!currentCompanyId.value) return;
     await withLoading(async () => {
       await memberService.removeMember(userId);
-      await fetchMembers();
+      await refreshMembers();
     }, 'Error al eliminar el miembro');
   };
 
@@ -78,5 +119,26 @@ export const useMemberStore = defineStore('member', () => {
     return result;
   };
 
-  return { members, isLoading, error, fetchMembers, addMember, updateMember, removeMember, resetPassword, resetPasswordAndSendEmail };
+  return {
+    members,
+    isLoading,
+    error,
+    page,
+    limit,
+    total,
+    totalPages,
+    hasPrev,
+    hasNext,
+    filters,
+    fetchMembers,
+    goToPage,
+    setLimit,
+    applyFilters,
+    clearFilters,
+    addMember,
+    updateMember,
+    removeMember,
+    resetPassword,
+    resetPasswordAndSendEmail,
+  };
 });

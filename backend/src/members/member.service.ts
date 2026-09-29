@@ -15,8 +15,13 @@ export class MemberService {
     private readonly emailService: EmailService,
   ) {}
 
-  async getMembers(companyId: string) {
-    return this.memberRepository.getMembersByCompany(companyId);
+  async getMembers(
+    companyId: string,
+    page = 1,
+    limit = 50,
+    filters: { search?: string; status?: string; roleId?: string } = {},
+  ) {
+    return this.memberRepository.getMembersByCompany(companyId, page, limit, filters);
   }
 
   async addMember(

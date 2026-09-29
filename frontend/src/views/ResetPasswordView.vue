@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { authService } from '@/services/auth.service';
@@ -8,6 +8,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import { apiErrorMessage } from '@/utils/error';
 
 const route = useRoute();
 const router = useRouter();
@@ -57,7 +58,7 @@ const handleSubmit = async () => {
     successMsg.value = 'Tu contraseña ha sido actualizada. Redirigiendo...';
     redirectTimer = setTimeout(() => router.push('/login'), 3000);
   } catch (error: any) {
-    errorMsg.value = error.response?.data?.message || error.response?.data?.error || 'El enlace caducó o es inválido.';
+    errorMsg.value = apiErrorMessage(error, 'El enlace caducó o es inválido.');
   } finally {
     isLoading.value = false;
   }

@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/axios';
+import type { ApiResponse } from '@/types/api';
 
 export interface UpdateProfilePayload {
   name?: string;
@@ -13,8 +14,8 @@ export interface UpdateProfilePayload {
 }
 
 export const userService = {
-  async updateProfile(payload: UpdateProfilePayload) {
-    const response = await apiClient.put('/auth/profile', payload);
+  async updateProfile(payload: UpdateProfilePayload): Promise<ApiResponse<{ pending_email: string | null }>> {
+    const response = await apiClient.put<ApiResponse<{ pending_email: string | null }>>('/auth/profile', payload);
     return response.data;
-  }
+  },
 };

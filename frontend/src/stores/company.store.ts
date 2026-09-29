@@ -1,26 +1,17 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
 import { companyService } from '@/services/company.service';
 import { useAuthStore } from './auth.store';
+import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { UpdateCompanyPayload } from '@/types/company';
 
 export const useCompanyStore = defineStore('company', () => {
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
   const authStore = useAuthStore();
 
-  const withLoading = async <T>(fn: () => Promise<T>, errorMsg?: string): Promise<T | undefined> => {
-    isLoading.value = true;
-    error.value = null;
-    try {
-      return await fn();
-    } catch (err: any) {
-      error.value = err.response?.data?.message || err.response?.data?.error || errorMsg || 'Error en la operación';
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
-  };
+  const {
+    isLoading,
+    error,
+    execute: withLoading,
+  } = useAsyncOperation({ errorMessage: 'Error en la operación' });
 
   const updateCompany = async (companyId: string, payload: UpdateCompanyPayload) => {
     return withLoading(async () => {

@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 
 @Injectable()
 export class CompanyRepository {
@@ -56,7 +57,7 @@ export class CompanyRepository {
 
       await queryRunner.commitTransaction();
       return newCompany;
-    } catch (error) {
+    } catch {
       await queryRunner.rollbackTransaction();
       throw new InternalServerErrorException('Error creando la empresa');
     } finally {
@@ -84,25 +85,16 @@ export class CompanyRepository {
     address?: string; city?: string; state?: string; country?: string;
     postal_code?: string; timezone?: string; slug?: string;
   }) {
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
-
-    const fields = [
-      'name', 'tax_id', 'logo_url', 'phone', 'email', 'address',
-      'city', 'state', 'country', 'postal_code', 'timezone', 'slug',
-    ] as const;
-    for (const field of fields) {
-      if (data[field] !== undefined) {
-        updates.push(`${field} = $${paramIndex++}`);
-        values.push(data[field] === '' ? null : data[field]);
-      }
-    }
+    const { updates, values, startIndex } = buildDynamicUpdate(
+      data,
+      ['name', 'tax_id', 'logo_url', 'phone', 'email', 'address', 'city', 'state', 'country', 'postal_code', 'timezone', 'slug'],
+      { nullEmptyStrings: ['tax_id', 'logo_url', 'phone', 'email', 'address', 'city', 'state', 'country', 'postal_code', 'timezone', 'slug'] },
+    );
 
     if (updates.length === 0) return null;
     values.push(companyId);
 
-    const query = `UPDATE companies SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+    const query = `UPDATE companies SET ${updates.join(', ')} WHERE id = $${startIndex} RETURNING *`;
     const result = await this.dataSource.query(query, values);
     return result[0];
   }
