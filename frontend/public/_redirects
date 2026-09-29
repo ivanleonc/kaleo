@@ -1,3 +1,0 @@
-# SPA fallback para vue-router en modo history (Cloudflare Pages / Render / Netlify)
-# Sin esto, recargar en /companies/x devuelve 404
-/*    /index.html   200
