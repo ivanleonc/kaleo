@@ -80,6 +80,21 @@ Conceptos clave:
 - **Sesiones**: los claims del JWT (roles/permisos/empresas) se congelan al emitir; se refrescan en cada `refresh`, cambio de empresa y creación de empresa. Revocar refresh tokens cierra sesiones ajenas (se usa al resetear/eliminar/desactivar).
 - **Health check**: `GET /` es público a propósito (lo usa Render).
 
+## Emails transaccionales (`src/email/`)
+
+`EmailService.send()` elige transporte por variables presentes, en este orden:
+
+1. **Brevo HTTP API** (`BREVO_API_KEY`): puerto 443, no lo filtran los hostings. Reintenta 1 vez ante errores de red o 5xx (no ante 4xx).
+2. **SMTP clásico** (`SMTP_HOST/PORT/SECURE/USER/PASS`): puede estar filtrado según el host (Render bloquea el relay SMTP de Brevo).
+3. **Stub**: sin configuración, solo loguea (dev) o avisa (prod). Nunca falla.
+
+Reglas:
+- `EMAIL_FROM` acepta `"Nombre <email@dominio>"` o email plano; el remitente debe estar verificado en el proveedor.
+- Jamás se loguean tokens ni cuerpos con secretos (solo destino y asunto).
+- Al arrancar, el servicio registra su modo (`brevo-api`, `smtp` o stub) — míralo en logs si un correo no llega.
+- Plantillas en `src/email/templates.ts` (funciones puras, testeadas). Para un correo nuevo: agrega su template + método `send*` + test.
+- Tests: `npx vitest run src/email/email.service.spec.ts`.
+
 ## Documentación API
 
 Con `SWAGGER_ENABLED=true` + credenciales: `http://localhost:3000/api/docs` (JSON en `/api/docs-json`). En producción va apagado salvo necesidad.

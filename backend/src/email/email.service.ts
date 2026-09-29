@@ -1,6 +1,11 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import {
+  passwordResetTemplate,
+  emailVerificationTemplate,
+  temporaryPasswordTemplate,
+} from './templates.js';
 
 export interface EmailOptions {
   to: string;
@@ -8,24 +13,48 @@ export interface EmailOptions {
   html: string;
 }
 
+export type EmailMode = 'brevo-api' | 'smtp' | 'stub';
+
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+const REQUEST_TIMEOUT_MS = 15000;
+const RETRY_DELAY_MS = 1000;
+
 @Injectable()
-export class EmailService {
+export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
   private transporterChecked = false;
 
   constructor(private configService: ConfigService) {}
 
+  onModuleInit() {
+    const mode = this.getMode();
+    if (mode === 'stub') {
+      this.logger.warn('[EmailService] Sin proveedor configurado: los correos solo se simulan en logs.');
+    } else {
+      this.logger.log(`[EmailService] Modo de envío: ${mode}`);
+    }
+  }
+
+  /** Cómo se enviarán los correos según las env presentes. */
+  getMode(): EmailMode {
+    if (this.configService.get<string>('BREVO_API_KEY')) return 'brevo-api';
+    const host = this.configService.get<string>('SMTP_HOST');
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASS');
+    if (host && user && pass) return 'smtp';
+    return 'stub';
+  }
+
   private getTransporter(): nodemailer.Transporter | null {
     if (this.transporterChecked) return this.transporter;
     this.transporterChecked = true;
 
-    const host = this.configService.get<string>('SMTP_HOST');
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASS');
+    if (this.getMode() !== 'smtp') return null;
 
-    if (!host || !user || !pass) return null;
-
+    const host = this.configService.get<string>('SMTP_HOST')!;
+    const user = this.configService.get<string>('SMTP_USER')!;
+    const pass = this.configService.get<string>('SMTP_PASS')!;
     const port = Number(this.configService.get<string>('SMTP_PORT') || '587');
     const secure = (this.configService.get<string>('SMTP_SECURE') || 'false') === 'true';
 
@@ -50,7 +79,25 @@ export class EmailService {
     return { email: from.trim() };
   }
 
-  async sendViaBrevoApi(options: EmailOptions): Promise<boolean> {
+  private async postWithRetry(url: string, init: RequestInit, retries = 1): Promise<Response> {
+    try {
+      const response = await fetch(url, init);
+      if (!response.ok && response.status >= 500 && retries > 0) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        return this.postWithRetry(url, init, retries - 1);
+      }
+      return response;
+    } catch (error: any) {
+      if (error?.name === 'AbortError') throw error;
+      if (retries > 0) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        return this.postWithRetry(url, init, retries - 1);
+      }
+      throw error;
+    }
+  }
+
+  private async sendViaBrevoApi(options: EmailOptions): Promise<boolean> {
     const apiKey = this.configService.get<string>('BREVO_API_KEY');
     if (!apiKey) return false;
 
@@ -59,9 +106,9 @@ export class EmailService {
     );
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      const response = await this.postWithRetry(BREVO_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,48 +182,28 @@ export class EmailService {
 
   async sendPasswordReset(email: string, resetToken: string): Promise<void> {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-    await this.send({
-      to: email,
-      subject: 'Recuperación de contraseña - SaaS',
-      html: `
-        <h2>Recuperación de contraseña</h2>
-        <p>Has solicitado restablecer tu contraseña.</p>
-        <p>Tu token de recuperación (válido por 15 minutos):</p>
-        <code style="background:#f4f4f4;padding:8px 16px;border-radius:4px;font-size:16px">${resetToken}</code>
-        <p>O haz clic en el siguiente enlace:</p>
-        <a href="${frontendUrl}/reset-password?token=${resetToken}&email=${email}">Restablecer contraseña</a>
-        <p>Si no solicitaste este cambio, ignora este email.</p>
-      `,
-    });
+    const { subject, html } = passwordResetTemplate(
+      resetToken,
+      `${frontendUrl}/reset-password?token=${resetToken}&email=${email}`,
+    );
+    await this.send({ to: email, subject, html });
   }
 
   async sendEmailVerification(email: string, verificationToken: string): Promise<void> {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-    await this.send({
-      to: email,
-      subject: 'Verifica tu email - SaaS',
-      html: `
-        <h2>Bienvenido al SaaS</h2>
-        <p>Gracias por registrarte. Para activar tu cuenta, verifica tu email.</p>
-        <a href="${frontendUrl}/verify-email?token=${verificationToken}" style="background:#007bff;color:white;padding:10px 20px;border-radius:4px;text-decoration:none;display:inline-block">Verificar email</a>
-        <p>O usa este código: <code>${verificationToken}</code></p>
-      `,
-    });
+    const { subject, html } = emailVerificationTemplate(
+      `${frontendUrl}/verify-email?token=${verificationToken}`,
+      verificationToken,
+    );
+    await this.send({ to: email, subject, html });
   }
 
   async sendTemporaryPassword(email: string, tempPassword: string): Promise<void> {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-    await this.send({
-      to: email,
-      subject: 'Tu contraseña temporal - SaaS',
-      html: `
-        <h2>Tu contraseña temporal ha sido generada</h2>
-        <p>Un administrador ha restablecido tu contraseña. Tu nueva contraseña temporal es:</p>
-        <code style="background:#f4f4f4;padding:8px 16px;border-radius:4px;font-size:16px">${tempPassword}</code>
-        <p>Por seguridad, deberás cambiar esta contraseña en tu próximo inicio de sesión.</p>
-        <p><a href="${frontendUrl}/login" style="background:#007bff;color:white;padding:10px 20px;border-radius:4px;text-decoration:none;display:inline-block">Iniciar sesión</a></p>
-        <p>Si no solicitaste este cambio, contacta al administrador de tu organización.</p>
-      `,
-    });
+    const { subject, html } = temporaryPasswordTemplate(
+      tempPassword,
+      `${frontendUrl}/login`,
+    );
+    await this.send({ to: email, subject, html });
   }
 }
