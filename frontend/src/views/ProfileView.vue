@@ -67,130 +67,96 @@
       </UiCard>
 
       <!-- Profile Edit Modal -->
-      <UiModal v-model="isProfileModalOpen" :confirm-on-dirty="true" :dirty="isProfileDirty">
-        <form @submit.prevent="handleProfileSubmit">
-          <UiCard>
-            <template #header>
-              <h3 class="card-title">Editar Perfil</h3>
-              <p class="card-description">Actualiza tu información personal.</p>
-            </template>
+      <UiFormModal
+        v-model="isProfileModalOpen"
+        title="Editar Perfil"
+        description="Actualiza tu información personal."
+        :confirm-on-dirty="true"
+        :dirty="isProfileDirty"
+        @submit="handleProfileSubmit"
+      >
+        <UiAlert v-if="errorMessage" type="error">{{ errorMessage }}</UiAlert>
 
-            <div class="form-body">
-              <UiAlert v-if="errorMessage" type="error">{{ errorMessage }}</UiAlert>
+        <UiInput v-model="form.name" label="Nombre Completo" required />
+        <UiInput
+          v-model="form.email"
+          label="Correo Electrónico (requiere verificación al cambiarlo)"
+          type="email"
+          autocomplete="email"
+          required
+        />
+        <UiInput v-model="form.phone" label="Teléfono" type="text" autocomplete="tel" />
+        <UiInput v-model="form.position" label="Cargo" type="text" />
+        <div class="form-row">
+          <UiInput v-model="form.document_type" label="Tipo Doc." type="text" placeholder="CC" />
+          <UiInput v-model="form.document_number" label="Núm. Documento" type="text" />
+        </div>
+        <UiInput v-model="form.avatar_url" label="URL de Foto" type="text" placeholder="https://..." />
+        <div class="form-row">
+          <UiInput v-model="form.timezone" label="Zona Horaria" type="text" placeholder="America/Bogota" />
+          <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
+        </div>
 
-              <UiInput v-model="form.name" label="Nombre Completo" required />
-              <UiInput
-                v-model="form.email"
-                label="Correo Electrónico (requiere verificación al cambiarlo)"
-                type="email"
-                autocomplete="email"
-                required
-              />
-              <UiInput v-model="form.phone" label="Teléfono" type="text" autocomplete="tel" />
-              <UiInput v-model="form.position" label="Cargo" type="text" />
-              <div class="form-row">
-                <UiInput v-model="form.document_type" label="Tipo Doc." type="text" placeholder="CC" />
-                <UiInput v-model="form.document_number" label="Núm. Documento" type="text" />
-              </div>
-              <UiInput v-model="form.avatar_url" label="URL de Foto" type="text" placeholder="https://..." />
-              <div class="form-row">
-                <UiInput v-model="form.timezone" label="Zona Horaria" type="text" placeholder="America/Bogota" />
-                <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
-              </div>
-            </div>
-
-            <template #footer>
-              <div class="modal-footer">
-                <UiButton type="button" variant="outline" @click="isProfileModalOpen = false">
-                  Cancelar
-                </UiButton>
-                <UiButton type="submit" :loading="isSavingProfile">
-                  Guardar Cambios
-                </UiButton>
-              </div>
-            </template>
-          </UiCard>
-        </form>
-      </UiModal>
+        <template #footer>
+          <div class="modal-footer">
+            <UiButton type="button" variant="outline" @click="isProfileModalOpen = false">
+              Cancelar
+            </UiButton>
+            <UiButton type="submit" :loading="isSavingProfile">
+              Guardar Cambios
+            </UiButton>
+          </div>
+        </template>
+      </UiFormModal>
 
       <!-- Password Change Modal -->
-      <UiModal v-model="isPasswordModalOpen" :confirm-on-dirty="true" :dirty="isPasswordDirty">
-        <form @submit.prevent="handlePasswordChange">
-          <UiCard>
-            <template #header>
-            <h3 class="card-title">Cambiar Contraseña</h3>
-              <p class="card-description">Ingresa tu contraseña actual y la nueva contraseña.</p>
-            </template>
+      <UiFormModal
+        v-model="isPasswordModalOpen"
+        title="Cambiar Contraseña"
+        description="Ingresa tu contraseña actual y la nueva contraseña."
+        :confirm-on-dirty="true"
+        :dirty="isPasswordDirty"
+        @submit="handlePasswordChange"
+      >
+        <UiAlert v-if="passwordError" type="error">{{ passwordError }}</UiAlert>
 
-            <div class="form-body">
-              <UiAlert v-if="passwordError" type="error">{{ passwordError }}</UiAlert>
+        <UiInput
+          v-model="passwordForm.currentPassword"
+          label="Contraseña Actual"
+          type="password"
+          required
+        />
+        <UiInput
+          v-model="passwordForm.newPassword"
+          label="Nueva Contraseña"
+          type="password"
+          required
+        />
 
-              <UiInput
-                v-model="passwordForm.currentPassword"
-                label="Contraseña Actual"
-                type="password"
-                required
-              />
-              <UiInput
-                v-model="passwordForm.newPassword"
-                label="Nueva Contraseña"
-                type="password"
-                required
-              />
+        <UiPasswordStrength v-model="passwordForm.newPassword" />
 
-              <!-- Password strength -->
-              <div v-if="passwordForm.newPassword" class="strength-section">
-                <div class="strength-bar">
-                  <div class="strength-fill" :class="strengthClass" :style="{ width: strengthPercent + '%' }"></div>
-                </div>
-                <span class="strength-label" :class="strengthClass">{{ strengthLabel }}</span>
-              </div>
+        <UiInput
+          v-model="passwordForm.confirmPassword"
+          label="Confirmar Nueva Contraseña"
+          type="password"
+          required
+        />
 
-              <!-- Password requirements -->
-              <ul v-if="passwordForm.newPassword" class="password-requirements">
-                <li :class="{ met: pwReqs.length }">
-                  <span class="req-icon">{{ pwReqs.length ? '✓' : '○' }}</span>
-                  Al menos 6 caracteres
-                </li>
-                <li :class="{ met: pwReqs.uppercase }">
-                  <span class="req-icon">{{ pwReqs.uppercase ? '✓' : '○' }}</span>
-                  Una letra mayuscula
-                </li>
-                <li :class="{ met: pwReqs.lowercase }">
-                  <span class="req-icon">{{ pwReqs.lowercase ? '✓' : '○' }}</span>
-                  Una letra minuscula
-                </li>
-                <li :class="{ met: pwReqs.number }">
-                  <span class="req-icon">{{ pwReqs.number ? '✓' : '○' }}</span>
-                  Un numero
-                </li>
-              </ul>
+        <p v-if="passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword" class="match-error">
+          Las contraseñas no coinciden.
+        </p>
 
-              <UiInput
-                v-model="passwordForm.confirmPassword"
-                label="Confirmar Nueva Contraseña"
-                type="password"
-                required
-              />
-
-              <p v-if="passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword" class="match-error">
-                Las contraseñas no coinciden.
-              </p>
-            </div>
-
-            <template #footer>
-              <div class="modal-footer">
-                <UiButton type="button" variant="outline" @click="isPasswordModalOpen = false">
-                  Cancelar
-                </UiButton>
-                <UiButton type="submit" :loading="isChangingPassword">
-                  Actualizar Contraseña
-                </UiButton>
-              </div>
-            </template>
-          </UiCard>
-        </form>
-      </UiModal>
+        <template #footer>
+          <div class="modal-footer">
+            <UiButton type="button" variant="outline" @click="isPasswordModalOpen = false">
+              Cancelar
+            </UiButton>
+            <UiButton type="submit" :loading="isChangingPassword">
+              Actualizar Contraseña
+            </UiButton>
+          </div>
+        </template>
+      </UiFormModal>
     </div>
   </AuthenticatedLayout>
 </template>
@@ -207,8 +173,9 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
-import UiModal from '@/components/ui/UiModal.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
+import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { passwordErrorMessage } from '@/utils/password';
@@ -359,43 +326,6 @@ const openPasswordModal = () => {
 };
 
 // Password strength
-const strengthScore = computed(() => {
-  const pw = passwordForm.newPassword;
-  if (!pw) return 0;
-  let score = 0;
-  if (pw.length >= 6) score++;
-  if (pw.length >= 8) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[a-z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  return score;
-});
-
-const strengthPercent = computed(() => Math.min((strengthScore.value / 6) * 100, 100));
-
-const strengthClass = computed(() => {
-  if (strengthScore.value <= 2) return 'weak';
-  if (strengthScore.value <= 4) return 'fair';
-  return 'strong';
-});
-
-const strengthLabel = computed(() => {
-  if (strengthScore.value <= 2) return 'Debil';
-  if (strengthScore.value <= 4) return 'Aceptable';
-  return 'Fuerte';
-});
-
-const pwReqs = computed(() => {
-  const pw = passwordForm.newPassword;
-  return {
-    length: pw.length >= 6,
-    uppercase: /[A-Z]/.test(pw),
-    lowercase: /[a-z]/.test(pw),
-    number: /[0-9]/.test(pw),
-  };
-});
-
 const handlePasswordChange = async () => {
   if (!passwordForm.currentPassword) {
     passwordError.value = 'Ingresa tu contraseña actual.';
@@ -515,70 +445,6 @@ const handlePasswordChange = async () => {
   font-size: var(--text-sm);
   color: var(--text-main);
   font-weight: 600;
-}
-
-/* Password strength */
-.strength-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.strength-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.strength-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s, background-color 0.3s;
-}
-
-.strength-fill.weak { background-color: var(--color-danger); }
-.strength-fill.fair { background-color: var(--accent-amber); }
-.strength-fill.strong { background-color: var(--color-success); }
-
-.strength-label {
-  font-size: var(--text-xs);
-  font-weight: 500;
-  min-width: 80px;
-}
-
-.strength-label.weak { color: var(--color-danger); }
-.strength-label.fair { color: var(--accent-amber); }
-.strength-label.strong { color: var(--color-success); }
-
-/* Password requirements */
-.password-requirements {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.password-requirements li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  transition: color 0.2s;
-}
-
-.password-requirements li.met {
-  color: var(--color-success);
-}
-
-.req-icon {
-  font-size: 10px;
-  width: 14px;
-  text-align: center;
 }
 
 .match-error {

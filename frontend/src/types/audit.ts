@@ -16,11 +16,12 @@ export interface AuditLog {
   user_email?: string;
 }
 
+/** Paginada por cursor: sin `total`, el backend no lo calcula. */
 export interface AuditLogResponse {
   success: boolean;
   data: AuditLog[];
-  total: number;
-  page: number;
+  nextCursor: string | null;
+  hasNext: boolean;
   limit: number;
 }
 

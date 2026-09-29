@@ -3,8 +3,8 @@ import type { AuditLogResponse } from '@/types/audit';
 
 export const auditService = {
   async getLogs(params: {
-    page?: number;
     limit?: number;
+    cursor?: string | null;
     entityType?: string;
     action?: string;
     userId?: string;
@@ -12,8 +12,8 @@ export const auditService = {
     to?: string;
   }): Promise<AuditLogResponse> {
     const query = new URLSearchParams();
-    if (params.page) query.set('page', String(params.page));
     if (params.limit) query.set('limit', String(params.limit));
+    if (params.cursor) query.set('cursor', params.cursor);
     if (params.entityType) query.set('entityType', params.entityType);
     if (params.action) query.set('action', params.action);
     if (params.userId) query.set('userId', params.userId);

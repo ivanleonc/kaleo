@@ -43,8 +43,8 @@ export class AuditLogService {
     userId?: string;
     from?: string;
     to?: string;
-    page: number;
     limit: number;
+    cursor?: string;
   }) {
     return this.auditLogRepository.findFiltered(params);
   }

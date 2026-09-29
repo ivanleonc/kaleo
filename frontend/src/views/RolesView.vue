@@ -127,91 +127,79 @@
       </div>
     </div>
 
-    <UiModal v-model="isModalOpen" size="large" :confirm-on-dirty="true" :dirty="isCreateDirty">
-      <form @submit.prevent="handleCreateSubmit">
-        <UiCard>
-          <template #header>
-            <h3 class="card-title">Crear Rol Personalizado</h3>
-          </template>
-          
-          <div class="form-body">
-            <UiAlert v-if="errorMsg">{{ errorMsg }}</UiAlert>
-            <UiInput v-model="form.name" label="Nombre del Rol" placeholder="Ej: Gestor de Finanzas" required />
-            <UiInput v-model="form.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
-            <UiInput v-model="form.color" label="Color (Opcional)" placeholder="#8b5cf6" />
-            
-            <UiDualListbox
-              v-model="form.permissionIds"
-              :available="allPermissionItems"
-              :selected="allPermissionItems"
-              label="Permisos"
-              available-label="Disponibles"
-              selected-label="Asignados al Rol"
-            />
-          </div>
+    <UiFormModal
+      v-model="isModalOpen"
+      title="Crear Rol Personalizado"
+      size="large"
+      :confirm-on-dirty="true"
+      :dirty="isCreateDirty"
+      @submit="handleCreateSubmit"
+    >
+      <UiAlert v-if="errorMsg" type="error">{{ errorMsg }}</UiAlert>
+      <UiInput v-model="form.name" label="Nombre del Rol" placeholder="Ej: Gestor de Finanzas" required />
+      <UiInput v-model="form.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
+      <UiInput v-model="form.color" label="Color (Opcional)" placeholder="#8b5cf6" />
 
-          <template #footer>
-            <div class="modal-footer">
-              <UiButton type="button" variant="outline" @click="isModalOpen = false">Cancelar</UiButton>
-              <UiButton type="submit" :loading="isSaving">Guardar Rol</UiButton>
-            </div>
-          </template>
-        </UiCard>
-      </form>
-    </UiModal>
+      <UiDualListbox
+        v-model="form.permissionIds"
+        :available="allPermissionItems"
+        :selected="allPermissionItems"
+        label="Permisos"
+        available-label="Disponibles"
+        selected-label="Asignados al Rol"
+      />
+
+      <template #footer>
+        <div class="modal-footer">
+          <UiButton type="button" variant="outline" @click="isModalOpen = false">Cancelar</UiButton>
+          <UiButton type="submit" :loading="isSaving">Guardar Rol</UiButton>
+        </div>
+      </template>
+    </UiFormModal>
 
   </AuthenticatedLayout>
 
   <!-- Edit Modal -->
-  <UiModal v-model="isEditModalOpen" size="large" :confirm-on-dirty="true" :dirty="isEditDirty">
-    <form @submit.prevent="handleEditSubmit">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Editar Rol</h3>
-        </template>
-        <div class="form-body">
-          <UiAlert v-if="errorMsg">{{ errorMsg }}</UiAlert>
-          <UiInput v-model="editForm.name" label="Nombre del Rol" required />
-          <UiInput v-model="editForm.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
-          <UiInput v-model="editForm.color" label="Color (Opcional)" placeholder="#8b5cf6" />
-          <UiDualListbox
-            v-model="editForm.permissionIds"
-            :available="allPermissionItems"
-            :selected="allPermissionItems"
-            label="Permisos"
-            available-label="Disponibles"
-            selected-label="Asignados al Rol"
-          />
-        </div>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isEditModalOpen = false">Cancelar</UiButton>
-            <UiButton type="submit" :loading="isSaving">Guardar Cambios</UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </form>
-  </UiModal>
+  <UiFormModal
+    v-model="isEditModalOpen"
+    title="Editar Rol"
+    size="large"
+    :confirm-on-dirty="true"
+    :dirty="isEditDirty"
+    @submit="handleEditSubmit"
+  >
+    <UiAlert v-if="errorMsg" type="error">{{ errorMsg }}</UiAlert>
+    <UiInput v-model="editForm.name" label="Nombre del Rol" required />
+    <UiInput v-model="editForm.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
+    <UiInput v-model="editForm.color" label="Color (Opcional)" placeholder="#8b5cf6" />
+    <UiDualListbox
+      v-model="editForm.permissionIds"
+      :available="allPermissionItems"
+      :selected="allPermissionItems"
+      label="Permisos"
+      available-label="Disponibles"
+      selected-label="Asignados al Rol"
+    />
+    <template #footer>
+      <div class="modal-footer">
+        <UiButton type="button" variant="outline" @click="isEditModalOpen = false">Cancelar</UiButton>
+        <UiButton type="submit" :loading="isSaving">Guardar Cambios</UiButton>
+      </div>
+    </template>
+  </UiFormModal>
 
   <!-- Delete Confirmation Modal -->
-  <UiModal v-model="isDeleteModalOpen">
-    <UiCard>
-      <template #header>
-        <h3 class="card-title">Eliminar Rol</h3>
-        <p class="card-description">
-          ¿Estás seguro de eliminar el rol <strong>{{ deleteTarget?.name }}</strong>?
-          Esta acción no se puede deshacer.
-        </p>
-        <UiAlert v-if="errorMsg">{{ errorMsg }}</UiAlert>
-      </template>
-      <template #footer>
-        <div class="modal-footer">
-          <UiButton variant="outline" @click="isDeleteModalOpen = false">Cancelar</UiButton>
-          <UiButton variant="danger" :loading="isSaving" @click="handleDeleteSubmit">Eliminar</UiButton>
-        </div>
-      </template>
-    </UiCard>
-  </UiModal>
+  <UiConfirmDialog
+    v-model="isDeleteModalOpen"
+    title="Eliminar Rol"
+    :loading="isSaving"
+    :error="errorMsg"
+    confirm-label="Eliminar"
+    @confirm="handleDeleteSubmit"
+  >
+    ¿Estás seguro de eliminar el rol <strong>{{ deleteTarget?.name }}</strong>? Esta acción
+    no se puede deshacer.
+  </UiConfirmDialog>
 </template>
 
 <script setup lang="ts">
@@ -225,7 +213,8 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
-import UiModal from '@/components/ui/UiModal.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';

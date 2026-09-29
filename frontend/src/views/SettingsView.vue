@@ -52,79 +52,75 @@
       </template>
 
       <!-- Edit Modal -->
-      <UiModal v-model="isEditModalOpen" :confirm-on-dirty="true" :dirty="isFormDirty">
-        <form @submit.prevent="handleSubmit">
-          <UiCard>
-            <template #header>
-              <h3 class="card-title">Editar Empresa</h3>
-              <p class="card-description">Actualiza la información de tu organización.</p>
-            </template>
-            
-            <div class="form-body">
-              <UiAlert v-if="companyStore.error" type="error">{{ companyStore.error }}</UiAlert>
+      <UiFormModal
+        v-model="isEditModalOpen"
+        title="Editar Empresa"
+        description="Actualiza la información de tu organización."
+        :confirm-on-dirty="true"
+        :dirty="isFormDirty"
+        @submit="handleSubmit"
+      >
+        <UiAlert v-if="companyStore.error" type="error">{{ companyStore.error }}</UiAlert>
 
-              <UiInput
-                v-model="form.name"
-                label="Nombre de la Empresa"
-                required
-              />
+        <UiInput
+          v-model="form.name"
+          label="Nombre de la Empresa"
+          required
+        />
 
-              <div class="form-row">
-                <UiInput
-                  v-model="form.tax_id"
-                  label="Tax ID / NIT / RFC"
-                  placeholder="Ej. TAX-12345"
-                />
-                <UiInput
-                  v-model="form.slug"
-                  label="Identificador (slug)"
-                  placeholder="mi-empresa"
-                />
-              </div>
+        <div class="form-row">
+          <UiInput
+            v-model="form.tax_id"
+            label="Tax ID / NIT / RFC"
+            placeholder="Ej. TAX-12345"
+          />
+          <UiInput
+            v-model="form.slug"
+            label="Identificador (slug)"
+            placeholder="mi-empresa"
+          />
+        </div>
 
-              <UiInput
-                v-model="form.logo_url"
-                label="URL del Logo"
-                placeholder="https://..."
-              />
+        <UiInput
+          v-model="form.logo_url"
+          label="URL del Logo"
+          placeholder="https://..."
+        />
 
-              <div class="form-row">
-                <UiInput v-model="form.phone" label="Teléfono" autocomplete="tel" />
-                <UiInput v-model="form.email" label="Email" type="email" autocomplete="email" />
-              </div>
+        <div class="form-row">
+          <UiInput v-model="form.phone" label="Teléfono" autocomplete="tel" />
+          <UiInput v-model="form.email" label="Email" type="email" autocomplete="email" />
+        </div>
 
-              <UiInput v-model="form.address" label="Dirección" autocomplete="street-address" />
+        <UiInput v-model="form.address" label="Dirección" autocomplete="street-address" />
 
-              <div class="form-row">
-                <UiInput v-model="form.city" label="Ciudad" autocomplete="address-level2" />
-                <UiInput v-model="form.state" label="Estado / Departamento" autocomplete="address-level1" />
-              </div>
+        <div class="form-row">
+          <UiInput v-model="form.city" label="Ciudad" autocomplete="address-level2" />
+          <UiInput v-model="form.state" label="Estado / Departamento" autocomplete="address-level1" />
+        </div>
 
-              <div class="form-row">
-                <UiInput v-model="form.country" label="País" autocomplete="country-name" />
-                <UiInput v-model="form.postal_code" label="Código Postal" autocomplete="postal-code" />
-              </div>
+        <div class="form-row">
+          <UiInput v-model="form.country" label="País" autocomplete="country-name" />
+          <UiInput v-model="form.postal_code" label="Código Postal" autocomplete="postal-code" />
+        </div>
 
-              <UiInput
-                v-model="form.timezone"
-                label="Zona Horaria"
-                placeholder="America/Bogota"
-              />
-            </div>
+        <UiInput
+          v-model="form.timezone"
+          label="Zona Horaria"
+          placeholder="America/Bogota"
+        />
 
-            <template #footer>
-              <div class="modal-footer">
-                <UiButton type="button" variant="outline" @click="isEditModalOpen = false">
-                  Cancelar
-                </UiButton>
-                <UiButton type="submit" :loading="companyStore.isLoading">
-                  Guardar Cambios
-                </UiButton>
-              </div>
-            </template>
-          </UiCard>
-        </form>
-      </UiModal>
+        <template #footer>
+          <div class="modal-footer">
+            <UiButton type="button" variant="outline" @click="isEditModalOpen = false">
+              Cancelar
+            </UiButton>
+            <UiButton type="submit" :loading="companyStore.isLoading">
+              Guardar Cambios
+            </UiButton>
+          </div>
+        </template>
+      </UiFormModal>
     </div>
   </AuthenticatedLayout>
 </template>
@@ -142,7 +138,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
-import UiModal from '@/components/ui/UiModal.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';

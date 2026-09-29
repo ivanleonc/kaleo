@@ -3,7 +3,7 @@
     <div class="dashboard-content">
       <UiPageHeader
         title="Dashboard"
-        :subtitle="`Bienvenido de nuevo, ${authStore.user?.name}. Aquí tienes el resumen de tu workspace.`"
+        :subtitle="welcomeSubtitle"
       />
       
       <div v-if="isLoading" class="loading-state">
@@ -14,7 +14,7 @@
       <UiEmptyState
         v-else-if="loadError"
         title="No pudimos cargar las métricas"
-        description="Revisa tu conexión e inténtalo de nuevo."
+        :description="loadError"
       >
         <template #action>
           <UiButton width="auto" variant="outline" @click="loadData">Reintentar</UiButton>
@@ -110,11 +110,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
-import { useMemberStore } from '@/stores/member.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
+import { memberService } from '@/services/member.service';
 import { roleService } from '@/services/role.service';
+import { apiErrorMessage } from '@/utils/error';
 import { Permissions } from '@/constants/permissions';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import DashboardMetricCard from '@/components/dashboard/DashboardMetricCard.vue';
@@ -132,29 +133,46 @@ import {
 } from '@tabler/icons-vue';
 
 const authStore = useAuthStore();
-const memberStore = useMemberStore();
-const { companyPath } = useCompanyPath();
+const { companyId, companyPath } = useCompanyPath();
 
 const isLoading = ref(true);
 const totalRoles = ref(0);
-const loadError = ref(false);
-let lastLoadAt = 0;
+const totalMembers = ref(0);
+const activeMembers = ref(0);
+const loadError = ref<string | null>(null);
+
+/**
+ * Los conteos salen de `total` del servidor (limit: 1), no de `members.length`:
+ * tras la paginación server-side esa longitud es el tamaño de la página, así
+ * que "De un total de 20" mentía en cuanto la empresa tenía más de 20 miembros.
+ * Se consulta el servicio en vez de `memberStore` para no pisar la página ni los
+ * filtros que el usuario dejó en MembersView.
+ */
+const welcomeSubtitle = computed(() => {
+  const name = authStore.user?.name?.trim();
+  return name
+    ? `Bienvenido de nuevo, ${name}. Aquí tienes el resumen de tu workspace.`
+    : 'Aquí tienes el resumen de tu workspace.';
+});
 
 const loadData = async () => {
-  if (!authStore.activeTenantId) return;
-  const now = Date.now();
-  if (now - lastLoadAt < 3000) return;
-  lastLoadAt = now;
+  if (!companyId.value) {
+    isLoading.value = false;
+    return;
+  }
   isLoading.value = true;
-  loadError.value = false;
+  loadError.value = null;
   try {
-    await Promise.all([
-      memberStore.fetchMembers(),
-      roleService.getRoles().then(r => totalRoles.value = r.length)
+    const [allMembers, activeOnly, roles] = await Promise.all([
+      memberService.getMembers({ page: 1, limit: 1 }),
+      memberService.getMembers({ page: 1, limit: 1, status: 'active' }),
+      roleService.getRoles(),
     ]);
+    totalMembers.value = allMembers.total;
+    activeMembers.value = activeOnly.total;
+    totalRoles.value = roles.length;
   } catch (error) {
-    console.error('Error cargando métricas del dashboard', error);
-    loadError.value = true;
+    loadError.value = apiErrorMessage(error, 'No pudimos cargar las métricas');
   } finally {
     isLoading.value = false;
   }
@@ -162,11 +180,11 @@ const loadData = async () => {
 
 onMounted(loadData);
 
-const totalMembers = computed(() => memberStore.members.length);
-const activeMembers = computed(() => memberStore.members.filter(m => (m.status || 'active') === 'active').length);
+// Cambiar de empresa debe recargar los contadores.
+watch(companyId, loadData);
 
 const activeCompany = computed(() =>
-  authStore.user?.tenants?.find((t: any) => t.id === authStore.activeTenantId)
+  authStore.user?.tenants?.find((tenant) => tenant.id === authStore.activeTenantId)
 );
 const activeCompanyName = computed(() => activeCompany.value?.name || '---');
 const activeCompanyRole = computed(() => {

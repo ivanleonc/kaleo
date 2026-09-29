@@ -23,3 +23,26 @@ export function OkPaged<T>(
 ): ApiResponse<T[]> {
   return { success: true, data, total, page, limit };
 }
+
+export interface CursorApiResponse<T> {
+  success: boolean;
+  data: T[];
+  /** Cursor para la página siguiente, o `null` si ya no hay más. */
+  nextCursor: string | null;
+  hasNext: boolean;
+  limit: number;
+}
+
+/**
+ * Respuesta paginada por cursor (keyset). A diferencia de `OkPaged` no incluye
+ * `total`: obtener el total exigiría un `COUNT(*)` sobre todo el rango, que es
+ * justo el coste que la paginación por cursor evita.
+ */
+export function OkCursor<T>(
+  data: T[],
+  nextCursor: string | null,
+  hasNext: boolean,
+  limit: number,
+): CursorApiResponse<T> {
+  return { success: true, data, nextCursor, hasNext, limit };
+}

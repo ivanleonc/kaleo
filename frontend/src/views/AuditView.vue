@@ -206,12 +206,16 @@
         </div>
       </div>
 
-      <!-- Pagination -->
-      <UiPagination
-        :page="auditStore.page"
-        :total="auditStore.total"
-        :limit="auditStore.limit"
-        @update:page="auditStore.setPage"
+      <!-- Pagination (por cursor) -->
+      <UiCursorPagination
+        :has-prev="auditStore.hasPrev"
+        :can-go-next="auditStore.canGoNext"
+        :loading="auditStore.isLoading"
+        :page-index="auditStore.pageIndex"
+        :count="auditStore.logs.length"
+        total-label="eventos"
+        @next="auditStore.nextPage"
+        @prev="auditStore.prevPage"
       />
     </div>
   </AuthenticatedLayout>
@@ -229,7 +233,7 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
-import UiPagination from '@/components/ui/UiPagination.vue';
+import UiCursorPagination from '@/components/ui/UiCursorPagination.vue';
 import UiExportButton from '@/components/ui/UiExportButton.vue';
 import {
   formatDateTime,

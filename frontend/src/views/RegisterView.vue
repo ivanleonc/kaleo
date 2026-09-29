@@ -38,6 +38,8 @@
             required
           />
 
+          <UiPasswordStrength v-model="form.password" />
+
           <UiInput
             v-model="form.passwordConfirm"
             label="Confirmar contraseña"
@@ -76,6 +78,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();

@@ -1,8 +1,8 @@
 import { Controller, Get, Query, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { AuditLogService } from './audit-log.service.js';
-import { PaginationQueryDto, normalizePagination } from '../common/dto/pagination-query.dto.js';
-import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
+import { AuditQueryDto } from '../common/dto/audit-query.dto.js';
+import { Ok, OkCursor } from '../common/dto/api-response.dto.js';
 
 @ApiTags('Audit')
 @ApiBearerAuth()
@@ -11,10 +11,10 @@ export class AuditController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
   @Get('logs')
-  @ApiOperation({ summary: 'Obtener logs de auditoria de la empresa' })
+  @ApiOperation({ summary: 'Obtener logs de auditoria de la empresa (paginacion por cursor)' })
   @ApiHeader({ name: 'x-company-id', required: true })
-  @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false, type: String })
   @ApiQuery({ name: 'entityType', required: false, type: String })
   @ApiQuery({ name: 'action', required: false, type: String })
   @ApiQuery({ name: 'userId', required: false, type: String })
@@ -22,25 +22,20 @@ export class AuditController {
   @ApiQuery({ name: 'to', required: false, type: String })
   async getLogs(
     @Headers('x-company-id') companyId: string,
-    @Query() pagination: PaginationQueryDto,
-    @Query('entityType') entityType?: string,
-    @Query('action') action?: string,
-    @Query('userId') userId?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
+    @Query() query: AuditQueryDto,
   ) {
-    const { page, limit } = normalizePagination(pagination);
+    const { limit, cursor, entityType, action, userId, from, to } = query;
     const result = await this.auditLogService.findFiltered({
       companyId,
-      page,
-      limit,
+      limit: limit ?? 20,
+      cursor,
       entityType,
       action,
       userId,
       from,
       to,
     });
-    return OkPaged(result.data, result.total, result.page, result.limit);
+    return OkCursor(result.data, result.nextCursor, result.hasNext, result.limit);
   }
 
   @Get('logs/export')

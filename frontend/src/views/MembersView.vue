@@ -128,148 +128,132 @@
       />
 
       <!-- Add Member Modal -->
-      <UiModal v-model="isAddModalOpen" size="large" :confirm-on-dirty="true" :dirty="isAddDirty">
-        <form @submit.prevent="handleAddSubmit">
-          <UiCard>
-            <template #header>
-              <h3 class="card-title">Invitar Miembro</h3>
-              <p class="card-description">Agrega un nuevo miembro a tu equipo.</p>
-            </template>
-            <div class="form-body">
-              <UiAlert v-if="memberStore.error">{{ memberStore.error }}</UiAlert>
-              <div v-if="newMemberCredentials" class="credentials-box">
-                <p class="credentials-title">Miembro Agregado!</p>
-                <p class="credentials-warning">Copia esta contraseña ahora: no podrás volver a verla.</p>
-                <p><strong>Usuario:</strong> {{ newMemberCredentials.email }}</p>
-                <p class="password-row">
-                  <strong>Clave:</strong>
-                  <code class="secret-code">{{ newMemberCredentials.password }}</code>
-                  <button type="button" class="copy-btn" @click="copyToClipboard(newMemberCredentials.password, 'Contraseña copiada al portapapeles')" title="Copiar contraseña">
-                    <IconCopy :size="14" stroke-width="1.8" />
-                  </button>
-                </p>
-              </div>
-              <template v-else>
-                <UiInput v-model="addForm.name" label="Nombre Completo" required />
-                <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required />
-                <div class="form-row">
-                  <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
-                  <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
-                </div>
-                <div class="form-row">
-                  <UiInput v-model="addForm.document_type" label="Tipo Doc. (Opcional)" type="text" placeholder="CC" />
-                  <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
-                </div>
-                <UiDualListbox
-                  v-model="addForm.roleIds"
-                  :available="roleItems"
-                  :selected="roleItems"
-                  label="Roles"
-                  available-label="Disponibles"
-                  selected-label="Asignados"
-                />
-              </template>
-            </div>
-            <template #footer>
-              <div class="modal-footer">
-                <UiButton type="button" variant="outline" @click="isAddModalOpen = false">
-                  {{ newMemberCredentials ? 'Cerrar' : 'Cancelar' }}
-                </UiButton>
-                <UiButton v-if="!newMemberCredentials" type="submit" :loading="memberStore.isLoading">
-                  Agregar al Equipo
-                </UiButton>
-              </div>
-            </template>
-          </UiCard>
-        </form>
-      </UiModal>
+      <UiFormModal
+        v-model="isAddModalOpen"
+        title="Invitar Miembro"
+        :description="newMemberCredentials ? undefined : 'Agrega un nuevo miembro a tu equipo.'"
+        size="large"
+        :confirm-on-dirty="true"
+        :dirty="isAddDirty"
+        @submit="handleAddSubmit"
+      >
+        <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
+        <div v-if="newMemberCredentials" class="credentials-box">
+          <p class="credentials-title">Miembro Agregado!</p>
+          <p class="credentials-warning">Copia esta contraseña ahora: no podrás volver a verla.</p>
+          <p><strong>Usuario:</strong> {{ newMemberCredentials.email }}</p>
+          <p class="password-row">
+            <strong>Clave:</strong>
+            <code class="secret-code">{{ newMemberCredentials.password }}</code>
+            <button type="button" class="copy-btn" @click="copyToClipboard(newMemberCredentials.password, 'Contraseña copiada al portapapeles')" title="Copiar contraseña">
+              <IconCopy :size="14" stroke-width="1.8" />
+            </button>
+          </p>
+        </div>
+        <template v-else>
+          <UiInput v-model="addForm.name" label="Nombre Completo" required />
+          <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required />
+          <div class="form-row">
+            <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
+            <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
+          </div>
+          <div class="form-row">
+            <UiInput v-model="addForm.document_type" label="Tipo Doc. (Opcional)" type="text" placeholder="CC" />
+            <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
+          </div>
+          <UiDualListbox
+            v-model="addForm.roleIds"
+            :available="roleItems"
+            :selected="roleItems"
+            label="Roles"
+            available-label="Disponibles"
+            selected-label="Asignados"
+          />
+        </template>
+        <template #footer>
+          <div class="modal-footer">
+            <UiButton type="button" variant="outline" @click="isAddModalOpen = false">
+              {{ newMemberCredentials ? 'Cerrar' : 'Cancelar' }}
+            </UiButton>
+            <UiButton v-if="!newMemberCredentials" type="submit" :loading="memberStore.isLoading">
+              Agregar al Equipo
+            </UiButton>
+          </div>
+        </template>
+      </UiFormModal>
 
       <!-- Edit Member Modal -->
-      <UiModal v-model="isEditModalOpen" size="large" :confirm-on-dirty="true" :dirty="isEditDirty">
-        <form @submit.prevent="handleEditSubmit">
-          <UiCard>
-            <template #header>
-              <h3 class="card-title">Editar Miembro</h3>
-              <p class="card-description">Modificando accesos para: <strong>{{ editForm.name }}</strong></p>
-            </template>
-            
-            <div class="form-body">
-              <UiAlert v-if="memberStore.error">{{ memberStore.error }}</UiAlert>
-              <UiSelect
-                v-model="editForm.status"
-                label="Estado de la Cuenta"
-                :options="statusOptions"
-              />
-              <UiInput v-model="editForm.phone" label="Teléfono" type="text" autocomplete="tel" />
-              <UiInput v-model="editForm.position" label="Cargo" type="text" />
-              <div class="form-row">
-                <UiInput v-model="editForm.document_type" label="Tipo Doc." type="text" placeholder="CC" />
-                <UiInput v-model="editForm.document_number" label="Núm. Documento" type="text" />
-              </div>
+      <UiFormModal
+        v-model="isEditModalOpen"
+        title="Editar Miembro"
+        :description="`Modificando accesos para: ${editForm.name}`"
+        size="large"
+        :confirm-on-dirty="true"
+        :dirty="isEditDirty"
+        @submit="handleEditSubmit"
+      >
+        <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
+        <UiSelect
+          v-model="editForm.status"
+          label="Estado de la Cuenta"
+          :options="statusOptions"
+        />
+        <UiInput v-model="editForm.phone" label="Teléfono" type="text" autocomplete="tel" />
+        <UiInput v-model="editForm.position" label="Cargo" type="text" />
+        <div class="form-row">
+          <UiInput v-model="editForm.document_type" label="Tipo Doc." type="text" placeholder="CC" />
+          <UiInput v-model="editForm.document_number" label="Núm. Documento" type="text" />
+        </div>
 
-              <UiDualListbox
-                v-model="editForm.roleIds"
-                :available="roleItems"
-                :selected="roleItems"
-                label="Roles"
-                available-label="Disponibles"
-                selected-label="Asignados"
-              />
-            </div>
+        <UiDualListbox
+          v-model="editForm.roleIds"
+          :available="roleItems"
+          :selected="roleItems"
+          label="Roles"
+          available-label="Disponibles"
+          selected-label="Asignados"
+        />
 
-            <template #footer>
-              <div class="modal-footer">
-                <UiButton type="button" variant="outline" @click="isEditModalOpen = false">
-                  Cancelar
-                </UiButton>
-                <UiButton type="submit" :loading="memberStore.isLoading">
-                  Guardar Cambios
-                </UiButton>
-              </div>
-            </template>
-          </UiCard>
-        </form>
-      </UiModal>
+        <template #footer>
+          <div class="modal-footer">
+            <UiButton type="button" variant="outline" @click="isEditModalOpen = false">
+              Cancelar
+            </UiButton>
+            <UiButton type="submit" :loading="memberStore.isLoading">
+              Guardar Cambios
+            </UiButton>
+          </div>
+        </template>
+      </UiFormModal>
 
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <UiModal v-model="isDeleteModalOpen">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Eliminar Miembro</h3>
-          <p class="card-description">¿Deseas remover a <strong>{{ deleteTarget?.name }}</strong> del equipo? Su cuenta se conserva, solo perderá el acceso a esta empresa.</p>
-        </template>
-        <UiAlert v-if="memberStore.error">{{ memberStore.error }}</UiAlert>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton variant="outline" @click="isDeleteModalOpen = false">Cancelar</UiButton>
-            <UiButton variant="danger" :loading="memberStore.isLoading" @click="confirmDelete">
-              Eliminar
-            </UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </UiModal>
+    <UiConfirmDialog
+      v-model="isDeleteModalOpen"
+      title="Eliminar Miembro"
+      :loading="memberStore.isLoading"
+      :error="memberStore.error"
+      confirm-label="Eliminar"
+      @confirm="confirmDelete"
+    >
+      ¿Deseas remover a <strong>{{ deleteTarget?.name }}</strong> del equipo? Su cuenta se
+      conserva, solo perderá el acceso a esta empresa.
+    </UiConfirmDialog>
 
     <!-- Reset Password Confirmation Modal -->
-    <UiModal v-model="isResetModalOpen">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Resetear Contraseña</h3>
-          <p class="card-description">Se generará una nueva contraseña temporal para <strong>{{ resetTarget?.name }}</strong>. Deberá cambiarla en su próximo inicio de sesión.</p>
-        </template>
-        <UiAlert v-if="memberStore.error">{{ memberStore.error }}</UiAlert>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton variant="outline" @click="isResetModalOpen = false">Cancelar</UiButton>
-            <UiButton :loading="memberStore.isLoading" @click="confirmResetPassword">
-              Resetear Contraseña
-            </UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </UiModal>
+    <UiConfirmDialog
+      v-model="isResetModalOpen"
+      title="Resetear Contraseña"
+      variant="primary"
+      :loading="memberStore.isLoading"
+      :error="memberStore.error"
+      confirm-label="Resetear Contraseña"
+      @confirm="confirmResetPassword"
+    >
+      Se generará una nueva contraseña temporal para <strong>{{ resetTarget?.name }}</strong>.
+      Deberá cambiarla en su próximo inicio de sesión.
+    </UiConfirmDialog>
 
     <!-- Reset Password Success Modal -->
     <UiModal v-model="isResetSuccessModalOpen">
@@ -298,23 +282,18 @@
     </UiModal>
 
     <!-- Reset Password + Email Confirmation Modal -->
-    <UiModal v-model="isResetEmailModalOpen">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Resetear y Enviar por Correo</h3>
-          <p class="card-description">Se generará una nueva contraseña temporal para <strong>{{ resetEmailTarget?.name }}</strong> y se enviará a su correo electrónico.</p>
-        </template>
-        <UiAlert v-if="memberStore.error">{{ memberStore.error }}</UiAlert>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton variant="outline" @click="isResetEmailModalOpen = false">Cancelar</UiButton>
-            <UiButton :loading="memberStore.isLoading" @click="confirmResetPasswordEmail">
-              Enviar Contraseña
-            </UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </UiModal>
+    <UiConfirmDialog
+      v-model="isResetEmailModalOpen"
+      title="Resetear y Enviar por Correo"
+      variant="primary"
+      :loading="memberStore.isLoading"
+      :error="memberStore.error"
+      confirm-label="Enviar Contraseña"
+      @confirm="confirmResetPasswordEmail"
+    >
+      Se generará una nueva contraseña temporal para <strong>{{ resetEmailTarget?.name }}</strong>
+      y se enviará a su correo electrónico.
+    </UiConfirmDialog>
 
     <!-- Reset Password + Email Success Modal -->
     <UiModal v-model="isResetEmailSuccessModalOpen">
@@ -351,6 +330,8 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiModal from '@/components/ui/UiModal.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';

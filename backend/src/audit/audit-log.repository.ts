@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { decodeAuditCursor, encodeAuditCursor } from './audit-cursor.js';
 
 @Injectable()
 export class AuditLogRepository {
@@ -39,6 +40,14 @@ export class AuditLogRepository {
     );
   }
 
+  /**
+   * Paginación por cursor (keyset) sobre `(created_at DESC, id DESC)`.
+   *
+   * Antes usaba `OFFSET` con un `COUNT(*)`: en `audit_logs`, particionada por
+   * rango de `created_at` y con fecha por defecto de los últimos 30 días, el
+   * count es una agregación cara y el `OFFSET` recorre y descarta filas. Además
+   * `ORDER BY created_at` sin desempate hacía la paginación no determinista.
+   */
   async findFiltered(params: {
     companyId: string;
     entityType?: string;
@@ -46,10 +55,10 @@ export class AuditLogRepository {
     userId?: string;
     from?: string;
     to?: string;
-    page: number;
     limit: number;
+    cursor?: string;
   }) {
-    const { companyId, entityType, action, userId, from, to, page, limit } = params;
+    const { companyId, entityType, action, userId, from, to, limit, cursor } = params;
     const conditions: string[] = ['al.company_id = $1'];
     const values: any[] = [companyId];
     let idx = 2;
@@ -86,16 +95,19 @@ export class AuditLogRepository {
       idx++;
     }
 
+    // Comparación por tuplas: equivalente a "anteriores al cursor" dado el orden.
+    const decoded = cursor ? decodeAuditCursor(cursor) : null;
+    if (decoded) {
+      conditions.push(`(al.created_at, al.id) < ($${idx}, $${idx + 1})`);
+      values.push(decoded.createdAt, decoded.id);
+      idx += 2;
+    }
+
     const where = conditions.join(' AND ');
-    const offset = (page - 1) * limit;
 
-    const countResult = await this.dataSource.query(
-      `SELECT COUNT(*) as total FROM audit_logs al WHERE ${where}`,
-      values,
-    );
-    const total = parseInt(countResult[0]?.total || '0', 10);
-
-    const data = await this.dataSource.query(
+    // Se pide una fila extra: si viene, existe página siguiente y esa fila es
+    // el cursor. Evita el COUNT(*) para saber si hay más.
+    const rows = await this.dataSource.query(
       `SELECT al.id, al.action, al.entity_type, al.entity_id,
               al.new_values, al.old_values, al.ip_address, al.user_agent, al.created_at,
               al.response_status, al.response_data, al.duration_ms,
@@ -104,12 +116,21 @@ export class AuditLogRepository {
        FROM audit_logs al
        LEFT JOIN users u ON al.user_id = u.id
        WHERE ${where}
-       ORDER BY al.created_at DESC
-       LIMIT $${idx} OFFSET $${idx + 1}`,
-      [...values, limit, offset],
+       ORDER BY al.created_at DESC, al.id DESC
+       LIMIT $${idx}`,
+      [...values, limit + 1],
     );
 
-    return { data, total, page, limit };
+    const hasNext = rows.length > limit;
+    const data = hasNext ? rows.slice(0, limit) : rows;
+    const lastRow = data[data.length - 1];
+
+    return {
+      data,
+      hasNext,
+      nextCursor: hasNext && lastRow ? encodeAuditCursor(lastRow) : null,
+      limit,
+    };
   }
 
   async findForExport(params: {
@@ -166,7 +187,7 @@ export class AuditLogRepository {
        FROM audit_logs al
        LEFT JOIN users u ON al.user_id = u.id
        WHERE ${where}
-       ORDER BY al.created_at DESC
+       ORDER BY al.created_at DESC, al.id DESC
        LIMIT 5000`,
       values,
     );

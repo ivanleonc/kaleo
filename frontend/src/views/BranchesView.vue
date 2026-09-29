@@ -165,23 +165,16 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <UiModal v-model="isDeleteModalOpen">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Eliminar Sede</h3>
-          <p class="card-description">¿Estás seguro de que deseas eliminar la sede <strong>{{ deletingBranch?.name }}</strong>?</p>
-        </template>
-        <UiAlert v-if="branchStore.error">{{ branchStore.error }}</UiAlert>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton variant="outline" @click="isDeleteModalOpen = false">Cancelar</UiButton>
-            <UiButton variant="danger" :loading="branchStore.isLoading" @click="confirmDelete">
-              Eliminar
-            </UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </UiModal>
+    <UiConfirmDialog
+      v-model="isDeleteModalOpen"
+      title="Eliminar Sede"
+      :loading="branchStore.isLoading"
+      :error="branchStore.error"
+      confirm-label="Eliminar"
+      @confirm="confirmDelete"
+    >
+      ¿Estás seguro de que deseas eliminar la sede <strong>{{ deletingBranch?.name }}</strong>?
+    </UiConfirmDialog>
   </AuthenticatedLayout>
 </template>
 
@@ -194,11 +187,9 @@ import { Permissions } from '@/constants/permissions';
 import type { Branch } from '@/types/branch';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import UiCard from '@/components/ui/UiCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
-import UiModal from '@/components/ui/UiModal.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
@@ -207,6 +198,7 @@ import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { useToast } from '@/composables/useToast';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { emptyToUndefined } from '@/utils/text';

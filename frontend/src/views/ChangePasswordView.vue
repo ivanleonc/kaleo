@@ -38,33 +38,7 @@
               required
             />
 
-            <!-- Password strength -->
-            <div v-if="form.newPassword" class="strength-section">
-              <div class="strength-bar">
-                <div class="strength-fill" :class="strengthClass" :style="{ width: strengthPercent + '%' }"></div>
-              </div>
-              <span class="strength-label" :class="strengthClass">{{ strengthLabel }}</span>
-            </div>
-
-            <!-- Password requirements -->
-            <ul v-if="form.newPassword" class="password-requirements">
-              <li :class="{ met: requirements.length }">
-                <span class="req-icon">{{ requirements.length ? '✓' : '○' }}</span>
-                Al menos 6 caracteres
-              </li>
-              <li :class="{ met: requirements.uppercase }">
-                <span class="req-icon">{{ requirements.uppercase ? '✓' : '○' }}</span>
-                Una letra mayúscula
-              </li>
-              <li :class="{ met: requirements.lowercase }">
-                <span class="req-icon">{{ requirements.lowercase ? '✓' : '○' }}</span>
-                Una letra minúscula
-              </li>
-              <li :class="{ met: requirements.number }">
-                <span class="req-icon">{{ requirements.number ? '✓' : '○' }}</span>
-                Un número
-              </li>
-            </ul>
+            <UiPasswordStrength v-model="form.newPassword" />
 
             <UiInput
               v-model="form.confirmPassword"
@@ -99,7 +73,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { authService } from '@/services/auth.service';
-import { checkPassword, passwordErrorMessage } from '@/utils/password';
+import { isPasswordValid, passwordErrorMessage } from '@/utils/password';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
@@ -107,6 +81,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
 import { apiErrorMessage } from '@/utils/error';
 
 const authStore = useAuthStore();
@@ -126,35 +101,6 @@ const form = reactive({
 });
 
 // Password strength
-const strengthScore = computed(() => {
-  const pw = form.newPassword;
-  if (!pw) return 0;
-  let score = 0;
-  if (pw.length >= 6) score++;
-  if (pw.length >= 8) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[a-z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  return score;
-});
-
-const strengthPercent = computed(() => Math.min((strengthScore.value / 6) * 100, 100));
-
-const strengthClass = computed(() => {
-  if (strengthScore.value <= 2) return 'weak';
-  if (strengthScore.value <= 4) return 'fair';
-  return 'strong';
-});
-
-const strengthLabel = computed(() => {
-  if (strengthScore.value <= 2) return 'Débil';
-  if (strengthScore.value <= 4) return 'Aceptable';
-  return 'Fuerte';
-});
-
-const requirements = computed(() => checkPassword(form.newPassword));
-
 const handleSubmit = async () => {
   if (!isTemporary.value && !form.currentPassword) {
     errorMsg.value = 'Ingresa tu contraseña actual.';
@@ -216,70 +162,6 @@ const handleSubmit = async () => {
   flex-direction: column;
   gap: var(--space-8);
   max-width: 500px;
-}
-
-/* Password strength bar */
-.strength-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.strength-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.strength-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s, background-color 0.3s;
-}
-
-.strength-fill.weak { background-color: var(--color-danger); }
-.strength-fill.fair { background-color: var(--accent-amber); }
-.strength-fill.strong { background-color: var(--color-success); }
-
-.strength-label {
-  font-size: var(--text-xs);
-  font-weight: 500;
-  min-width: 80px;
-}
-
-.strength-label.weak { color: var(--color-danger); }
-.strength-label.fair { color: var(--accent-amber); }
-.strength-label.strong { color: var(--color-success); }
-
-/* Password requirements */
-.password-requirements {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.password-requirements li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  transition: color 0.2s;
-}
-
-.password-requirements li.met {
-  color: var(--color-success);
-}
-
-.req-icon {
-  font-size: 10px;
-  width: 14px;
-  text-align: center;
 }
 
 .match-error {
