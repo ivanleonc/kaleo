@@ -1,3 +1,16 @@
+import dotenv from 'dotenv';
+// Carga temprana para que process.env esté listo antes del bootstrap.
+// .env.[NODE_ENV] manda (ej: .env.sandbox); .env queda como default local.
+// Los archivos son opcionales: en Render/hosting todo viene por dashboard,
+// así que un .env ausente NO debe tumbar el arranque.
+for (const path of [`.env.${process.env.NODE_ENV}`, '.env']) {
+  try {
+    dotenv.config({ path, quiet: true });
+  } catch {
+    // Sin archivo: mandan las variables del entorno del host.
+  }
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';

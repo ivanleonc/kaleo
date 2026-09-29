@@ -16,7 +16,12 @@ import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // .env.[NODE_ENV] manda; .env queda como default local.
+      // Ej: NODE_ENV=sandbox -> .env.sandbox, luego .env
+      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
+    }),
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 30,
