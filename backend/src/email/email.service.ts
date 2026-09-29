@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 
 export interface EmailOptions {
   to: string;
@@ -10,20 +11,65 @@ export interface EmailOptions {
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private transporter: nodemailer.Transporter | null = null;
+  private transporterChecked = false;
 
   constructor(private configService: ConfigService) {}
 
-  async send(options: EmailOptions): Promise<void> {
-    const env = this.configService.get<string>('NODE_ENV');
+  private getTransporter(): nodemailer.Transporter | null {
+    if (this.transporterChecked) return this.transporter;
+    this.transporterChecked = true;
 
-    if (env === 'production') {
-      this.logger.warn(`[EmailService] Email sending not configured in production. To: ${options.to}, Subject: ${options.subject}`);
+    const host = this.configService.get<string>('SMTP_HOST');
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASS');
+
+    if (!host || !user || !pass) return null;
+
+    const port = Number(this.configService.get<string>('SMTP_PORT') || '587');
+    const secure = (this.configService.get<string>('SMTP_SECURE') || 'false') === 'true';
+
+    this.transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+    return this.transporter;
+  }
+
+  async send(options: EmailOptions): Promise<void> {
+    const transporter = this.getTransporter();
+
+    if (!transporter) {
+      const env = this.configService.get<string>('NODE_ENV');
+      if (env === 'production') {
+        this.logger.warn(`[EmailService] Email sending not configured in production. To: ${options.to}, Subject: ${options.subject}`);
+        return;
+      }
+      this.logger.log(`[DEV EMAIL] To: ${options.to}`);
+      this.logger.log(`[DEV EMAIL] Subject: ${options.subject}`);
+      this.logger.log(`[DEV EMAIL] Body: ${options.html}`);
       return;
     }
 
-    this.logger.log(`[DEV EMAIL] To: ${options.to}`);
-    this.logger.log(`[DEV EMAIL] Subject: ${options.subject}`);
-    this.logger.log(`[DEV EMAIL] Body: ${options.html}`);
+    const from = this.configService.get<string>('EMAIL_FROM') || 'no-reply@localhost';
+
+    try {
+      await transporter.sendMail({
+        from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+      });
+      this.logger.log(`Email enviado a ${options.to}: ${options.subject}`);
+    } catch (error: any) {
+      this.logger.error(`Fallo el envío a ${options.to}: ${error.message}`);
+      throw new InternalServerErrorException('No se pudo enviar el correo. Intenta de nuevo.');
+    }
   }
 
   async sendPasswordReset(email: string, resetToken: string): Promise<void> {
