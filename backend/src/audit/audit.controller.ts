@@ -1,11 +1,16 @@
-import { Controller, Get, Query, Headers } from '@nestjs/common';
+import { Controller, Get, Query, Headers, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { AuditLogService } from './audit-log.service.js';
 import { AuditQueryDto } from '../common/dto/audit-query.dto.js';
 import { Ok, OkCursor } from '../common/dto/api-response.dto.js';
+import { PermissionsGuard } from '../common/guards/permissions.guard.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Permissions } from '../common/constants/permissions.js';
 
 @ApiTags('Audit')
 @ApiBearerAuth()
+@UseGuards(PermissionsGuard)
+@RequirePermissions(Permissions.AUDIT.READ)
 @Controller('api/audit')
 export class AuditController {
   constructor(private readonly auditLogService: AuditLogService) {}

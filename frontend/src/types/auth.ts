@@ -33,6 +33,7 @@ export interface Tenant {
   id: string;
   name: string;
   tax_id: string | null;
+  slug?: string | null;
   roles: string[];
 }
 

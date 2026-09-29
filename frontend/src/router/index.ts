@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { Permissions } from '@/constants/permissions';
+import { resolveTenantByParam, companyPathFor, tenantUrlParam } from '@/utils/tenant';
+
+const APP_NAME = 'SAAS App';
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -11,38 +14,38 @@ const routes: Array<RouteRecordRaw> = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, title: 'Iniciar sesión' },
   },
   {
     path: '/register',
     name: 'Register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, title: 'Crear cuenta' },
   },
   {
     path: '/forgot-password',
     name: 'ForgotPassword',
     component: () => import('@/views/ForgotPasswordView.vue'),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, title: 'Recuperar contraseña' },
   },
   {
     path: '/reset-password',
     name: 'ResetPassword',
     component: () => import('@/views/ResetPasswordView.vue'),
-    meta: { requiresGuest: true },
+    meta: { requiresGuest: true, title: 'Restablecer contraseña' },
   },
   {
     path: '/onboarding',
     name: 'Onboarding',
     component: () => import('@/views/OnboardingView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: 'Crear empresa' },
   },
   {
     path: '/verify-email',
     name: 'VerifyEmail',
     // Pública a propósito: el enlace llega al correo y puede abrirse con o sin sesión
     component: () => import('@/views/VerifyEmailView.vue'),
-    meta: {},
+    meta: { title: 'Verificar correo' },
   },
   {
     path: '/companies/:companyId',
@@ -52,37 +55,37 @@ const routes: Array<RouteRecordRaw> = [
     path: '/companies/:companyId/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: 'Panel' },
   },
   {
     path: '/companies/:companyId/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: 'Configuración' },
   },
   {
     path: '/companies/:companyId/profile',
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: 'Perfil' },
   },
   {
     path: '/companies/:companyId/change-password',
     name: 'ChangePassword',
     component: () => import('@/views/ChangePasswordView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: 'Cambiar contraseña' },
   },
   {
     path: '/companies/:companyId/members',
     name: 'Members',
     component: () => import('@/views/MembersView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, title: 'Miembros' },
   },
   {
     path: '/companies/:companyId/branches',
     name: 'Branches',
     component: () => import('@/views/BranchesView.vue'),
-    meta: { requiresAuth: true, requiredPermission: Permissions.BRANCHES.READ },
+    meta: { requiresAuth: true, requiredPermission: Permissions.BRANCHES.READ, title: 'Sucursales' },
   },
   {
     path: '/companies/:companyId/roles',
@@ -91,6 +94,7 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       requiresAuth: true,
       requiredPermission: Permissions.ROLES.READ,
+      title: 'Roles',
     },
   },
   {
@@ -100,12 +104,14 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       requiresAuth: true,
       requiredPermission: Permissions.AUDIT.READ,
+      title: 'Auditoría',
     },
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),
+    meta: { title: 'Página no encontrada' },
   },
 ];
 
@@ -118,46 +124,60 @@ router.beforeEach((to) => {
   const authStore = useAuthStore();
   authStore.healActiveTenant();
   const isAuthenticated = authStore.isAuthenticated;
-  const companyId = to.params.companyId as string | undefined;
+  const tenants = authStore.user?.tenants;
+  const param = typeof to.params.companyId === 'string' ? to.params.companyId : undefined;
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     return { name: 'Login' };
   }
 
   if (to.meta.requiresGuest && isAuthenticated) {
-    const tenantId = authStore.activeTenantId || authStore.user?.tenants?.[0]?.id;
-    if (tenantId) {
-      return { path: `/companies/${tenantId}/dashboard` };
+    const tenant =
+      resolveTenantByParam(tenants, authStore.activeTenantId ?? undefined) ?? tenants?.[0];
+    if (tenant) {
+      return { path: companyPathFor(tenant, '/dashboard') };
     }
     return { name: 'Onboarding' };
   }
 
-  // Sync activeTenantId with URL param
-  if (companyId && isAuthenticated) {
-    const validTenant = authStore.user?.tenants?.some((t) => t.id === companyId);
-    if (import.meta.env.DEV) {
-      console.log('[tenant] guard', {
-        path: to.path,
-        companyId,
-        activeTenantId: authStore.activeTenantId,
-        validTenant,
-        tenants: authStore.user?.tenants?.map((t: any) => t.id),
-      });
-    }
-    if (validTenant && authStore.activeTenantId !== companyId) {
-      authStore.setActiveTenant(companyId);
-    } else if (!validTenant) {
-      const fallbackId = authStore.user?.tenants?.[0]?.id || authStore.activeTenantId;
-      if (fallbackId && fallbackId !== companyId) {
-        return { path: `/companies/${fallbackId}/dashboard` };
+  // Resuelve el tenant de la URL y canoniza el parámetro: el slug reemplaza al
+  // UUID en la barra de direcciones sin romper enlaces viejos.
+  if (param && isAuthenticated) {
+    const tenant = resolveTenantByParam(tenants, param);
+
+    if (!tenant) {
+      const fallback =
+        resolveTenantByParam(tenants, authStore.activeTenantId ?? undefined) ?? tenants?.[0];
+      const fallbackPath = companyPathFor(fallback, '/dashboard');
+      if (fallbackPath && fallbackPath !== to.path) {
+        return { path: fallbackPath, query: to.query, hash: to.hash, replace: true };
+      }
+    } else {
+      if (authStore.activeTenantId !== tenant.id) {
+        authStore.setActiveTenant(tenant.id);
+      }
+
+      const canonical = tenantUrlParam(tenant);
+      if (canonical && canonical !== param) {
+        return {
+          path: `/companies/${canonical}${to.path.replace(/^\/companies\/[^/]+/, '')}`,
+          query: to.query,
+          hash: to.hash,
+          replace: true,
+        };
       }
     }
   }
 
+  const activeTenant =
+    resolveTenantByParam(tenants, param) ??
+    resolveTenantByParam(tenants, authStore.activeTenantId ?? undefined) ??
+    tenants?.[0];
+
   // Users without any organization go to onboarding first
   if (
     isAuthenticated &&
-    (authStore.user?.tenants?.length || 0) === 0 &&
+    (tenants?.length || 0) === 0 &&
     to.name !== 'Onboarding' &&
     to.meta.requiresAuth
   ) {
@@ -166,19 +186,30 @@ router.beforeEach((to) => {
 
   // Force password change — block all pages except ChangePassword
   if (isAuthenticated && authStore.user?.must_change_password && to.name !== 'ChangePassword' && to.name !== 'Onboarding') {
-    const tenantId = companyId || authStore.activeTenantId || authStore.user?.tenants?.[0]?.id;
-    if (tenantId) {
-      return { path: `/companies/${tenantId}/change-password` };
-    }
+    const path = companyPathFor(activeTenant, '/change-password');
+    if (path) return { path };
   }
 
   if (to.meta.requiredPermission) {
     if (!authStore.hasPermission(to.meta.requiredPermission as string)) {
-      const tenantId = companyId || authStore.activeTenantId || authStore.user?.tenants?.[0]?.id;
-      if (tenantId) {
-        return { path: `/companies/${tenantId}/dashboard` };
-      }
+      const path = companyPathFor(activeTenant, '/dashboard');
+      if (path) return { path };
     }
+  }
+});
+
+router.afterEach((to) => {
+  const authStore = useAuthStore();
+  const section = typeof to.meta.title === 'string' ? to.meta.title : undefined;
+  const param = typeof to.params.companyId === 'string' ? to.params.companyId : undefined;
+  const tenant = resolveTenantByParam(authStore.user?.tenants, param);
+
+  if (section && tenant?.name) {
+    document.title = `${section} · ${tenant.name} · ${APP_NAME}`;
+  } else if (section) {
+    document.title = `${section} · ${APP_NAME}`;
+  } else {
+    document.title = APP_NAME;
   }
 });
 

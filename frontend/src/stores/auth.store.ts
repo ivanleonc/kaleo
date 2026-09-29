@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { authService } from '@/services/auth.service';
 import { TokenService } from '@/utils/token.service';
-import type { LoginPayload, RegisterPayload, AuthUser } from '@/types/auth';
+import type { LoginPayload, RegisterPayload, AuthUser, Tenant } from '@/types/auth';
 import { SystemRoles } from '@/constants/roles';
 import { apiErrorMessage } from '@/utils/error';
 
@@ -26,11 +26,17 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = userData;
     TokenService.saveTokens(access, refresh);
 
-    if (userData?.tenants?.length > 0 && !activeTenantId.value) {
-      const firstTenant = userData.tenants[0];
-      if (firstTenant) {
-        activeTenantId.value = firstTenant.id;
-      }
+    // Re-anclar SIEMPRE al primer tenant de este usuario. Antes solo se hacía si
+    // `activeTenantId` era null, así que podía sobrevivir el tenant persistido
+    // de una sesión anterior y mandarse como x-company-id en el login nuevo.
+    const firstTenant = userData?.tenants?.[0];
+    if (firstTenant) {
+      setActiveTenant(firstTenant.id);
+    } else {
+      activeTenantId.value = null;
+      try {
+        localStorage.removeItem('saas_active_tenant');
+      } catch {}
     }
   };
 
@@ -115,15 +121,30 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authService.getProfile();
       user.value = response.data;
-      if (response.data?.tenants?.length > 0 && !activeTenantId.value) {
-        const firstTenant = response.data.tenants[0];
+
+      const tenants = response.data?.tenants ?? [];
+      const current = activeTenantId.value;
+      const stillValid = !!current && tenants.some((t) => t.id === current);
+      if (!stillValid) {
+        const firstTenant = tenants[0];
         if (firstTenant) {
-          activeTenantId.value = firstTenant.id;
+          setActiveTenant(firstTenant.id);
+        } else {
+          activeTenantId.value = null;
+          try {
+            localStorage.removeItem('saas_active_tenant');
+          } catch {}
         }
       }
     } catch {
       // Silently fail — the interceptor will handle 401
     }
+  };
+
+  /** Aplica un patch a un tenant del usuario (p.ej. tras editar la empresa). */
+  const updateTenant = (tenantId: string, patch: Partial<Tenant>) => {
+    const tenant = user.value?.tenants?.find((t) => t.id === tenantId);
+    if (tenant) Object.assign(tenant, patch);
   };
 
   const logout = async () => {
@@ -175,6 +196,7 @@ export const useAuthStore = defineStore('auth', () => {
     setActiveTenant,
     healActiveTenant,
     updateProfileData,
+    updateTenant,
     hasPermission,
     hasRole,
   };

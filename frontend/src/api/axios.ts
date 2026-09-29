@@ -76,6 +76,7 @@ apiClient.interceptors.response.use(
         TokenService.destroyTokens();
         localStorage.removeItem('saas_user');
         localStorage.removeItem('saas_active_tenant');
+        localStorage.removeItem('saas_auth_storage');
         if (window.location.pathname !== '/login') {
           sessionStorage.setItem('saas_session_expired', '1');
           window.location.href = '/login';
@@ -100,6 +101,7 @@ apiClient.interceptors.response.use(
         TokenService.destroyTokens();
         localStorage.removeItem('saas_user');
         localStorage.removeItem('saas_active_tenant');
+        localStorage.removeItem('saas_auth_storage');
         if (window.location.pathname !== '/login') {
           sessionStorage.setItem('saas_session_expired', '1');
           window.location.href = '/login';

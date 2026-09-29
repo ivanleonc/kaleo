@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
+import { COMPANY_ID_HEADER } from '../constants/headers.js';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -23,7 +24,13 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Usuario no autenticado');
     }
 
-    const userRoles: string[] = user.roles || [];
+    // Igual que en PermissionsGuard: el rol se resuelve contra la empresa del
+    // header, no contra la primera empresa del token.
+    const companyId: string | undefined = request.headers?.[COMPANY_ID_HEADER];
+    const userRoles: string[] = companyId
+      ? (user.companyRoles?.[companyId] ?? [])
+      : (user.roles ?? []);
+
     const hasRole = requiredRoles.some((role) => userRoles.includes(role));
 
     if (!hasRole) {

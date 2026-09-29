@@ -74,11 +74,17 @@
             label="Tax ID / NIT / RFC"
             placeholder="Ej. TAX-12345"
           />
-          <UiInput
-            v-model="form.slug"
-            label="Identificador (slug)"
-            placeholder="mi-empresa"
-          />
+          <div class="slug-field">
+            <UiInput
+              v-model="form.slug"
+              label="Identificador (slug)"
+              placeholder="mi-empresa"
+              :error="slugError"
+            />
+            <p class="slug-preview">
+              URL: /companies/{{ form.slug || 'se-genera-automaticamente' }}/settings
+            </p>
+          </div>
         </div>
 
         <UiInput
@@ -127,6 +133,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useCompanyStore } from '@/stores/company.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { companyService } from '@/services/company.service';
@@ -150,7 +157,9 @@ import { Permissions } from '@/constants/permissions';
 const companyStore = useCompanyStore();
 const authStore = useAuthStore();
 const toast = useToast();
-const { companyId } = useCompanyPath();
+const route = useRoute();
+const router = useRouter();
+const { companyId, companyPath } = useCompanyPath();
 
 const isEditModalOpen = ref(false);
 const isLoadingDetail = ref(false);
@@ -195,6 +204,15 @@ const fillForm = () => {
 
 const { isDirty: isFormDirty, capture: snapshotForm } = useDirtyForm(() => ({ ...form }));
 
+const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const slugError = computed(() => {
+  const value = form.slug.trim();
+  if (!value) return null; // vacío = se regenera desde el nombre
+  if (value.length > 100) return 'Máximo 100 caracteres';
+  if (!slugPattern.test(value)) return 'Solo minúsculas, números y guiones';
+  return null;
+});
+
 const loadCompanyData = async () => {
   const activeId = companyId.value;
   if (!activeId) return;
@@ -229,6 +247,7 @@ const openEditModal = () => {
 
 const handleSubmit = async () => {
   if (!companyId.value) return;
+  if (slugError.value) return;
 
   try {
     const result = await companyStore.updateCompany(companyId.value, {
@@ -243,22 +262,28 @@ const handleSubmit = async () => {
       country: emptyToUndefined(form.country),
       postal_code: emptyToUndefined(form.postal_code),
       timezone: emptyToUndefined(form.timezone),
-      slug: emptyToUndefined(form.slug)?.toLowerCase(),
+      slug: form.slug.trim() ? form.slug.trim().toLowerCase() : null,
     });
 
     if (result && (result as CompanyDetail).id) {
       company.value = result as CompanyDetail;
-      const tenant = authStore.user?.tenants?.find((t: any) => t.id === companyId.value);
-      if (tenant) {
-        tenant.name = company.value.name;
-        tenant.tax_id = company.value.tax_id;
-      }
+      authStore.updateTenant(companyId.value, {
+        name: company.value.name,
+        tax_id: company.value.tax_id,
+        slug: company.value.slug,
+      });
     } else {
       await loadCompanyData();
     }
 
     isEditModalOpen.value = false;
     toast.success('Empresa actualizada correctamente');
+
+    // Canoniza la URL al slug guardado: la ruta con el slug viejo ya no resolvería.
+    const target = companyPath('/settings');
+    if (target && target !== route.path) {
+      router.replace(target);
+    }
   } catch (error) {
     // Error manejado por UiAlert
   }
@@ -305,5 +330,20 @@ const handleSubmit = async () => {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+}
+
+.slug-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.slug-preview {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
 }
 </style>

@@ -199,6 +199,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
+import { companyPathFor, tenantUrlParam } from '@/utils/tenant';
 import { Permissions } from '@/constants/permissions';
 import UiModal from '@/components/ui/UiModal.vue';
 import UiCard from '@/components/ui/UiCard.vue';
@@ -327,6 +328,12 @@ const setTheme = (dark: boolean) => {
 
 const isSwitchingOrg = ref(false);
 
+/** Ruta canónica (slug cuando existe) al panel de una empresa. */
+const dashboardPathFor = (tenantId: string): string => {
+  const tenant = authStore.user?.tenants?.find((t) => t.id === tenantId);
+  return companyPathFor(tenant, '/dashboard') || `/companies/${tenantId}/dashboard`;
+};
+
 const handleOrgChange = async (tenantId: string) => {
   if (isSwitchingOrg.value) return;
   if (tenantId === authStore.activeTenantId) {
@@ -341,11 +348,14 @@ const handleOrgChange = async (tenantId: string) => {
     // Refrescar claims (roles/permisos son por empresa y viven en el JWT)
     await authStore.refreshTokens();
     await authStore.fetchProfile();
-    await router.push(`/companies/${tenantId}/dashboard`).catch(() => {});
+    const target = dashboardPathFor(tenantId);
+    await router.push(target).catch(() => {});
     // Reconciliar: si la navegación fue abortada/superada, la URL manda al recargar
+    const tenant = authStore.user?.tenants?.find((t) => t.id === tenantId);
+    const expectedParam = tenantUrlParam(tenant) ?? tenantId;
     const landed = router.currentRoute.value.params.companyId;
-    if (landed !== tenantId) {
-      await router.push(`/companies/${tenantId}/dashboard`).catch(() => {});
+    if (landed !== expectedParam) {
+      await router.push(target).catch(() => {});
     }
   } finally {
     isSwitchingOrg.value = false;
@@ -368,7 +378,9 @@ const handleCreateSubmit = async () => {
     await authStore.refreshTokens();
     await authStore.fetchProfile();
     const newTenantId = authStore.activeTenantId;
-    router.push(`/companies/${newTenantId}/dashboard`);
+    if (newTenantId) {
+      router.push(dashboardPathFor(newTenantId));
+    }
   } catch (error) {
     console.error('Error al crear la empresa', error);
   }

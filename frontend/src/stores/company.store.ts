@@ -22,6 +22,7 @@ export const useCompanyStore = defineStore('company', () => {
         if (tenant) {
           if (payload.name) tenant.name = payload.name;
           if (payload.tax_id !== undefined) tenant.tax_id = payload.tax_id;
+          if (payload.slug !== undefined) tenant.slug = payload.slug;
         }
       }
 
@@ -39,6 +40,7 @@ export const useCompanyStore = defineStore('company', () => {
           id: newCompany.id,
           name: newCompany.name,
           tax_id: newCompany.tax_id,
+          slug: newCompany.slug ?? null,
           roles: ['Owner'],
         };
 

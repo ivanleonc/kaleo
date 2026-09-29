@@ -1,5 +1,6 @@
 import { Injectable, ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common';
 import { CompanyRepository } from './repositories/company.repository.js';
+import { slugify, slugWithSuffix } from '../common/utils/slug.util.js';
 // import { AuditLogService } from '../audit/audit-log.service'; // TODO: Migrar
 
 @Injectable()
@@ -8,6 +9,31 @@ export class CompanyService {
     private readonly companyRepository: CompanyRepository,
     // private auditLogger: AuditLogService
   ) {}
+
+  /** Normaliza y valida disponibilidad de un slug explícito. */
+  private async ensureSlugAvailable(rawSlug: string, excludeCompanyId?: string): Promise<string> {
+    const candidate = slugify(rawSlug);
+    const taken = await this.companyRepository.findBySlug(candidate, excludeCompanyId);
+    if (taken) {
+      throw new ConflictException('Ese identificador corto ya está en uso');
+    }
+    return candidate;
+  }
+
+  /** Deriva un slug del nombre y le agrega sufijo numérico si está tomado. */
+  private async generateUniqueSlug(name: string, excludeCompanyId?: string): Promise<string> {
+    const base = slugify(name);
+    let candidate = base;
+    let suffix = 1;
+
+    while (await this.companyRepository.findBySlug(candidate, excludeCompanyId)) {
+      suffix += 1;
+      candidate = slugWithSuffix(base, suffix);
+      if (suffix > 1000) break; // guarda contra loop infinito
+    }
+
+    return candidate;
+  }
 
   async getUserCompanies(userId: string) {
     return await this.companyRepository.getUserCompanies(userId); //[cite: 12]
@@ -25,8 +51,12 @@ export class CompanyService {
     return company;
   }
 
-  async createCompany(userId: string, name: string, taxId?: string) {
-    const newCompany = await this.companyRepository.createWithOwner(userId, name, taxId); //[cite: 12]
+  async createCompany(userId: string, name: string, taxId?: string, slug?: string) {
+    const finalSlug = slug
+      ? await this.ensureSlugAvailable(slug)
+      : await this.generateUniqueSlug(name);
+
+    const newCompany = await this.companyRepository.createWithOwner(userId, name, taxId, finalSlug); //[cite: 12]
 
     /* TODO: Migrar auditoría[cite: 12]
     this.auditLogger.log({
@@ -58,14 +88,28 @@ export class CompanyService {
       throw new ForbiddenException('Operación denegada. Solo el Owner puede modificar la configuración.'); //[cite: 12]
     }
 
-    if (data.slug) {
-      const slugTaken = await this.companyRepository.findBySlug(data.slug, companyId);
-      if (slugTaken) {
-        throw new ConflictException('Ese identificador corto ya está en uso');
+    if (data.slug !== undefined) {
+      const raw = (data.slug ?? '').toString().trim();
+      if (raw === '') {
+        // Vaciar el slug no lo deja en NULL: se regenera desde el nombre para
+        // que toda empresa conserve una URL legible.
+        const currentName =
+          data.name ?? (await this.companyRepository.findById(companyId))?.name ?? 'empresa';
+        data.slug = await this.generateUniqueSlug(currentName, companyId);
+      } else {
+        data.slug = await this.ensureSlugAvailable(raw, companyId);
       }
     }
 
-    const updatedCompany = await this.companyRepository.update(companyId, data); //[cite: 12]
+    let updatedCompany;
+    try {
+      updatedCompany = await this.companyRepository.update(companyId, data); //[cite: 12]
+    } catch (error) {
+      if ((error as { code?: string })?.code === '23505') {
+        throw new ConflictException('Ese identificador corto ya está en uso');
+      }
+      throw error;
+    }
 
     /* TODO: Migrar auditoría[cite: 12]
     this.auditLogger.log({ ... });

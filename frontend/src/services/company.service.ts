@@ -12,7 +12,7 @@ export const companyService = {
     return response.data;
   },
 
-  async createCompany(payload: { name: string; tax_id?: string }) {
+  async createCompany(payload: { name: string; tax_id?: string; slug?: string }) {
     const response = await apiClient.post('/companies', payload);
     return response.data;
   },

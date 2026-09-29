@@ -10,7 +10,7 @@ export interface UpdateCompanyPayload {
   country?: string;
   postal_code?: string;
   timezone?: string;
-  slug?: string;
+  slug?: string | null;
 }
 
 export interface Company {

@@ -13,6 +13,7 @@ import { MemberModule } from './members/member.module.js';
 import { BranchesModule } from './branches/branches.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
+import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
 
 @Module({
   imports: [
@@ -55,6 +56,10 @@ import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
     {
       provide: APP_GUARD,
       useClass: PasswordChangedGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CompanyAccessGuard,
     },
     {
       provide: APP_INTERCEPTOR,

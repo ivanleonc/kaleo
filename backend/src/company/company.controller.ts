@@ -91,6 +91,7 @@ export class CompanyController {
       userId,
       createCompanyDto.name,
       createCompanyDto.tax_id,
+      createCompanyDto.slug,
     );
     return Ok({ company: newCompany }, 'Empresa creada exitosamente');
   }

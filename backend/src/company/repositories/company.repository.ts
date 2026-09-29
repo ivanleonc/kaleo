@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 
@@ -10,20 +10,20 @@ export class CompanyRepository {
   async getUserCompanies(userId: string) {
     const query = `
       SELECT 
-        c.id, c.name, c.tax_id,
+        c.id, c.name, c.tax_id, c.slug,
         COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles
       FROM companies c
       INNER JOIN user_contexts uc ON c.id = uc.company_id
       LEFT JOIN roles r ON uc.role_id = r.id
       WHERE uc.user_id = $1 AND c.is_active = TRUE AND c.deleted_at IS NULL
-      GROUP BY c.id, c.name, c.tax_id
+      GROUP BY c.id, c.name, c.tax_id, c.slug
     `;
     const result = await this.dataSource.query(query, [userId]);
     return result; // En TypeORM el query directo ya retorna el arreglo de rows[cite: 13]
   }
 
   // Adaptado para usar transacciones puras en TypeORM
-  async createWithOwner(userId: string, name: string, taxId?: string) {
+  async createWithOwner(userId: string, name: string, taxId?: string, slug?: string) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -31,8 +31,8 @@ export class CompanyRepository {
     try {
       // 1. Insertamos la empresa[cite: 13]
       const companyResult = await queryRunner.query(
-        `INSERT INTO companies (name, tax_id) VALUES ($1, $2) RETURNING *`,
-        [name, taxId]
+        `INSERT INTO companies (name, tax_id, slug) VALUES ($1, $2, $3) RETURNING *`,
+        [name, taxId, slug ?? null]
       );
       const newCompany = companyResult[0];
 
@@ -57,8 +57,11 @@ export class CompanyRepository {
 
       await queryRunner.commitTransaction();
       return newCompany;
-    } catch {
+    } catch (error) {
       await queryRunner.rollbackTransaction();
+      if ((error as { code?: string })?.code === '23505') {
+        throw new ConflictException('Ese identificador corto ya está en uso');
+      }
       throw new InternalServerErrorException('Error creando la empresa');
     } finally {
       await queryRunner.release();
@@ -111,9 +114,11 @@ export class CompanyRepository {
   }
 
   async findBySlug(slug: string, excludeCompanyId?: string) {
+    // No se filtra por deleted_at: el UNIQUE de companies.slug tampoco lo hace,
+    // así el chequeo previo refleja exactamente lo que aceptará la base.
     const result = await this.dataSource.query(
       `SELECT id FROM companies
-       WHERE slug = $1 AND deleted_at IS NULL AND ($2::uuid IS NULL OR id != $2)
+       WHERE slug = $1 AND ($2::uuid IS NULL OR id != $2)
        LIMIT 1`,
       [slug, excludeCompanyId || null],
     );
