@@ -1,22 +1,25 @@
 <template>
   <AuthenticatedLayout>
     <div class="dashboard-content">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Dashboard</h1>
-          <p class="page-subtitle">Bienvenido de nuevo, {{ authStore.user?.name }}. Aquí tienes el resumen de tu workspace.</p>
-        </div>
-      </div>
+      <UiPageHeader
+        title="Dashboard"
+        :subtitle="`Bienvenido de nuevo, ${authStore.user?.name}. Aquí tienes el resumen de tu workspace.`"
+      />
       
       <div v-if="isLoading" class="loading-state">
         <div class="loading-spinner"></div>
         <span>Cargando métricas...</span>
       </div>
 
-      <div v-else-if="loadError" class="empty-state">
-        <span>No pudimos cargar las métricas.</span>
-        <UiButton width="auto" variant="outline" @click="loadData">Reintentar</UiButton>
-      </div>
+      <UiEmptyState
+        v-else-if="loadError"
+        title="No pudimos cargar las métricas"
+        description="Revisa tu conexión e inténtalo de nuevo."
+      >
+        <template #action>
+          <UiButton width="auto" variant="outline" @click="loadData">Reintentar</UiButton>
+        </template>
+      </UiEmptyState>
 
       <template v-else>
         <div class="metrics-grid">
@@ -116,6 +119,8 @@ import { Permissions } from '@/constants/permissions';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import DashboardMetricCard from '@/components/dashboard/DashboardMetricCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
+import UiPageHeader from '@/components/ui/UiPageHeader.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import {
   IconUsers,
   IconShieldLock,

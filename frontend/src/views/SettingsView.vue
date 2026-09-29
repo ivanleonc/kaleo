@@ -1,15 +1,16 @@
 <template>
   <AuthenticatedLayout>
     <div class="settings-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Configuración de la Empresa</h1>
-          <p class="page-subtitle">Administra la información general y fiscal de tu organización.</p>
-        </div>
-        <UiButton v-permission="Permissions.COMPANY.UPDATE" @click="openEditModal" width="auto">
-          <IconEdit :size="16" /> Editar Empresa
-        </UiButton>
-      </div>
+      <UiPageHeader
+        title="Configuración de la Empresa"
+        subtitle="Administra la información general y fiscal de tu organización."
+      >
+        <template #actions>
+          <UiButton v-permission="Permissions.COMPANY.UPDATE" @click="openEditModal" width="auto">
+            <IconEdit :size="16" /> Editar Empresa
+          </UiButton>
+        </template>
+      </UiPageHeader>
 
       <div v-if="isLoadingDetail" class="loading-state">Cargando datos...</div>
 
@@ -54,7 +55,7 @@
       </template>
 
       <!-- Edit Modal -->
-      <UiModal v-model="isEditModalOpen">
+      <UiModal v-model="isEditModalOpen" :confirm-on-dirty="true" :dirty="isFormDirty">
         <form @submit.prevent="handleSubmit">
           <UiCard>
             <template #header>
@@ -139,6 +140,7 @@ import { companyService } from '@/services/company.service';
 import type { CompanyDetail } from '@/types/company';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
+import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -198,6 +200,14 @@ const fillForm = () => {
   form.slug = company.value.slug || '';
 };
 
+const formSnapshot = ref('');
+
+const snapshotForm = () => {
+  formSnapshot.value = JSON.stringify({ ...form });
+};
+
+const isFormDirty = computed(() => JSON.stringify({ ...form }) !== formSnapshot.value);
+
 const emptyToUndefined = (value: string): string | undefined =>
   value.trim() === '' ? undefined : value.trim();
 
@@ -229,6 +239,7 @@ watch(() => authStore.activeTenantId, () => {
 const openEditModal = () => {
   fillForm();
   companyStore.error = null;
+  snapshotForm();
   isEditModalOpen.value = true;
 };
 

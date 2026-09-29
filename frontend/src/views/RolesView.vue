@@ -1,15 +1,16 @@
 <template>
   <AuthenticatedLayout>
     <div class="roles-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Roles y Permisos</h1>
-          <p class="page-subtitle">Consulta y crea niveles de acceso para tu organización.</p>
-        </div>
-        <UiButton v-permission="Permissions.ROLES.CREATE" @click="openCreateModal" width="auto">
-          Crear Nuevo Rol
-        </UiButton>
-      </div>
+      <UiPageHeader
+        title="Roles y Permisos"
+        subtitle="Consulta y crea niveles de acceso para tu organización."
+      >
+        <template #actions>
+          <UiButton v-permission="Permissions.ROLES.CREATE" @click="openCreateModal" width="auto">
+            Crear Nuevo Rol
+          </UiButton>
+        </template>
+      </UiPageHeader>
 
       <div v-if="isLoading" class="skeleton-grid" aria-label="Cargando roles">
         <div v-for="n in 3" :key="n" class="skeleton-card">
@@ -19,14 +20,20 @@
         </div>
       </div>
 
-      <div v-else-if="roles.length === 0" class="empty-state">
-        <IconShield :size="48" stroke-width="1.5" />
-        <p>No hay roles todavía</p>
-        <span>Crea tu primer rol personalizado para organizar los accesos.</span>
-        <UiButton v-permission="Permissions.ROLES.CREATE" width="auto" @click="openCreateModal">
-          Crear Nuevo Rol
-        </UiButton>
-      </div>
+      <UiEmptyState
+        v-else-if="roles.length === 0"
+        title="No hay roles todavía"
+        description="Crea tu primer rol personalizado para organizar los accesos."
+      >
+        <template #icon>
+          <IconShield :size="48" stroke-width="1.5" />
+        </template>
+        <template #action>
+          <UiButton v-permission="Permissions.ROLES.CREATE" width="auto" @click="openCreateModal">
+            Crear Nuevo Rol
+          </UiButton>
+        </template>
+      </UiEmptyState>
 
       <div v-else class="roles-grid">
         <UiCard v-for="role in roles" :key="role.id" class="role-card">
@@ -120,7 +127,7 @@
       </div>
     </div>
 
-    <UiModal v-model="isModalOpen" size="large">
+    <UiModal v-model="isModalOpen" size="large" :confirm-on-dirty="true" :dirty="isCreateDirty">
       <form @submit.prevent="handleCreateSubmit">
         <UiCard>
           <template #header>
@@ -214,6 +221,7 @@ import type { Role, Permission } from '@/types/role';
 import { useAuthStore } from '@/stores/auth.store';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
+import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiModal from '@/components/ui/UiModal.vue';
@@ -222,6 +230,7 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
 import {
@@ -417,9 +426,30 @@ const fetchData = async () => {
 
 onMounted(fetchData);
 
+const createSnapshot = ref('');
+
+const snapshotCreateForm = () => {
+  createSnapshot.value = JSON.stringify({
+    name: form.name,
+    description: form.description,
+    color: form.color,
+    permissionIds: [...form.permissionIds],
+  });
+};
+
+const isCreateDirty = computed(() =>
+  JSON.stringify({
+    name: form.name,
+    description: form.description,
+    color: form.color,
+    permissionIds: [...form.permissionIds],
+  }) !== createSnapshot.value
+);
+
 const openCreateModal = () => {
   form.name = ''; form.description = ''; form.color = ''; form.permissionIds = [];
   errorMsg.value = '';
+  snapshotCreateForm();
   isModalOpen.value = true;
 };
 

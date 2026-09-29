@@ -1,12 +1,10 @@
 <template>
   <AuthenticatedLayout>
     <div class="profile-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Mi Cuenta</h1>
-          <p class="page-subtitle">Gestiona tu información personal de acceso y credenciales.</p>
-        </div>
-      </div>
+      <UiPageHeader
+        title="Mi Cuenta"
+        subtitle="Gestiona tu información personal de acceso y credenciales."
+      />
 
       <!-- Profile Hero -->
       <div class="profile-hero">
@@ -72,7 +70,7 @@
       </UiCard>
 
       <!-- Profile Edit Modal -->
-      <UiModal v-model="isProfileModalOpen">
+      <UiModal v-model="isProfileModalOpen" :confirm-on-dirty="true" :dirty="isProfileDirty">
         <form @submit.prevent="handleProfileSubmit">
           <UiCard>
             <template #header>
@@ -119,7 +117,7 @@
       </UiModal>
 
       <!-- Password Change Modal -->
-      <UiModal v-model="isPasswordModalOpen">
+      <UiModal v-model="isPasswordModalOpen" :confirm-on-dirty="true" :dirty="isPasswordDirty">
         <form @submit.prevent="handlePasswordChange">
           <UiCard>
             <template #header>
@@ -188,7 +186,7 @@
                 <UiButton type="button" variant="outline" @click="isPasswordModalOpen = false">
                   Cancelar
                 </UiButton>
-                <UiButton type="submit" :loading="isChangingPassword" :disabled="!isPasswordFormValid">
+                <UiButton type="submit" :loading="isChangingPassword">
                   Actualizar Contraseña
                 </UiButton>
               </div>
@@ -207,6 +205,7 @@ import { authService } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
+import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -214,6 +213,7 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 import UiModal from '@/components/ui/UiModal.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
+import { passwordErrorMessage } from '@/utils/password';
 
 const authStore = useAuthStore();
 const toast = useToast();
@@ -251,6 +251,16 @@ const getInitials = (name?: string): string => {
   return name.split(' ').map((w) => w[0]).join('').substring(0, 2).toUpperCase();
 };
 
+const profileSnapshot = ref('');
+
+const snapshotProfileForm = () => {
+  profileSnapshot.value = JSON.stringify({ ...form });
+};
+
+const isProfileDirty = computed(
+  () => JSON.stringify({ ...form }) !== profileSnapshot.value
+);
+
 const openProfileModal = () => {
   const user = authStore.user;
   form.name = user?.name || '';
@@ -263,6 +273,7 @@ const openProfileModal = () => {
   form.timezone = user?.timezone || '';
   form.locale = user?.locale || '';
   errorMessage.value = null;
+  snapshotProfileForm();
   isProfileModalOpen.value = true;
 };
 
@@ -338,11 +349,22 @@ const passwordForm = reactive({
   confirmPassword: '',
 });
 
+const passwordSnapshot = ref('');
+
+const snapshotPasswordForm = () => {
+  passwordSnapshot.value = JSON.stringify({ ...passwordForm });
+};
+
+const isPasswordDirty = computed(
+  () => JSON.stringify({ ...passwordForm }) !== passwordSnapshot.value
+);
+
 const openPasswordModal = () => {
   passwordForm.currentPassword = '';
   passwordForm.newPassword = '';
   passwordForm.confirmPassword = '';
   passwordError.value = '';
+  snapshotPasswordForm();
   isPasswordModalOpen.value = true;
 };
 
@@ -384,21 +406,20 @@ const pwReqs = computed(() => {
   };
 });
 
-const isPasswordFormValid = computed(() => {
-  if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) return false;
-  if (passwordForm.newPassword.length < 6) return false;
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) return false;
-  return true;
-});
-
 const handlePasswordChange = async () => {
+  if (!passwordForm.currentPassword) {
+    passwordError.value = 'Ingresa tu contraseña actual.';
+    return;
+  }
+
   if (passwordForm.newPassword !== passwordForm.confirmPassword) {
     passwordError.value = 'Las contraseñas no coinciden.';
     return;
   }
 
-  if (passwordForm.newPassword.length < 6) {
-    passwordError.value = 'La contraseña debe tener al menos 6 caracteres.';
+  const passwordRuleError = passwordErrorMessage(passwordForm.newPassword);
+  if (passwordRuleError) {
+    passwordError.value = passwordRuleError;
     return;
   }
 

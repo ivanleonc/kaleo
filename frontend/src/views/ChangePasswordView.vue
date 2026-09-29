@@ -1,17 +1,12 @@
 <template>
   <AuthenticatedLayout>
     <div class="change-password-container">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">Cambiar Contraseña</h1>
-          <p class="page-subtitle" v-if="isTemporary">
-            Tu contraseña es temporal. Debes cambiarla para continuar usando el sistema.
-          </p>
-          <p class="page-subtitle" v-else>
-            Actualiza tu contraseña de acceso.
-          </p>
-        </div>
-      </div>
+      <UiPageHeader
+        title="Cambiar Contraseña"
+        :subtitle="isTemporary
+          ? 'Tu contraseña es temporal. Debes cambiarla para continuar usando el sistema.'
+          : 'Actualiza tu contraseña de acceso.'"
+      />
 
       <UiAlert v-if="isTemporary" type="warning">
         Debes cambiar tu contraseña temporal antes de acceder al resto del sistema.
@@ -107,6 +102,7 @@ import { authService } from '@/services/auth.service';
 import { checkPassword, passwordErrorMessage } from '@/utils/password';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
+import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';

@@ -19,13 +19,11 @@
             placeholder="Todas las entidades"
           />
         </div>
-        <div class="filter-group">
-          <input
+        <div class="filter-group filter-group-grow">
+          <UiSearchInput
             v-model="filterAction"
-            type="text"
-            class="filter-input"
             placeholder="Buscar por acción..."
-            @input="debouncedFetch"
+            @update:model-value="debouncedFetch"
           />
         </div>
         <div class="filter-group filter-dates">
@@ -44,11 +42,15 @@
       </div>
 
       <!-- Empty -->
-      <div v-else-if="!auditStore.isLoading && auditStore.logs.length === 0" class="empty-state">
-        <IconClipboardList :size="48" />
-        <p>No hay registros de auditoria</p>
-        <span>Las acciones realizadas en tu organización aparecerán aquí.</span>
-      </div>
+      <UiEmptyState
+        v-else-if="!auditStore.isLoading && auditStore.logs.length === 0"
+        title="No hay registros de auditoría"
+        description="Las acciones realizadas en tu organización aparecerán aquí."
+      >
+        <template #icon>
+          <IconClipboardList :size="48" stroke-width="1.5" />
+        </template>
+      </UiEmptyState>
 
       <!-- Timeline -->
       <div v-else class="timeline">
@@ -216,11 +218,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuditStore } from '@/stores/audit.store';
 import { useAuthStore } from '@/stores/auth.store';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
+import UiSearchInput from '@/components/ui/UiSearchInput.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiExportButton from '@/components/ui/UiExportButton.vue';
@@ -357,7 +361,8 @@ function userTimeZone(): string | undefined {
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
-  const now = new Date();
+  // nowTick mantiene los tiempos relativos vivos sin recargar
+  const now = new Date(nowTick.value);
   const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   if (diff < 60) return 'Hace un momento';
@@ -493,9 +498,19 @@ function getChangesLabel(log: any): string {
   return 'Ver datos anteriores';
 }
 
+const nowTick = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+
 onMounted(() => {
   auditStore.fetchLogs();
   auditStore.fetchEntityTypes();
+  tickTimer = setInterval(() => {
+    nowTick.value = Date.now();
+  }, 60000);
+});
+
+onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer);
 });
 </script>
 

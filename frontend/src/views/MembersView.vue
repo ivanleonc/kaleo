@@ -28,104 +28,87 @@
       </div>
 
       <div class="table-section">
-        <div class="table-wrapper">
-          <table v-if="!isInitialLoading && filteredMembers.length > 0" class="ui-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Email</th>
-                <th>Rol</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="member in filteredMembers" :key="member.id">
-                <td>
-                  <div class="user-cell">
-                    <div class="user-avatar">
-                      <img v-if="member.avatar_url" :src="member.avatar_url" :alt="member.name" />
-                      <span v-else>{{ getInitials(member.name) }}</span>
-                    </div>
-                    <div class="user-cell-text">
-                      <span class="font-medium truncate" :title="member.name">{{ member.name }}</span>
-                      <span v-if="member.position" class="user-cell-sub truncate" :title="member.position">{{ member.position }}</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="truncate" :title="member.email">{{ member.email }}</td>
-                <td>
-                  <div class="roles-cell">
-                    <span v-for="role in member.roles" :key="role" class="badge-role"
-                      :class="{ 'owner-badge': role === 'Owner' || role === 'owner' }">
-                      <IconCrown v-if="role === 'Owner' || role === 'owner'" :size="12" stroke-width="2" class="owner-icon" />
-                      {{ role }}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <div class="status-cell">
-                    <span class="badge-status" :class="member.status || 'active'">
-                      {{ statusLabel(member.status) }}
-                    </span>
-                    <span
-                      v-if="member.must_change_password"
-                      class="badge-temp"
-                      title="Aún usa contraseña temporal: no ha completado el cambio"
-                    >
-                      Temporal
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <div class="row-actions" v-permission="Permissions.USERS.UPDATE">
-                    <UiDropdown align="end" label="Acciones del miembro">
-                      <template #trigger="{ toggle }">
-                        <button class="dots-btn" @click.stop="toggle" aria-haspopup="menu" :aria-label="`Acciones para ${member.name}`">
-                          <IconDotsVertical :size="16" stroke-width="1.8" />
-                        </button>
-                      </template>
-                      <template #default>
-                        <UiDropdownItem @click="openEditModal(member)">
-                          <IconPencil :size="14" stroke-width="1.8" />
-                          <span>Editar</span>
-                        </UiDropdownItem>
-                        <UiDropdownItem @click="openResetPasswordModal(member)">
-                          <IconKey :size="14" stroke-width="1.8" />
-                          <span>Resetear Contraseña</span>
-                        </UiDropdownItem>
-                        <UiDropdownItem @click="openResetPasswordEmailModal(member)">
-                          <IconMail :size="14" stroke-width="1.8" />
-                          <span>Resetear y enviar al correo</span>
-                        </UiDropdownItem>
-                        <div class="ui-dropdown-divider" role="separator"></div>
-                        <UiDropdownItem danger @click="handleDelete(member.id, member.name)" v-permission="Permissions.USERS.DELETE">
-                          <IconTrash :size="14" stroke-width="1.8" />
-                          <span>Eliminar</span>
-                        </UiDropdownItem>
-                      </template>
-                    </UiDropdown>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div v-else-if="isInitialLoading" class="skeleton-list" aria-label="Cargando miembros">
-            <div v-for="n in 5" :key="n" class="skeleton-row">
-              <div class="skeleton skeleton-avatar"></div>
-              <div class="skeleton skeleton-text"></div>
-              <div class="skeleton skeleton-text short"></div>
-              <div class="skeleton skeleton-badge"></div>
+        <UiDataTable
+          :columns="memberColumns"
+          :rows="filteredMembers"
+          :loading="isInitialLoading"
+          :empty-title="memberStore.members.length === 0 ? 'No hay miembros todavía' : 'Sin resultados'"
+          :empty-description="memberStore.members.length === 0
+            ? 'Invita a tu primera persona al equipo para empezar.'
+            : 'Prueba con otra búsqueda o limpia los filtros.'"
+        >
+          <template #cell-name="{ row }">
+            <div class="user-cell">
+              <div class="user-avatar">
+                <img v-if="row.avatar_url" :src="row.avatar_url" :alt="row.name" />
+                <span v-else>{{ getInitials(row.name) }}</span>
+              </div>
+              <div class="user-cell-text">
+                <span class="font-medium truncate" :title="row.name">{{ row.name }}</span>
+                <span v-if="row.position" class="user-cell-sub truncate" :title="row.position">{{ row.position }}</span>
+              </div>
             </div>
-          </div>
-
-          <div v-else class="empty-state">
+          </template>
+          <template #cell-email="{ row }">
+            <span class="truncate" :title="row.email">{{ row.email }}</span>
+          </template>
+          <template #cell-roles="{ row }">
+            <div class="roles-cell">
+              <span v-for="role in row.roles" :key="role" class="badge-role"
+                :class="{ 'owner-badge': role === 'Owner' || role === 'owner' }">
+                <IconCrown v-if="role === 'Owner' || role === 'owner'" :size="12" stroke-width="2" class="owner-icon" />
+                {{ role }}
+              </span>
+            </div>
+          </template>
+          <template #cell-status="{ row }">
+            <div class="status-cell">
+              <span class="badge-status" :class="row.status || 'active'">
+                {{ statusLabel(row.status) }}
+              </span>
+              <span
+                v-if="row.must_change_password"
+                class="badge-temp"
+                title="Aún usa contraseña temporal: no ha completado el cambio"
+              >
+                Temporal
+              </span>
+            </div>
+          </template>
+          <template #cell-actions="{ row }">
+            <div class="row-actions" v-permission="Permissions.USERS.UPDATE">
+              <UiDropdown align="end" label="Acciones del miembro">
+                <template #trigger="{ toggle }">
+                  <button class="dots-btn" @click.stop="toggle" aria-haspopup="menu" :aria-label="`Acciones para ${row.name}`">
+                    <IconDotsVertical :size="16" stroke-width="1.8" />
+                  </button>
+                </template>
+                <template #default>
+                  <UiDropdownItem @click="openEditModal(row)">
+                    <IconPencil :size="14" stroke-width="1.8" />
+                    <span>Editar</span>
+                  </UiDropdownItem>
+                  <UiDropdownItem @click="openResetPasswordModal(row)">
+                    <IconKey :size="14" stroke-width="1.8" />
+                    <span>Resetear Contraseña</span>
+                  </UiDropdownItem>
+                  <UiDropdownItem @click="openResetPasswordEmailModal(row)">
+                    <IconMail :size="14" stroke-width="1.8" />
+                    <span>Resetear y enviar al correo</span>
+                  </UiDropdownItem>
+                  <div class="ui-dropdown-divider" role="separator"></div>
+                  <UiDropdownItem danger @click="handleDelete(row.id, row.name)" v-permission="Permissions.USERS.DELETE">
+                    <IconTrash :size="14" stroke-width="1.8" />
+                    <span>Eliminar</span>
+                  </UiDropdownItem>
+                </template>
+              </UiDropdown>
+            </div>
+          </template>
+          <template #empty-icon>
             <IconUsers :size="48" stroke-width="1.5" />
-            <p>{{ memberStore.members.length === 0 ? 'No hay miembros todavía' : 'Sin resultados' }}</p>
-            <span>{{ memberStore.members.length === 0
-              ? 'Invita a tu primera persona al equipo para empezar.'
-              : 'Prueba con otra búsqueda o limpia los filtros.' }}</span>
+          </template>
+          <template #empty-action>
             <UiButton
               v-if="memberStore.members.length === 0"
               v-permission="Permissions.USERS.CREATE"
@@ -134,12 +117,12 @@
             >
               <IconPlus :size="16" /> Nuevo Miembro
             </UiButton>
-          </div>
-        </div>
+          </template>
+        </UiDataTable>
       </div>
 
       <!-- Add Member Modal -->
-      <UiModal v-model="isAddModalOpen" size="large">
+      <UiModal v-model="isAddModalOpen" size="large" :confirm-on-dirty="true" :dirty="isAddDirty">
         <form @submit.prevent="handleAddSubmit">
           <UiCard>
             <template #header>
@@ -366,6 +349,7 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
+import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import { useToast } from '@/composables/useToast';
@@ -404,6 +388,14 @@ const filterRole = ref('');
 const filterStatus = ref('');
 
 const isInitialLoading = computed(() => memberStore.isLoading && memberStore.members.length === 0);
+
+const memberColumns = [
+  { key: 'name', label: 'Nombre' },
+  { key: 'email', label: 'Email' },
+  { key: 'roles', label: 'Rol' },
+  { key: 'status', label: 'Estado' },
+  { key: 'actions', label: '', align: 'right' as const },
+];
 
 const hasActiveFilters = computed(() => searchQuery.value || filterRole.value || filterStatus.value);
 
@@ -469,6 +461,32 @@ onMounted(async () => {
   }
 });
 
+const addSnapshot = ref('');
+
+const snapshotAddForm = () => {
+  addSnapshot.value = JSON.stringify({
+    name: addForm.name,
+    email: addForm.email,
+    roleIds: [...addForm.roleIds],
+    phone: addForm.phone,
+    position: addForm.position,
+    document_type: addForm.document_type,
+    document_number: addForm.document_number,
+  });
+};
+
+const isAddDirty = computed(() =>
+  JSON.stringify({
+    name: addForm.name,
+    email: addForm.email,
+    roleIds: [...addForm.roleIds],
+    phone: addForm.phone,
+    position: addForm.position,
+    document_type: addForm.document_type,
+    document_number: addForm.document_number,
+  }) !== addSnapshot.value
+);
+
 const openAddModal = () => {
   addForm.name = '';
   addForm.email = '';
@@ -479,6 +497,7 @@ const openAddModal = () => {
   addForm.document_number = '';
   newMemberCredentials.value = null;
   memberStore.error = null;
+  snapshotAddForm();
   isAddModalOpen.value = true;
 };
 
