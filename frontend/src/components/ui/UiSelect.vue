@@ -66,4 +66,12 @@ const model = defineModel<string | number>({ default: '' });
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+/* 16px en táctil: evita el zoom automático de iOS al enfocar */
+@media (pointer: coarse) {
+  .ui-select {
+    font-size: 1rem;
+    min-height: 2.75rem;
+  }
+}
 </style>

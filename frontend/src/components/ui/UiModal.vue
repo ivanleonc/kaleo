@@ -141,6 +141,16 @@ defineExpose({ close, attemptClose });
 .modal-default { max-width: 400px; }
 .modal-large { max-width: 600px; }
 
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 0.5rem;
+    align-items: flex-end;
+  }
+  .modal-content {
+    max-height: calc(100vh - 1rem);
+  }
+}
+
 @keyframes modal-in {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }
   to { opacity: 1; transform: scale(1) translateY(0); }

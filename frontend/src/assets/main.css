@@ -631,3 +631,56 @@ body {
 @media (max-width: 640px) {
   .form-row { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════ RESPONSIVE SYSTEM ═══════════════
+   Breakpoints oficiales (no inventar otros en vistas/componentes):
+   - 640px → teléfonos (1 columna, tablas compactas)
+   - 768px → tablets/móvil grande (filtros apilados, sidebar móvil)
+   Touch: (pointer: coarse) cubre Android, iPhone y tablets táctiles.
+   Regla: todo lo interactivo >= 44px y inputs >= 16px (evita zoom iOS).
+   Los componentes del kit (ui/) ya lo cumplen; esto cubre patrones globales.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Sin flash gris al tocar en móviles */
+button, a, [role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Área segura (notch / barra home) para elementos fijos inferiores */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Tablas compactas en teléfonos */
+@media (max-width: 640px) {
+  .ui-table th,
+  .ui-table td {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Objetivos táctiles >= 44px solo en pantallas táctiles */
+@media (pointer: coarse) {
+  .dots-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .clear-btn,
+  .page-btn {
+    min-height: 44px;
+  }
+  .filter-input,
+  .filters-bar .ui-select {
+    height: 2.75rem;
+    font-size: 1rem;
+  }
+  .filter-date {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+}

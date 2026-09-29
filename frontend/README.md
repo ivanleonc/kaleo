@@ -67,6 +67,19 @@ src/
 - **Contraseñas**: regla única en `utils/password.ts` (6+mayús/min/núm). Cambiarla ahí, no por vista.
 - **Fechas de auditoría**: respetan `authStore.user.timezone` si existe.
 
+## Sistema responsive (cómo agregar pantallas que se vean bien en móvil)
+
+- **Breakpoints oficiales**: `640px` (teléfonos) y `768px` (tablets). No inventar otros en vistas/componentes.
+- **Touch primero con `(pointer: coarse)`**: cubre Android, iPhone y tablets táctiles sin importar el tamaño. Reglas vigentes:
+  - Todo lo interactivo mide mínimo **44px** (botones, items de dropdown, paginación, botón de cerrar).
+  - Los inputs usan **16px** de fuente en táctil (iOS hace zoom automático con menos de 16px).
+  - Iconos solos (`dots-btn`, cerrar) mínimo 40/32px.
+- **Dónde vive cada cosa**: lo genérico en `src/assets/main.css` (sección `RESPONSIVE SYSTEM`); lo propio de un componente en su `<style scoped>` (ej. `UiInput`, `UiButton`, `UiDropdown`). Las vistas **no** definen reglas táctiles: usan el kit.
+- **Área segura**: `env(safe-area-inset-bottom)` en elementos fijos inferiores (toasts); clase utilitaria `.safe-area-bottom` disponible.
+- **Modales en teléfono**: se anclan abajo tipo sheet (≤480px) con scroll interno.
+- **Tablas**: scroll horizontal + celdas compactas en teléfono; no ocultar columnas por CSS (se pierde información).
+- **Checklist para una vista nueva**: 1) usar el kit (hereda todo), 2) probar a 360px (sin scroll horizontal salvo tablas), 3) tocar cada botón con el pulgar (44px), 4) enfocar cada input (sin zoom en iPhone), 5) girar a horizontal.
+
 ## Despliegue (Cloudflare Pages)
 
 Proyecto Pages → repo → root `frontend`, framework Vite, build `npm run build`, output `dist`, env `VITE_API_URL` del ambiente. El fallback SPA ya lo maneja Pages nativo (no se necesita `_redirects`). Cada push a `main` redespliega.

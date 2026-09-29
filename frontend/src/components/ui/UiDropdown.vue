@@ -174,6 +174,14 @@ defineExpose({ open, close, toggle, isOpen });
   margin: var(--space-1) 0;
 }
 
+/* Items cómodos al tacto en Android/iPhone */
+@media (pointer: coarse) {
+  .ui-dropdown-item {
+    min-height: 44px;
+    font-size: var(--text-base);
+  }
+}
+
 @keyframes ui-dropdown-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }

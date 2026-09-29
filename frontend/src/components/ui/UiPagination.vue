@@ -76,4 +76,10 @@ const totalPages = computed(() => Math.max(1, Math.ceil(props.total / props.limi
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
+
+@media (pointer: coarse) {
+  .page-btn {
+    min-height: 44px;
+  }
+}
 </style>

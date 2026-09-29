@@ -601,6 +601,8 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
@@ -609,6 +611,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .action-badge {
@@ -628,6 +632,7 @@ onUnmounted(() => {
   font-family: var(--font-mono, monospace);
   font-size: var(--text-sm);
   color: var(--text-main);
+  overflow-wrap: anywhere;
 }
 
 .timeline-right {

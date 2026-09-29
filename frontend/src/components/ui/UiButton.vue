@@ -69,6 +69,16 @@ withDefaults(defineProps<Props>(), {
   position: absolute;
 }
 
+/* Objetivo táctil mínimo en Android/iPhone */
+@media (pointer: coarse) {
+  .ui-button {
+    min-height: 44px;
+  }
+  .ui-button.btn-sm {
+    min-height: 36px;
+  }
+}
+
 .btn-auto {
   width: auto;
 }

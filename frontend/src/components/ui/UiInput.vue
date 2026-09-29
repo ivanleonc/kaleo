@@ -128,6 +128,14 @@ const togglePassword = () => {
   box-shadow: 0 0 0 1px var(--color-danger);
 }
 
+/* 16px en táctil: evita el zoom automático de iOS al enfocar */
+@media (pointer: coarse) {
+  .ui-input {
+    font-size: 1rem;
+    min-height: 2.75rem;
+  }
+}
+
 .ui-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
