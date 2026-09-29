@@ -41,7 +41,64 @@ export class EmailService {
     return this.transporter;
   }
 
+  private parseSender(from: string): { email: string; name?: string } {
+    const match = from.match(/^(.*)<([^<>]+)>$/);
+    if (match) {
+      const name = match[1].trim().replace(/^["']|["']$/g, '');
+      return name ? { email: match[2].trim(), name } : { email: match[2].trim() };
+    }
+    return { email: from.trim() };
+  }
+
+  async sendViaBrevoApi(options: EmailOptions): Promise<boolean> {
+    const apiKey = this.configService.get<string>('BREVO_API_KEY');
+    if (!apiKey) return false;
+
+    const from = this.parseSender(
+      this.configService.get<string>('EMAIL_FROM') || 'no-reply@localhost',
+    );
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey,
+        },
+        body: JSON.stringify({
+          sender: from,
+          to: [{ email: options.to }],
+          subject: options.subject,
+          htmlContent: options.html,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        throw new Error(`Brevo API ${response.status}: ${body.slice(0, 200)}`);
+      }
+
+      this.logger.log(`Email enviado a ${options.to} vía Brevo API: ${options.subject}`);
+      return true;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async send(options: EmailOptions): Promise<void> {
+    // 1. API HTTP de Brevo (puerto 443, no la filtran los hostings)
+    try {
+      const sent = await this.sendViaBrevoApi(options);
+      if (sent) return;
+    } catch (error: any) {
+      this.logger.error(`Fallo el envío a ${options.to} vía Brevo API: ${error.message}`);
+      throw new InternalServerErrorException('No se pudo enviar el correo. Intenta de nuevo.');
+    }
+
+    // 2. SMTP clásico (puede estar filtrado según el host)
     const transporter = this.getTransporter();
 
     if (!transporter) {
