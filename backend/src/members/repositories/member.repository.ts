@@ -11,6 +11,7 @@ export class MemberRepository {
          u.id, u.email, u.name, u.created_at,
          u.phone, u.position, u.avatar_url,
          u.document_type, u.document_number,
+         u.must_change_password,
          COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
          CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW()
            THEN 'inactive' ELSE 'active'
@@ -21,7 +22,8 @@ export class MemberRepository {
        WHERE uc.company_id = $1 AND u.deleted_at IS NULL
        GROUP BY u.id, u.email, u.name, u.created_at, u.locked_until,
                 u.phone, u.position, u.avatar_url,
-                u.document_type, u.document_number
+                u.document_type, u.document_number,
+                u.must_change_password
        ORDER BY u.name, u.email`,
       [companyId],
     );

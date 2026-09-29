@@ -10,6 +10,7 @@ export interface Member {
   avatar_url?: string | null;
   document_type?: string | null;
   document_number?: string | null;
+  must_change_password?: boolean;
 }
 
 export interface CreateMemberPayload {

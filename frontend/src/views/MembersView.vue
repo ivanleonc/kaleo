@@ -64,9 +64,18 @@
                   </div>
                 </td>
                 <td>
-                  <span class="badge-status" :class="member.status || 'active'">
-                    {{ statusLabel(member.status) }}
-                  </span>
+                  <div class="status-cell">
+                    <span class="badge-status" :class="member.status || 'active'">
+                      {{ statusLabel(member.status) }}
+                    </span>
+                    <span
+                      v-if="member.must_change_password"
+                      class="badge-temp"
+                      title="Aún usa contraseña temporal: no ha completado el cambio"
+                    >
+                      Temporal
+                    </span>
+                  </div>
                 </td>
                 <td>
                   <div class="row-actions" v-permission="Permissions.USERS.UPDATE">
@@ -669,6 +678,26 @@ const confirmResetPasswordEmail = async () => {
 }
 
 .roles-cell { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.badge-temp {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  white-space: nowrap;
+}
 .owner-icon { color: var(--accent-amber); margin-right: 4px; }
 
 .password-row {
