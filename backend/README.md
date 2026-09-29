@@ -1,124 +1,99 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend — API SaaS multi-tenant
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST con **NestJS 12 + ESM** (`"type": "module"`), **TypeORM + PostgreSQL** (Supabase) y **JWT** con access (15 min) + refresh (7 días) por tokens.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Requisitos
 
-## Description
+- Node.js `>=22 <25` (ver `engines`), npm 10+
+- Base de datos PostgreSQL (Supabase). Una por ambiente: sandbox, staging, prod
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Instalación
 
-## Project setup
-
-```bash
-$ npm install
+```powershell
+cd backend
+npm install
 ```
 
-## Compile and run the project
+## Variables de entorno
 
-```bash
-# development
-$ npm run start
+Nunca se commitean (`.gitignore` las cubre). Hay un archivo por objetivo:
 
-# watch mode
-$ npm run start:dev
+| Archivo | Cuándo se usa | Comando |
+|---|---|---|
+| `.env` | Default local | `npm run dev` |
+| `.env.sandbox` | Desarrollo con BD limpia | `npm run dev:sandbox` |
+| `.env.staging` | Probar contra staging | `npm run dev:staging` |
+| Producción/Render | Solo dashboard de Render | (no existe archivo) |
 
-# production mode
-$ npm run start:prod
+Carga en `src/main.ts`: primero `.env.[NODE_ENV]`, luego `.env` como respaldo; si no hay archivo, mandan las variables del host. Ver `.env.example` para la lista completa.
+
+| Variable | Para qué |
+|---|---|
+| `DATABASE_URL` | Conexión Postgres (pooler Supabase `:6543` en nube) |
+| `JWT_SECRET` | Firma de tokens. **Distinto por ambiente**; rotarlo cierra todas las sesiones |
+| `CORS_ORIGIN` / `FRONTEND_URL` | Dominio exacto del frontend (CORS y enlaces de emails) |
+| `PORT` | Lo inyecta el host; default `3000` en local |
+| `SWAGGER_ENABLED` | `'true'` para exponer `/api/docs` (default: apagado) |
+| `SWAGGER_USER` / `SWAGGER_PASSWORD` | Basic Auth de la documentación |
+
+## Scripts
+
+| Comando | Uso |
+|---|---|
+| `npm run dev` / `dev:sandbox` / `dev:staging` | Desarrollo con watch contra cada BD |
+| `npm run build` | Compila a `dist/` (lo corre Render) |
+| `npm run start:prod` | `node dist/main.js` (producción) |
+| `npm run typecheck` | `tsc --noEmit` — **correr antes de cada push** |
+| `npm test` | Vitest |
+
+## Base de datos y migraciones
+
+SQL plano en `src/migrations/`, se ejecutan **a mano en el SQL editor de Supabase** (no hay runner automático).
+
+- Orden estricto: `000-baseline-schema.sql` → `002` → … → `011` (luego `012`, …).
+- `000` es el esquema extraído de producción: re-ejecutable sin errores.
+- **Reglas de oro**: nunca editar una migración ya aplicada; cada cambio = archivo nuevo numerado; probar siempre en sandbox → staging → prod.
+- Seeds de roles/permisos del sistema viven en `003`/`004` (Owner/Admin/Viewer + 28 permisos).
+- `audit_logs` es **particionada por rango** (`created_at`): `y2026h2`, `y2027` y `default`. Los `ALTER` siempre a la tabla **padre** (se propagan solas).
+
+## Arquitectura (cómo está organizado)
+
+```
+src/
+├── auth/          # Login, registro, sesión, passwords, guards, strategies
+├── members/       # Miembros del equipo (altas, roles, estados, reseteo)
+├── company/       # Empresas y tenancy
+├── branches/      # Sedes
+├── rbac/          # Roles, permisos y guards de permisos
+├── audit/         # Interceptor global, repositorio particionado, retención, CSV
+├── email/         # Envíos (verificación, reseteo, temporales)
+├── common/        # Guards, decoradores, constantes RBAC
+└── migrations/    # SQL versionado (ver arriba)
 ```
 
-## Run tests
+Conceptos clave:
 
-```bash
-# unit tests
-$ npm run test
+- **Multi-tenancy**: cada request autenticada lleva header `x-company-id`. Todo filtra por empresa.
+- **Guards globales** (`app.module.ts`): `ThrottlerGuard` (30 req/min) → `JwtAuthGuard` → `PasswordChangedGuard`. `@Public()` exime auth; `@SkipPasswordChanged()` exime cambio forzado.
+- **RBAC**: fuente de verdad en `src/common/constants/` (`permissions.ts` formato `modulo:accion`, `roles.ts`). `Owner` todo (inmutable), `Admin` todo menos gestión de roles/borrado de usuarios, `Viewer` solo lectura.
+- **Auditoría automática**: `AuditLogInterceptor` (global) registra toda mutación con antes/después (resolviendo IDs a nombres), respuesta, duración, IP y usuario. Lee `src/audit/` antes de tocarlo: hay reglas finas (endpoints `/audit` excluidos para no auto-loguearse, secretos redactados).
+- **Sesiones**: los claims del JWT (roles/permisos/empresas) se congelan al emitir; se refrescan en cada `refresh`, cambio de empresa y creación de empresa. Revocar refresh tokens cierra sesiones ajenas (se usa al resetear/eliminar/desactivar).
+- **Health check**: `GET /` es público a propósito (lo usa Render).
 
-# e2e tests
-$ npm run test:e2e
+## Documentación API
 
-# test coverage
-$ npm run test:cov
-```
+Con `SWAGGER_ENABLED=true` + credenciales: `http://localhost:3000/api/docs` (JSON en `/api/docs-json`). En producción va apagado salvo necesidad.
 
-## Deployment
+## Despliegue (Render)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Servicio **Web Service**, root `backend`, build `npm install && npm run build`, start `npm run start:prod`, plan Free (duerme sin tráfico; UptimeRobot lo mantiene tibio), health path `/`, y variable extra obligatoria: `NPM_CONFIG_PRODUCTION=false` (si no, falta `@nestjs/cli` y el build muere con `nest: not found`).
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Problemas comunes
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ npm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+| Síntoma | Causa típica |
+|---|---|
+| `400` en `GET /companies/users` | Conflicto de rutas `:id` (ver comentario en `app.module.ts`) |
+| `401` tras cambio de empresa | Tokens viejos: refrescar sesión / re-login |
+| `403` inesperado | Claims del JWT desactualizados (roles por empresa) o falta permiso |
+| Conexión a BD cae en nube | Usar pooler `:6543`; revisar `DATABASE_URL` del ambiente correcto |
+| `JWT_SECRET required` al arrancar | Falta la variable (no hay default a propósito) |
