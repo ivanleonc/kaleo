@@ -19,10 +19,11 @@ npm run dev        # http://localhost:5173
 
 | Archivo | Cuándo aplica |
 |---|---|
+| `.env.example` | Plantilla (cópiala a `.env.development` para local) |
 | `.env.development` | Desarrollo local (`VITE_API_URL=http://localhost:3000/api`) |
 | Dashboard de Cloudflare | Staging/prod (`VITE_API_URL=https://<api>/api`) |
 
-⚠️ Vite **hornea** las env en el build: cambiar `VITE_API_URL` exige rebuild/redeploy. Si el login da 404 a `/auth/...` sin `/api`, revisa esta variable primero.
+⚠️ Vite **hornea** las env en el build: cambiar `VITE_API_URL` exige rebuild/redeploy. Si el login da 404 a `/auth/...` sin `/api`, revisa esta variable primero. Un build de producción sin `VITE_API_URL` falla a propósito (antes apuntaba a localhost en silencio).
 
 ## Scripts
 

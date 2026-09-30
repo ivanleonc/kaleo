@@ -1,6 +1,19 @@
 import axios from 'axios';
 import { TokenService } from '@/utils/token.service';
 
+/**
+ * URL base de la API. En desarrollo cae a localhost; en producción es
+ * OBLIGATORIA (se hornea en el build): un build prod sin VITE_API_URL
+ * fallaría en silencio contra localhost, así que se revienta temprano.
+ */
+const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+if (!configuredApiUrl && import.meta.env.PROD) {
+  throw new Error(
+    '[api] VITE_API_URL no está configurada. Define la URL del backend y reconstruye.',
+  );
+}
+export const API_BASE_URL = configuredApiUrl || 'http://localhost:3000/api';
+
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: any) => void }> = [];
 
@@ -16,7 +29,7 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -86,7 +99,7 @@ apiClient.interceptors.response.use(
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/refresh`,
+          `${API_BASE_URL}/auth/refresh`,
           { refreshToken: currentRefreshToken }
         );
 

@@ -12,7 +12,7 @@ for (const path of [`.env.${process.env.NODE_ENV}`, '.env']) {
 }
 
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { timingSafeEqual } from 'crypto';
@@ -64,8 +64,14 @@ function swaggerBasicAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 async function bootstrap() {
-  if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required');
+  // Fail-closed: sin estas variables el servidor no arranca a medias.
+  // (Un .env ausente está bien en hosting: todo puede venir del dashboard.)
+  const missing: string[] = [];
+  if (!process.env.JWT_SECRET) missing.push('JWT_SECRET');
+  if (!process.env.DATABASE_URL) missing.push('DATABASE_URL');
+  if (!process.env.CORS_ORIGIN) missing.push('CORS_ORIGIN');
+  if (missing.length > 0) {
+    throw new Error(`Faltan variables de entorno requeridas: ${missing.join(', ')}`);
   }
 
   const app = await NestFactory.create(AppModule);
@@ -79,8 +85,12 @@ async function bootstrap() {
     crossOriginEmbedderPolicy: false,
   }));
 
+  // CORS cerrado por defecto: solo orígenes explícitos (coma-separados para
+  // staging+prod). Nunca '*' con credenciales: el navegador lo rechaza y
+  // expondría la API a cualquier sitio.
+  const corsOrigins = process.env.CORS_ORIGIN!.split(',').map((o) => o.trim()).filter(Boolean);
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -99,6 +109,7 @@ async function bootstrap() {
   // Documentación: apagada por defecto en producción salvo flag explícito.
   // Cuando está encendida exige Basic Auth (usuario/clave por env, rotables).
   if (process.env.SWAGGER_ENABLED === 'true') {
+    new Logger('bootstrap').warn('Swagger habilitado. En producción debe ser SWAGGER_ENABLED=false.');
     const document = SwaggerModule.createDocument(app, config);
     const httpAdapter = app.getHttpAdapter().getInstance();
     httpAdapter.use('/api/docs', swaggerBasicAuth);

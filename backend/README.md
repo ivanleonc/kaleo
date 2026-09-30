@@ -78,7 +78,7 @@ Conceptos clave:
 - **RBAC**: fuente de verdad en `src/common/constants/` (`permissions.ts` formato `modulo:accion`, `roles.ts`). `Owner` todo (inmutable), `Admin` todo menos gestión de roles/borrado de usuarios, `Viewer` solo lectura.
 - **Auditoría automática**: `AuditLogInterceptor` (global) registra toda mutación con antes/después (resolviendo IDs a nombres), respuesta, duración, IP y usuario. Lee `src/audit/` antes de tocarlo: hay reglas finas (endpoints `/audit` excluidos para no auto-loguearse, secretos redactados).
 - **Sesiones**: los claims del JWT (roles/permisos/empresas) se congelan al emitir; se refrescan en cada `refresh`, cambio de empresa y creación de empresa. Revocar refresh tokens cierra sesiones ajenas (se usa al resetear/eliminar/desactivar).
-- **Health check**: `GET /` es público a propósito (lo usa Render).
+- **Health check**: `GET /health` es público a propósito (lo usa Render como health path: responde 200 solo si la BD contesta, 503 si no).
 
 ## Emails transaccionales (`src/email/`)
 
@@ -101,7 +101,7 @@ Con `SWAGGER_ENABLED=true` + credenciales: `http://localhost:3000/api/docs` (JSO
 
 ## Despliegue (Render)
 
-Servicio **Web Service**, root `backend`, build `npm install && npm run build`, start `npm run start:prod`, plan Free (duerme sin tráfico; UptimeRobot lo mantiene tibio), health path `/`, y variable extra obligatoria: `NPM_CONFIG_PRODUCTION=false` (si no, falta `@nestjs/cli` y el build muere con `nest: not found`).
+Servicio **Web Service**, root `backend`, build `npm install && npm run build`, start `npm run start:prod`, plan Free (duerme sin tráfico; UptimeRobot lo mantiene tibio), health path `/health`, y variable extra obligatoria: `NPM_CONFIG_PRODUCTION=false` (si no, falta `@nestjs/cli` y el build muere con `nest: not found`). Variables obligatorias en el dashboard: `DATABASE_URL` (pooler Supabase), `JWT_SECRET` (único por entorno), `CORS_ORIGIN` + `FRONTEND_URL` (URL real de la web), `NODE_ENV=production`, `SWAGGER_ENABLED=false`.
 
 ## Problemas comunes
 
