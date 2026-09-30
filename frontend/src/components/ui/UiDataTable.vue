@@ -1,50 +1,73 @@
 <template>
   <div class="table-wrapper" :class="{ 'table-scroll': sticky }">
     <table
-      v-if="!loading && rows.length > 0"
+      v-if="!loading && visibleRows.length > 0"
       class="ui-table"
-      :class="{ 'is-sticky': sticky, 'is-sortable': hasSortableColumn }"
+      :class="{ 'is-sticky': sticky }"
     >
       <thead>
-        <tr>
+        <tr v-for="headerGroup in headerGroups" :key="headerGroup.id">
           <th
-            v-for="col in columns"
-            :key="col.key"
+            v-for="header in headerGroup.headers"
+            :key="header.id"
             scope="col"
-            :style="col.align ? { textAlign: col.align } : undefined"
-            :aria-sort="ariaSortFor(col.key)"
+            :colspan="header.colSpan"
+            :style="alignStyle(header.column.columnDef.meta?.align)"
+            :aria-sort="ariaSortFor(header.column)"
           >
-            <button
-              v-if="sortable && col.sortable"
-              type="button"
-              class="ui-table-sort"
-              :class="{ 'is-active': sortKey === col.key }"
-              @click="toggleSort(col.key)"
-            >
-              <span>{{ col.label }}</span>
-              <IconArrowsSort
-                v-if="sortKey !== col.key"
-                :size="14"
-                class="sort-icon"
-                aria-hidden="true"
-              />
-              <IconArrowUp v-else-if="sortDir === 'asc'" :size="14" class="sort-icon" aria-hidden="true" />
-              <IconArrowDown v-else :size="14" class="sort-icon" aria-hidden="true" />
-            </button>
-            <template v-else>{{ col.label }}</template>
+            <template v-if="!header.isPlaceholder">
+              <button
+                v-if="header.column.getCanSort()"
+                type="button"
+                class="ui-table-sort"
+                :class="{ 'is-active': header.column.getIsSorted() !== false }"
+                @click="header.column.getToggleSortingHandler()?.($event)"
+              >
+                <span>{{ headerLabel(header) }}</span>
+                <IconArrowsSort
+                  v-if="header.column.getIsSorted() === false"
+                  :size="14"
+                  class="sort-icon"
+                  aria-hidden="true"
+                />
+                <IconArrowUp
+                  v-else-if="header.column.getIsSorted() === 'asc'"
+                  :size="14"
+                  class="sort-icon"
+                  aria-hidden="true"
+                />
+                <IconArrowDown
+                  v-else
+                  :size="14"
+                  class="sort-icon"
+                  aria-hidden="true"
+                />
+              </button>
+              <template v-else>{{ headerLabel(header) }}</template>
+            </template>
           </th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, i) in sortedRows" :key="rowKey(row, i)">
+        <tr v-for="row in visibleRows" :key="row.id">
           <td
-            v-for="col in columns"
-            :key="col.key"
-            :data-label="col.label"
-            :style="col.align ? { textAlign: col.align } : undefined"
+            v-for="cell in row.getVisibleCells()"
+            :key="cell.id"
+            :data-label="cell.column.columnDef.meta?.label ?? ''"
+            :style="alignStyle(cell.column.columnDef.meta?.align)"
           >
-            <slot :name="`cell-${col.key}`" :row="row" :index="i">
-              {{ row[col.key] }}
+            <!--
+              API de celdas custom preservada: el slot se nombra por el `id`
+              de la columna (`cell-name`, `cell-actions`...), igual que antes.
+            -->
+            <slot
+              :name="`cell-${cell.column.id}`"
+              :row="cell.row.original"
+              :index="row.index"
+              :cell="cell"
+              :value="cell.getValue()"
+            >
+              {{ defaultCellText(cell) }}
             </slot>
           </td>
         </tr>
@@ -61,16 +84,16 @@
       <span class="sr-only">Cargando datos…</span>
       <div v-for="n in skeletonRows" :key="n" class="skeleton-row" aria-hidden="true">
         <div
-          v-for="(col, c) in columns"
-          :key="c"
+          v-for="header in leafHeaders"
+          :key="header.id"
           class="skeleton skeleton-text"
-          :style="{ width: `${columnSkeletonWidth(col)}px` }"
+          :style="{ width: `${columnSkeletonWidth(header.column.id, headerLabel(header))}px` }"
         ></div>
       </div>
     </div>
 
     <UiErrorState
-      v-else-if="error && rows.length === 0"
+      v-else-if="error && visibleRows.length === 0"
       :title="errorTitle"
       :description="error"
       v-bind="retryAttrs"
@@ -89,58 +112,47 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="TData extends RowData">
 import { computed, getCurrentInstance } from 'vue';
-import { IconArrowsSort, IconArrowUp, IconArrowDown } from '@tabler/icons-vue';
+import {
+  IconArrowsSort,
+  IconArrowUp,
+  IconArrowDown,
+} from '@tabler/icons-vue';
+import type {
+  AppVueTable,
+  Cell,
+  Column,
+  Header,
+  RowData,
+} from '@tanstack/vue-table';
+import type { AppFeatures } from '@/composables/useAppTable';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 
-export type SortDir = 'asc' | 'desc';
-
-export interface TableColumn {
-  key: string;
-  label: string;
-  align?: 'left' | 'center' | 'right';
-  /** Permite ordenar por esta columna. Requiere `sortable` en la tabla. */
-  sortable?: boolean;
-  /** Valor a ordenar cuando la celda no es texto plano (fechas, números). */
-  sortAccessor?: (row: any) => string | number;
-}
-
 const props = withDefaults(defineProps<{
-  columns: TableColumn[];
-  rows: any[];
+  /** Instancia creada con `useAppTable`. El presentador solo renderiza. */
+  table: AppVueTable<AppFeatures, TData, {}, {}, {}>;
   loading?: boolean;
   skeletonRows?: number;
-  rowKey?: string | ((row: any, index: number) => string | number);
-  emptyTitle?: string;
-  emptyDescription?: string;
   error?: string | null;
   errorTitle?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
   /** Cabecera fija con scroll interno (útil en tablas largas dentro del layout). */
   sticky?: boolean;
-  /** Habilita el ordenamiento local por columna. */
-  sortable?: boolean;
-  sortKey?: string | null;
-  sortDir?: SortDir;
 }>(), {
   loading: false,
   skeletonRows: 5,
-  rowKey: 'id',
-  emptyTitle: 'Sin resultados',
-  emptyDescription: '',
   error: null,
   errorTitle: 'No se pudieron cargar los datos',
+  emptyTitle: 'Sin resultados',
+  emptyDescription: '',
   sticky: false,
-  sortable: false,
-  sortKey: null,
-  sortDir: 'asc',
 });
 
 const emit = defineEmits<{
   retry: [];
-  'update:sortKey': [key: string];
-  'update:sortDir': [dir: SortDir];
 }>();
 
 // Los listeners de un emit declarado no llegan a $attrs, así que se mira el vnode.
@@ -150,59 +162,40 @@ const retryAttrs = computed(() => {
   return onRetry ? { onRetry: () => emit('retry') } : {};
 });
 
-const rowKey = (row: any, index: number): string | number => {
-  if (typeof props.rowKey === 'function') return props.rowKey(row, index);
-  return row[props.rowKey as string] ?? index;
+const headerGroups = computed(() => props.table.getHeaderGroups());
+const visibleRows = computed(() => props.table.getRowModel().rows);
+const leafHeaders = computed(() => headerGroups.value.flatMap((g) => g.headers));
+
+const alignStyle = (align?: 'left' | 'center' | 'right') =>
+  align ? { textAlign: align } : undefined;
+
+const headerLabel = (header: Header<AppFeatures, TData, any>): string => {
+  const def = header.column.columnDef.header;
+  if (typeof def === 'string' || typeof def === 'number') return String(def);
+  return header.column.id;
 };
 
-const columnSkeletonWidth = (col: TableColumn): number => {
-  if (!col || col.key === 'actions') return 32;
-  const labelLength = col.label?.length || 0;
+const ariaSortFor = (
+  column: Column<AppFeatures, TData, any>,
+): 'ascending' | 'descending' | 'none' | undefined => {
+  if (!column.getCanSort()) return undefined;
+  const sorted = column.getIsSorted();
+  if (sorted === 'asc') return 'ascending';
+  if (sorted === 'desc') return 'descending';
+  return 'none';
+};
+
+const defaultCellText = (cell: Cell<AppFeatures, TData, any>): string => {
+  const value: unknown = cell.getValue();
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return value.join(', ');
+  return String(value);
+};
+
+const columnSkeletonWidth = (id: string, label: string): number => {
+  if (!id || id === 'actions') return 32;
+  const labelLength = label?.length || 0;
   return 120 + ((labelLength * 13) % 90);
-};
-
-const hasSortableColumn = computed(() => props.sortable && props.columns.some((c) => c.sortable));
-
-const columnByKey = (key: string) => props.columns.find((c) => c.key === key);
-
-const cellValue = (row: any, col: TableColumn): string | number => {
-  if (col.sortAccessor) return col.sortAccessor(row);
-  const raw = row[col.key];
-  if (raw === null || raw === undefined) return '';
-  if (typeof raw === 'number') return raw;
-  // Los booleanos se comparan como texto ("true"/"false") de forma estable.
-  return String(raw);
-};
-
-const sortedRows = computed(() => {
-  if (!props.sortable || !props.sortKey) return props.rows;
-  const col = columnByKey(props.sortKey);
-  if (!col) return props.rows;
-
-  const factor = props.sortDir === 'asc' ? 1 : -1;
-  // Copia: nunca mutar la lista que entrega la vista/store.
-  return [...props.rows].sort((a, b) => {
-    const av = cellValue(a, col);
-    const bv = cellValue(b, col);
-    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * factor;
-    return String(av).localeCompare(String(bv), 'es', { sensitivity: 'base', numeric: true }) * factor;
-  });
-});
-
-const toggleSort = (key: string) => {
-  if (props.sortKey === key) {
-    const next: SortDir = props.sortDir === 'asc' ? 'desc' : 'asc';
-    emit('update:sortDir', next);
-    return;
-  }
-  emit('update:sortKey', key);
-  emit('update:sortDir', 'asc');
-};
-
-const ariaSortFor = (key: string) => {
-  if (!props.sortable || !hasSortableColumn.value) return undefined;
-  if (key !== props.sortKey) return 'none' as const;
-  return props.sortDir === 'asc' ? ('ascending' as const) : ('descending' as const);
 };
 </script>
 
@@ -302,4 +295,3 @@ const ariaSortFor = (key: string) => {
   }
 }
 </style>
-

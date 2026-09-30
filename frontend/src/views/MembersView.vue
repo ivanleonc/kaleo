@@ -29,15 +29,11 @@
 
       <div class="table-section">
         <UiDataTable
-          :columns="memberColumns"
-          :rows="filteredMembers"
+          :table="memberTable"
           :loading="isInitialLoading"
           :error="memberStore.error"
           error-title="No pudimos cargar los miembros"
           @retry="memberStore.fetchMembers()"
-          sortable
-          v-model:sort-key="memberSortKey"
-          v-model:sort-dir="memberSortDir"
           :empty-title="memberStore.members.length === 0 ? 'No hay miembros todavía' : 'Sin resultados'"
           :empty-description="memberStore.members.length === 0
             ? 'Invita a tu primera persona al equipo para empezar.'
@@ -363,6 +359,15 @@ import { emptyToUndefined } from '@/utils/text';
 import { useClipboard } from '@/composables/useClipboard';
 import { useDebounceFn } from '@/composables/useDebounceFn';
 import { useDirtyForm } from '@/composables/useDirtyForm';
+import {
+  useAppTable,
+  createAppColumnHelper,
+  useSortingState,
+  useControlledSorting,
+  sortingStateToServer,
+  type AppColumnDef,
+} from '@/composables/useAppTable';
+import type { Member } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
 import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconMail, IconCopy, IconUsers, IconX } from '@tabler/icons-vue';
@@ -388,16 +393,36 @@ const filterStatus = ref('');
 
 const isInitialLoading = computed(() => memberStore.isLoading && memberStore.members.length === 0);
 
-const memberColumns = [
-  { key: 'name', label: 'Nombre', sortable: true },
-  { key: 'email', label: 'Email', sortable: true },
-  { key: 'roles', label: 'Rol', sortable: true, sortAccessor: (m: any) => (m.roles ?? []).join(', ') },
-  { key: 'status', label: 'Estado', sortable: true, sortAccessor: (m: any) => (m.is_active ? 1 : 0) },
-  { key: 'actions', label: '', align: 'right' as const },
+const memberColumnHelper = createAppColumnHelper<Member>();
+
+/**
+ * Modo servidor: el orden lo resuelve el backend (`sortBy`/`sortDir`).
+ * `roles` no es sorteable — es un agregado que SQL no puede ordenar.
+ */
+const memberColumns: AppColumnDef<Member>[] = [
+  memberColumnHelper.accessor('name', { header: 'Nombre', meta: { label: 'Nombre' } }),
+  memberColumnHelper.accessor('email', { header: 'Email', meta: { label: 'Email' } }),
+  memberColumnHelper.accessor((m) => (m.roles ?? []).join(', '), {
+    id: 'roles',
+    header: 'Rol',
+    enableSorting: false,
+    meta: { label: 'Rol' },
+  }),
+  memberColumnHelper.accessor('status', { header: 'Estado', meta: { label: 'Estado' } }),
+  memberColumnHelper.display({ id: 'actions', header: '', meta: { label: '', align: 'right' } }),
 ];
 
-const memberSortKey = ref<string | null>(null);
-const memberSortDir = ref<'asc' | 'desc'>('asc');
+const memberSorting = useSortingState();
+const memberTable = useAppTable<Member>({
+  columns: memberColumns,
+  data: memberStore.members,
+  manualSorting: true,
+  manualPagination: true,
+  autoResetPageIndex: false,
+  ...useControlledSorting(memberSorting, (sorting) => {
+    void memberStore.setSort(sortingStateToServer(sorting));
+  }),
+});
 
 const hasActiveFilters = computed(() => searchQuery.value || filterRole.value || filterStatus.value);
 
@@ -412,8 +437,7 @@ const statusFilterOptions = computed(() => [
   { label: 'Inactivo', value: 'inactive' },
 ]);
 
-// El filtrado ocurre en el servidor para que page/total segu siendo coherentes.
-const filteredMembers = computed(() => memberStore.members);
+// El filtrado ocurre en el servidor para que page/total sigan siendo coherentes.
 
 const applyCurrentFilters = useDebounceFn(() => {
   memberStore.applyFilters({

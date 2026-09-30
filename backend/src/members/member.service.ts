@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MemberRepository } from './repositories/member.repository.js';
+import type { SortSpec } from '../common/dto/pagination-query.dto.js';
 import { PasswordService } from '../auth/password.service.js';
 import { RefreshTokenRepository } from '../auth/repositories/refresh-token.repository.js';
 import { EmailService } from '../email/email.service.js';
@@ -20,8 +21,9 @@ export class MemberService {
     page = 1,
     limit = 50,
     filters: { search?: string; status?: string; roleId?: string } = {},
+    sort: SortSpec = {},
   ) {
-    return this.memberRepository.getMembersByCompany(companyId, page, limit, filters);
+    return this.memberRepository.getMembersByCompany(companyId, page, limit, filters, sort);
   }
 
   async addMember(

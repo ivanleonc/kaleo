@@ -108,4 +108,41 @@ describe('MemberRepository.getMembersByCompany', () => {
     expect(result.total).toBe(0);
     expect(result.data).toEqual([]);
   });
+
+  it('ordena por nombre ascendente cuando no se pide sort', async () => {
+    await repository.getMembersByCompany('company-1', 1, 20);
+
+    // Comportamiento histórico preservado: antes era ORDER BY u.name, u.email.
+    expect(calls[1].sql).toContain('ORDER BY u.name ASC, u.name, u.email');
+  });
+
+  it('ordena por email descendente con sort explícito', async () => {
+    await repository.getMembersByCompany('company-1', 1, 20, {}, { sortBy: 'email', sortDir: 'desc' });
+
+    expect(calls[1].sql).toContain('ORDER BY u.email DESC');
+  });
+
+  it('ordena por estado con la expresión de bloqueo', async () => {
+    await repository.getMembersByCompany('company-1', 1, 20, {}, { sortBy: 'status', sortDir: 'asc' });
+
+    expect(calls[1].sql).toContain("ORDER BY CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW() THEN 'inactive' ELSE 'active' END ASC");
+  });
+
+  it('ignora claves de orden desconocidas y cae al fallback', async () => {
+    await repository.getMembersByCompany('company-1', 1, 20, {}, { sortBy: 'roles', sortDir: 'desc' });
+
+    // La columna cae al fallback (name), pero la dirección sí se respeta.
+    expect(calls[1].sql).toContain('ORDER BY u.name DESC');
+  });
+
+  it('neutraliza intentos de inyección en sortBy', async () => {
+    await repository.getMembersByCompany('company-1', 1, 20, {}, {
+      sortBy: 'u.name; DROP TABLE users--',
+      sortDir: 'desc',
+    });
+
+    const sql = calls[1].sql;
+    expect(sql).not.toContain('DROP TABLE');
+    expect(sql).toContain('ORDER BY u.name DESC');
+  });
 });

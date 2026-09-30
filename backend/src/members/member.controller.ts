@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Headers, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
-import { MemberQueryDto, normalizePagination } from '../common/dto/pagination-query.dto.js';
+import { MemberQueryDto, normalizePagination, normalizeSort } from '../common/dto/pagination-query.dto.js';
 import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { MemberService } from './member.service.js';
@@ -47,11 +47,12 @@ export class MemberController {
     @Query() query: MemberQueryDto,
   ) {
     const { page, limit } = normalizePagination(query);
+    const { sortBy, sortDir } = normalizeSort(query);
     const result = await this.memberService.getMembers(companyId, page, limit, {
       search: query.search,
       status: query.status,
       roleId: query.roleId,
-    });
+    }, { sortBy, sortDir });
     return OkPaged(result.data, result.total, result.page, result.limit);
   }
 

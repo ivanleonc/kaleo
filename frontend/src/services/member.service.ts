@@ -8,6 +8,8 @@ export const memberService = {
     search?: string;
     status?: string;
     roleId?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
   }): Promise<MembersResponse> {
     const response = await apiClient.get<MembersResponse>('/companies/users', { params });
     return response.data;

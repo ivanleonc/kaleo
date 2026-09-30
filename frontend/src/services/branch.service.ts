@@ -2,8 +2,15 @@ import { apiClient } from '@/api/axios';
 import type { BranchesResponse, BranchResponse, CreateBranchPayload, UpdateBranchPayload } from '@/types/branch';
 
 export const branchService = {
-  async getBranches(): Promise<BranchesResponse> {
-    const response = await apiClient.get<BranchesResponse>('/companies/branches');
+  async getBranches(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+  }): Promise<BranchesResponse> {
+    const response = await apiClient.get<BranchesResponse>('/companies/branches', { params });
     return response.data;
   },
 

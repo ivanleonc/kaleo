@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { memberService } from '@/services/member.service';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import type { ServerSort } from '@/composables/useAppTable';
 import type { Member, CreateMemberPayload, UpdateMemberPayload } from '@/types/member';
 
 export interface MemberFilters {
@@ -26,6 +27,8 @@ export const useMemberStore = defineStore('member', () => {
   const limit = ref(20);
   const total = ref(0);
   const filters = ref<MemberFilters>({});
+  const sortBy = ref<string | undefined>(undefined);
+  const sortDir = ref<'asc' | 'desc'>('asc');
 
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
   const hasPrev = computed(() => page.value > 1);
@@ -40,6 +43,7 @@ export const useMemberStore = defineStore('member', () => {
         page: targetPage,
         limit: limit.value,
         ...filters.value,
+        ...(sortBy.value ? { sortBy: sortBy.value, sortDir: sortDir.value } : {}),
       });
       members.value = response.data;
       total.value = response.total;
@@ -67,6 +71,13 @@ export const useMemberStore = defineStore('member', () => {
 
   const clearFilters = async () => {
     filters.value = {};
+    await fetchMembers(1);
+  };
+
+  /** Orden server-side: cambia el sort y vuelve a la primera página. */
+  const setSort = async (sort: ServerSort) => {
+    sortBy.value = sort.sortBy;
+    sortDir.value = sort.sortDir ?? 'asc';
     await fetchMembers(1);
   };
 
@@ -130,11 +141,14 @@ export const useMemberStore = defineStore('member', () => {
     hasPrev,
     hasNext,
     filters,
+    sortBy,
+    sortDir,
     fetchMembers,
     goToPage,
     setLimit,
     applyFilters,
     clearFilters,
+    setSort,
     addMember,
     updateMember,
     removeMember,

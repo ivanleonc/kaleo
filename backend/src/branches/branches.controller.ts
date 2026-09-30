@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Headers, ParseUUIDPipe, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Headers, Query, ParseUUIDPipe, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { BranchService } from './branches.service.js';
 import { CreateBranchDto } from './dto/create-branch.dto.js';
@@ -6,7 +6,8 @@ import { UpdateBranchDto } from './dto/update-branch.dto.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
-import { Ok } from '../common/dto/api-response.dto.js';
+import { BranchQueryDto, normalizePagination, normalizeSort } from '../common/dto/pagination-query.dto.js';
+import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
 import { Audit } from '../common/decorators/audit-context.decorator.js';
 
 @ApiTags('Branches - Sedes')
@@ -18,16 +19,22 @@ export class BranchController {
   @Get()
   @UseGuards(PermissionsGuard)
   @RequirePermissions('branches:read')
-  @ApiOperation({ summary: 'Obtener sedes de la empresa', description: 'Retorna la lista de sedes. Requiere permiso branches:read.' })
+  @ApiOperation({ summary: 'Obtener sedes de la empresa', description: 'Lista paginada con búsqueda, filtro de estado y orden. Requiere permiso branches:read.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
-  @ApiResponse({ status: 200, description: 'Lista de sedes' })
+  @ApiResponse({ status: 200, description: 'Lista paginada de sedes' })
   @ApiResponse({ status: 403, description: 'Permiso denegado' })
   async getBranches(
     @CurrentUser('id') userId: string,
     @Headers('x-company-id') companyId: string,
+    @Query() query: BranchQueryDto,
   ) {
-    const branches = await this.branchService.getBranches(companyId);
-    return Ok(branches);
+    const { page, limit } = normalizePagination(query);
+    const { sortBy, sortDir } = normalizeSort(query);
+    const result = await this.branchService.getBranches(companyId, page, limit, {
+      search: query.search,
+      status: query.status,
+    }, { sortBy, sortDir });
+    return OkPaged(result.data, result.total, result.page, result.limit);
   }
 
   @Post()

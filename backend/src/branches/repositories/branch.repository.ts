@@ -1,7 +1,24 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
+import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
+import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
 import { assertMember } from '../../common/utils/membership.helper.js';
+
+/**
+ * Orden y búsqueda server-side. `location`/`contact` replican las columnas
+ * derivadas que el frontend mostraba (ciudad+depto+país, teléfono+email).
+ */
+const BRANCH_SORT_COLUMNS: Record<string, string> = {
+  name: 'b.name',
+  city: 'b.city',
+  state: 'b.state',
+  country: 'b.country',
+  location: `COALESCE(b.city, '') || ' ' || COALESCE(b.state, '') || ' ' || COALESCE(b.country, '')`,
+  contact: `COALESCE(b.phone, '') || ' ' || COALESCE(b.email, '')`,
+  status: 'b.is_active',
+  is_active: 'b.is_active',
+  created_at: 'b.created_at',
+};
 
 @Injectable()
 export class BranchRepository {
@@ -19,6 +36,59 @@ export class BranchRepository {
        ORDER BY b.name`,
       [companyId],
     );
+  }
+
+  async findPagedByCompany(
+    companyId: string,
+    page = 1,
+    limit = 20,
+    filters: { search?: string; status?: string } = {},
+    sort: SortSpec = {},
+  ) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const offset = (safePage - 1) * safeLimit;
+
+    const { where, values, nextIndex } = buildWhere(
+      [
+        { clause: 'b.company_id = $?', value: companyId },
+        { clause: 'b.deleted_at IS NULL' },
+        filters.search
+          ? { clause: '(b.name ILIKE $? OR b.city ILIKE $? OR b.state ILIKE $? OR b.country ILIKE $?)', value: `%${filters.search}%`, reuse: true }
+          : undefined,
+        filters.status === 'inactive'
+          ? { clause: 'b.is_active = FALSE' }
+          : filters.status === 'active'
+            ? { clause: 'b.is_active = TRUE' }
+            : undefined,
+      ],
+      1,
+    );
+
+    const countResult = await this.dataSource.query(
+      `SELECT COUNT(*) as total
+       FROM branches b
+       WHERE ${where}`,
+      values,
+    );
+    const total = parseInt(countResult[0]?.total || '0', 10);
+
+    const orderBy = buildOrderBy(BRANCH_SORT_COLUMNS, sort, 'name');
+
+    const data = await this.dataSource.query(
+      `SELECT b.id, b.company_id, b.name, b.address, b.city, b.state, b.country,
+              b.postal_code, b.phone, b.email, b.is_active, b.code, b.is_main,
+              b.timezone, b.created_at, b.updated_at,
+              u.name as manager_name
+       FROM branches b
+       LEFT JOIN users u ON u.id = b.manager_user_id AND u.deleted_at IS NULL
+       WHERE ${where}
+       ORDER BY ${orderBy}, b.name
+       LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,
+      [...values, safeLimit, offset],
+    );
+
+    return { data, total, page: safePage, limit: safeLimit };
   }
 
   async findById(branchId: string, companyId: string) {

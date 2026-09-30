@@ -52,6 +52,9 @@ export interface UpdateBranchPayload {
 export interface BranchesResponse {
   success: boolean;
   data: Branch[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface BranchResponse {

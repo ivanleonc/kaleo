@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { BranchRepository } from './repositories/branch.repository.js';
+import type { SortSpec } from '../common/dto/pagination-query.dto.js';
 
 @Injectable()
 export class BranchService {
   constructor(private readonly branchRepository: BranchRepository) {}
 
-  async getBranches(companyId: string) {
-    return this.branchRepository.findByCompany(companyId);
+  async getBranches(
+    companyId: string,
+    page = 1,
+    limit = 20,
+    filters: { search?: string; status?: string } = {},
+    sort: SortSpec = {},
+  ) {
+    return this.branchRepository.findPagedByCompany(companyId, page, limit, filters, sort);
   }
 
   async getBranchById(companyId: string, branchId: string) {

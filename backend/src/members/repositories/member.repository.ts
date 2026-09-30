@@ -1,7 +1,16 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
+import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
 import { assertMember, insertUserContexts } from '../../common/utils/membership.helper.js';
+
+/** Orden server-side: solo estas claves son válidas; `status` ordena por bloqueo. */
+const MEMBER_SORT_COLUMNS: Record<string, string> = {
+  name: 'u.name',
+  email: 'u.email',
+  created_at: 'u.created_at',
+  status: `CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW() THEN 'inactive' ELSE 'active' END`,
+};
 
 @Injectable()
 export class MemberRepository {
@@ -12,6 +21,7 @@ export class MemberRepository {
     page = 1,
     limit = 50,
     filters: { search?: string; status?: string; roleId?: string } = {},
+    sort: SortSpec = {},
   ) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(200, Math.max(1, limit));
@@ -35,6 +45,8 @@ export class MemberRepository {
     );
 
     const statusExpr = `CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW() THEN 'inactive' ELSE 'active' END`;
+
+    const orderBy = buildOrderBy(MEMBER_SORT_COLUMNS, sort, 'name');
 
     const countResult = await this.dataSource.query(
       `SELECT COUNT(DISTINCT u.id) as total
@@ -61,7 +73,7 @@ export class MemberRepository {
                 u.phone, u.position, u.avatar_url,
                 u.document_type, u.document_number,
                 u.must_change_password
-       ORDER BY u.name, u.email
+       ORDER BY ${orderBy}, u.name, u.email
        LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,
       [...values, safeLimit, offset],
     );

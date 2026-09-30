@@ -26,15 +26,11 @@
 
       <div class="table-section">
         <UiDataTable
-          :columns="branchColumns"
-          :rows="filteredBranches"
+          :table="branchTable"
           :loading="isInitialLoading"
           :error="branchStore.error"
           error-title="No pudimos cargar las sedes"
           @retry="branchStore.fetchBranches()"
-          sortable
-          v-model:sort-key="branchSortKey"
-          v-model:sort-dir="branchSortDir"
           :empty-title="branchStore.branches.length === 0 ? 'No hay sedes todavía' : 'Sin resultados'"
           :empty-description="branchStore.branches.length === 0
             ? 'Agrega tu primera ubicación para empezar.'
@@ -123,6 +119,16 @@
         </UiDataTable>
       </div>
 
+      <!-- Pagination -->
+      <UiPagination
+        :page="branchStore.page"
+        :total="branchStore.total"
+        :limit="branchStore.limit"
+        show-page-size
+        @update:page="branchStore.goToPage"
+        @update:limit="branchStore.setLimit"
+      />
+
       <!-- Create/Edit Modal -->
       <UiFormModal
         v-model="isFormModalOpen"
@@ -190,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useBranchStore } from '@/stores/branch.store';
 import { useMemberStore } from '@/stores/member.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -207,11 +213,21 @@ import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
+import UiPagination from '@/components/ui/UiPagination.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { useToast } from '@/composables/useToast';
 import { useDirtyForm } from '@/composables/useDirtyForm';
+import { useDebounceFn } from '@/composables/useDebounceFn';
+import {
+  useAppTable,
+  createAppColumnHelper,
+  useSortingState,
+  useControlledSorting,
+  sortingStateToServer,
+  type AppColumnDef,
+} from '@/composables/useAppTable';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
 import {
@@ -241,18 +257,15 @@ const statusFilterOptions = [
 
 const hasActiveFilters = computed(() => searchQuery.value || filterStatus.value);
 
-const filteredBranches = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  return branchStore.branches.filter((b) => {
-    const status = b.is_active ? 'active' : 'inactive';
-    if (filterStatus.value && status !== filterStatus.value) return false;
-    if (query) {
-      const haystack = `${b.name || ''} ${b.city || ''} ${b.state || ''} ${b.country || ''}`.toLowerCase();
-      if (!haystack.includes(query)) return false;
-    }
-    return true;
+// El filtrado ocurre en el servidor para que page/total sigan siendo coherentes.
+const applyCurrentFilters = useDebounceFn(() => {
+  branchStore.applyFilters({
+    search: emptyToUndefined(searchQuery.value),
+    status: filterStatus.value || undefined,
   });
-});
+}, 350);
+
+watch([searchQuery, filterStatus], applyCurrentFilters);
 
 const clearFilters = () => {
   searchQuery.value = '';
@@ -261,16 +274,42 @@ const clearFilters = () => {
 
 const isInitialLoading = computed(() => branchStore.isLoading && branchStore.branches.length === 0);
 
-const branchColumns = [
-  { key: 'name', label: 'Nombre', sortable: true },
-  { key: 'location', label: 'Ubicación', sortable: true },
-  { key: 'contact', label: 'Contacto', sortable: true },
-  { key: 'status', label: 'Estado', sortable: true, sortAccessor: (b: Branch) => (b.is_active ? 1 : 0) },
-  { key: 'actions', label: '', align: 'right' as const },
+const branchColumnHelper = createAppColumnHelper<Branch>();
+
+/**
+ * Modo servidor: el orden lo resuelve el backend (`sortBy`/`sortDir`).
+ * Los ids coinciden con las claves del whitelist (`location`, `contact`…).
+ */
+const branchColumns: AppColumnDef<Branch>[] = [
+  branchColumnHelper.accessor('name', { header: 'Nombre', meta: { label: 'Nombre' } }),
+  branchColumnHelper.accessor(
+    (b) => [b.city, b.state, b.country].filter(Boolean).join(', '),
+    { id: 'location', header: 'Ubicación', meta: { label: 'Ubicación' } },
+  ),
+  branchColumnHelper.accessor((b) => b.phone || b.email || '', {
+    id: 'contact',
+    header: 'Contacto',
+    meta: { label: 'Contacto' },
+  }),
+  branchColumnHelper.accessor('is_active', {
+    id: 'status',
+    header: 'Estado',
+    meta: { label: 'Estado' },
+  }),
+  branchColumnHelper.display({ id: 'actions', header: '', meta: { label: '', align: 'right' } }),
 ];
 
-const branchSortKey = ref<string | null>(null);
-const branchSortDir = ref<'asc' | 'desc'>('asc');
+const branchSorting = useSortingState();
+const branchTable = useAppTable<Branch>({
+  columns: branchColumns,
+  data: branchStore.branches,
+  manualSorting: true,
+  manualPagination: true,
+  autoResetPageIndex: false,
+  ...useControlledSorting(branchSorting, (sorting) => {
+    void branchStore.setSort(sortingStateToServer(sorting));
+  }),
+});
 
 const handleToggleActive = async (branch: Branch) => {
   const wasActive = branch.is_active;

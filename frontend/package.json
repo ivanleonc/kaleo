@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@tabler/icons-vue": "^3.44.0",
+    "@tanstack/vue-table": "^9.2.4",
     "axios": "^1.16.1",
     "echarts": "^6.1.0",
     "pinia": "^3.0.4",
