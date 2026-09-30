@@ -1,6 +1,11 @@
 <template>
   <div ref="triggerRef" class="ui-dropdown-trigger">
-    <slot name="trigger" :open="isOpen" :toggle="toggle" />
+    <!--
+      `toggle` y `triggerAria` se exponen como props del slot porque el
+      disparador lo escribe la vista: sin v-bind="triggerAria" el botón no
+      anunciaría que abre un menú ni si está expandido.
+    -->
+    <slot name="trigger" :open="isOpen" :toggle="toggle" :trigger-aria="triggerAria" />
   </div>
   <Teleport to="body">
     <div v-if="isOpen" class="ui-dropdown-overlay" @click="close"></div>
@@ -11,7 +16,9 @@
       :style="menuStyle"
       role="menu"
       :aria-label="label"
-      @keydown.escape="closeAndFocusTrigger"
+      tabindex="-1"
+      @keydown="onMenuKeydown"
+      @focusout="onMenuFocusout"
     >
       <slot :close="close" />
     </div>
@@ -19,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onBeforeUnmount, provide } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeUnmount, provide } from 'vue';
 
 interface Props {
   modelValue?: boolean;
@@ -43,6 +50,11 @@ const isOpen = ref(false);
 const triggerRef = ref<HTMLElement | null>(null);
 const menuRef = ref<HTMLElement | null>(null);
 const menuStyle = ref<Record<string, string>>({});
+
+const triggerAria = computed<{ 'aria-haspopup': 'menu'; 'aria-expanded': boolean }>(() => ({
+  'aria-haspopup': 'menu',
+  'aria-expanded': isOpen.value,
+}));
 
 const updatePosition = () => {
   const trigger = triggerRef.value;
@@ -77,6 +89,10 @@ const setOpen = (value: boolean) => {
   if (value) {
     nextTick(() => {
       updatePosition();
+      // El foco entra en el menú al abrirlo: si se queda en el trigger, los
+      // lectores de pantalla no anuncian el contenido ni hay navegación con flechas.
+      const first = items()[0];
+      (first || menuRef.value)?.focus();
       window.addEventListener('scroll', onViewportChange, true);
       window.addEventListener('resize', onViewportChange);
     });
@@ -94,6 +110,63 @@ const closeAndFocusTrigger = () => {
   close();
   const focusable = triggerRef.value?.querySelector<HTMLElement>('button, [tabindex]');
   focusable?.focus();
+};
+
+const items = (): HTMLElement[] => {
+  if (!menuRef.value) return [];
+  // No se filtra por offsetParent: el menú es position:fixed y ese chequeo
+  // además devuelve null de forma fiable en entornos sin layout (jsdom).
+  return Array.from(
+    menuRef.value.querySelectorAll<HTMLElement>(
+      '[role="menuitem"]:not([disabled]):not([hidden]):not([aria-hidden="true"])',
+    ),
+  );
+};
+
+/** Cierra cuando el foco sale del menú y del disparador (Tab hacia fuera). */
+const onMenuFocusout = (event: FocusEvent) => {
+  const next = event.relatedTarget as Node | null;
+  if (!next) return;
+  if (menuRef.value?.contains(next)) return;
+  if (triggerRef.value?.contains(next)) return;
+  close();
+};
+
+/** Navegación por flechas estilo menús (patrón WAI-ARIA). */
+const onMenuKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    event.stopPropagation();
+    closeAndFocusTrigger();
+    return;
+  }
+
+  const list = items();
+  if (list.length === 0) return;
+
+  const current = list.indexOf(document.activeElement as HTMLElement);
+  const focusAt = (index: number) => {
+    event.preventDefault();
+    list[(index + list.length) % list.length]?.focus();
+  };
+
+  switch (event.key) {
+    case 'ArrowDown':
+      focusAt(current + 1);
+      break;
+    case 'ArrowUp':
+      focusAt(current <= 0 ? list.length - 1 : current - 1);
+      break;
+    case 'Home':
+      focusAt(0);
+      break;
+    case 'End':
+      focusAt(list.length - 1);
+      break;
+    case 'Tab':
+      // No se intercepta: los menús pueden contener campos (p. ej. buscador de
+      // organizaciones). El cierre por foco se resuelve con el focusout de abajo.
+      break;
+  }
 };
 
 watch(

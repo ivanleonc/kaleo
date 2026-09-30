@@ -147,7 +147,8 @@ withDefaults(defineProps<Props>(), {
 .spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(127, 127, 127, 0.35);
+  border-color: color-mix(in srgb, currentColor 25%, transparent);
   border-radius: 50%;
   border-top-color: currentColor;
   animation: spin 0.8s linear infinite;

@@ -1,8 +1,17 @@
 ﻿<template>
   <div class="layout-container">
+    <!-- Atajo de teclado: salta la navegación lateral al contenido principal -->
+    <a class="skip-link" href="#contenido-principal">Saltar al contenido principal</a>
+
     <header class="topbar">
       <div class="topbar-left">
-        <button class="mobile-menu-btn" @click="toggleMobileSidebar">
+        <button
+          ref="mobileMenuBtn"
+          class="mobile-menu-btn"
+          aria-label="Abrir el menú de navegación"
+          :aria-expanded="isMobileSidebarOpen"
+          @click="toggleMobileSidebar"
+        >
           <IconMenu2 :size="20" stroke-width="1.8" />
         </button>
         <router-link :to="companyPath('/dashboard')" class="topbar-logo">
@@ -10,37 +19,63 @@
         </router-link>
         <IconChevronRight :size="14" class="topbar-sep" />
 
-        <div class="org-switcher">
-          <div class="org-trigger" @click="isOrgDropdownOpen = !isOrgDropdownOpen">
-            <IconBuildingCommunity :size="16" stroke-width="1.8" />
-            <span class="org-trigger-name">{{ activeOrg?.name || 'Mi Empresa' }}</span>
-            <IconArrowsUpDown :size="14" stroke-width="1.8" class="org-arrows" />
-          </div>
+        <!-- Sin class aquí: UiDropdown tiene dos raíces (trigger + Teleport) y Vue
+             descarta los atributos no-props con un warning en consola. -->
+        <UiDropdown
+          align="start"
+          label="Cambiar de organización"
+        >
+          <template #trigger="{ toggle, triggerAria }">
+            <button class="org-trigger" v-bind="triggerAria" @click="toggle">
+              <IconBuildingCommunity :size="16" stroke-width="1.8" />
+              <span class="org-trigger-name">{{ activeOrg?.name || 'Mi Empresa' }}</span>
+              <IconArrowsUpDown :size="14" stroke-width="1.8" class="org-arrows" />
+            </button>
+          </template>
 
-          <div v-if="isOrgDropdownOpen" class="dropdown-overlay" @click="isOrgDropdownOpen = false"></div>
-          <div v-if="isOrgDropdownOpen" class="org-dropdown">
+          <template #default="{ close }">
             <div class="org-dropdown-search">
               <IconSearch :size="14" />
-              <input type="text" placeholder="Buscar organización..." v-model="orgSearchQuery" autofocus />
+              <input
+                type="search"
+                placeholder="Buscar organización..."
+                aria-label="Buscar organización"
+                v-model="orgSearchQuery"
+              />
             </div>
             <div class="dropdown-divider"></div>
-            <div
+            <button
               v-for="tenant in filteredTenants"
               :key="tenant.id"
+              type="button"
               class="dropdown-item"
-              :class="{ active: authStore.activeTenantId === tenant.id, disabled: isSwitchingOrg }"
-              @click="handleOrgChange(tenant.id)"
+              :class="{
+                active: authStore.activeTenantId === tenant.id,
+                disabled: isSwitchingOrg,
+              }"
+              role="menuitem"
+              :disabled="isSwitchingOrg"
+              @click="handleOrgChange(tenant.id); close()"
             >
               <span>{{ tenant.name }}</span>
-              <IconCheck v-if="authStore.activeTenantId === tenant.id" class="check-icon" :size="14" />
-            </div>
+              <IconCheck
+                v-if="authStore.activeTenantId === tenant.id"
+                class="check-icon"
+                :size="14"
+              />
+            </button>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-item create-action" @click="openCreateModal">
+            <button
+              type="button"
+              class="dropdown-item create-action"
+              role="menuitem"
+              @click="openCreateModal(); close()"
+            >
               <IconPlus :size="14" />
               <span>Nueva organización</span>
-            </div>
-          </div>
-        </div>
+            </button>
+          </template>
+        </UiDropdown>
 
         <!-- Breadcrumbs -->
         <nav class="topbar-breadcrumb" v-if="breadcrumbs.length > 0">
@@ -62,26 +97,33 @@
           <span class="search-shortcut">Ctrl K</span>
         </button>
 
-        <div class="user-menu">
-          <button class="user-trigger" @click="isUserDropdownOpen = !isUserDropdownOpen" aria-label="Abrir menú de usuario">
-            <UiAvatar
-              :src="authStore.user?.avatar_url"
-              :name="authStore.user?.name || authStore.user?.email"
-              size="sm"
-              loading="eager"
-            />
-          </button>
-          <div v-if="isUserDropdownOpen" class="dropdown-overlay" @click="isUserDropdownOpen = false"></div>
-          <div v-if="isUserDropdownOpen" class="user-dropdown">
+        <UiDropdown align="end" label="Menú de usuario" :min-width="240">
+          <template #trigger="{ toggle, triggerAria }">
+            <button class="user-trigger" v-bind="triggerAria" @click="toggle" aria-label="Abrir menú de usuario">
+              <UiAvatar
+                :src="authStore.user?.avatar_url"
+                :name="authStore.user?.name || authStore.user?.email"
+                size="sm"
+                loading="eager"
+              />
+            </button>
+          </template>
+
+          <template #default="{ close }">
             <div class="user-dropdown-header">
               <span class="user-dropdown-name">{{ authStore.user?.name || 'Usuario' }}</span>
               <span class="user-dropdown-email">{{ authStore.user?.email }}</span>
             </div>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-item" @click="router.push(companyPath('/profile')); isUserDropdownOpen = false">
+            <button
+              type="button"
+              class="dropdown-item"
+              role="menuitem"
+              @click="router.push(companyPath('/profile')); close()"
+            >
               <IconUserCircle :size="16" />
               <span>Mi Cuenta</span>
-            </div>
+            </button>
             <div class="dropdown-divider"></div>
             <div class="dropdown-section-label">Tema</div>
             <div class="theme-options">
@@ -95,28 +137,41 @@
               </label>
             </div>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-item danger" @click="handleLogout">
+            <button
+              type="button"
+              class="dropdown-item danger"
+              role="menuitem"
+              @click="handleLogout(); close()"
+            >
               <IconLogout :size="16" />
               <span>Cerrar Sesión</span>
-            </div>
-          </div>
-        </div>
+            </button>
+          </template>
+        </UiDropdown>
       </div>
     </header>
 
-    <div class="layout-body">
-      <div v-if="isMobileSidebarOpen" class="mobile-backdrop" @click="isMobileSidebarOpen = false"></div>
+    <div class="layout-body" :class="{ 'is-pinned-layout': isSidebarPinned }">
+      <div v-if="isMobileSidebarOpen" class="mobile-backdrop" @click="closeMobileSidebar"></div>
       <!-- El sidebar usa los eventos de JS para ignorar los parpadeos del DOM -->
       <aside 
         class="sidebar" 
-        :class="{ 'is-expanded': isSidebarExpanded, 'mobile-open': isMobileSidebarOpen }"
+        :class="{
+          'is-expanded': isSidebarPinned || isSidebarExpanded,
+          'mobile-open': isMobileSidebarOpen,
+          'is-pinned': isSidebarPinned,
+        }"
         @mouseenter="handleMouseEnter"
         @mouseleave="handleMouseLeave"
       >
-        <button class="mobile-close-btn" @click="isMobileSidebarOpen = false">
+        <button
+          class="mobile-close-btn"
+          aria-label="Cerrar el menú de navegación"
+          @click="closeMobileSidebar"
+        >
           <IconX :size="18" stroke-width="1.8" />
         </button>
-        <nav class="sidebar-nav">
+        <nav class="sidebar-nav" aria-label="Navegación principal">
           <router-link :to="companyPath('/dashboard')" class="nav-link" exact-active-class="active">
             <IconLayoutDashboard :size="22" stroke-width="1.8" />
             <span class="nav-label">Panel</span>
@@ -149,11 +204,28 @@
             <IconMoon v-else :size="22" stroke-width="1.8" />
             <span class="nav-label">{{ isDarkMode ? 'Claro' : 'Oscuro' }}</span>
           </button>
+          <button
+            class="nav-link"
+            :aria-pressed="isSidebarPinned"
+            :title="isSidebarPinned ? 'Dejar de fijar el menú' : 'Fijar el menú'"
+            @click="toggleSidebarPinned"
+          >
+            <IconPin v-if="!isSidebarPinned" :size="22" stroke-width="1.8" />
+            <IconPinFilled v-else :size="22" stroke-width="1.8" />
+            <span class="nav-label">{{ isSidebarPinned ? 'Fijado' : 'Fijar' }}</span>
+          </button>
         </div>
       </aside>
 
-      <main class="main-content">
-        <slot></slot>
+      <main id="contenido-principal" class="main-content" tabindex="-1">
+        <!--
+          La clave fuerza el remount en cada ruta, lo que reinicia la animación
+          de entrada. Se limita a cambios de empresa/ruta de sección: en la
+          paginación interna volver a animar molesta más de lo que aporta.
+        -->
+        <div :key="viewKey" class="view-transition">
+          <slot></slot>
+        </div>
       </main>
     </div>
 
@@ -190,10 +262,31 @@ import { ref } from 'vue';
 // Vue Router puede hacer lo que quiera, pero el sidebar "recordará" si está expandido.
 const isSidebarExpanded = ref(false);
 let sidebarHoverTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const SIDEBAR_PIN_KEY = 'saasapp:sidebar-pinned';
+
+function readSidebarPinned(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_PIN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+const isSidebarPinned = ref(readSidebarPinned());
+
+const toggleSidebarPinned = () => {
+  isSidebarPinned.value = !isSidebarPinned.value;
+  try {
+    localStorage.setItem(SIDEBAR_PIN_KEY, isSidebarPinned.value ? '1' : '0');
+  } catch {
+    // Modo privado o storage bloqueado: el pin solo durará la sesión.
+  }
+};
 </script>
 
 <script setup lang="ts">
-import { computed, reactive, watch, onMounted, onUnmounted } from 'vue';
+import { computed, reactive, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
@@ -207,6 +300,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
+import UiDropdown from '@/components/ui/UiDropdown.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
 import {
   IconBolt,
@@ -220,6 +314,8 @@ import {
   IconChevronRight,
   IconCheck,
   IconPlus,
+  IconPin,
+  IconPinFilled,
   IconSun,
   IconMoon,
   IconSearch,
@@ -236,8 +332,6 @@ const companyStore = useCompanyStore();
 const { isDarkMode, applyTheme, toggleTheme } = useTheme();
 const { companyId, companyPath } = useCompanyPath();
 
-const isOrgDropdownOpen = ref(false);
-const isUserDropdownOpen = ref(false);
 const isCreateModalOpen = ref(false);
 const isPaletteOpen = ref(false);
 const orgSearchQuery = ref('');
@@ -251,6 +345,21 @@ const onGlobalKeydown = (event: KeyboardEvent) => {
 };
 
 const isMobileSidebarOpen = ref(false);
+
+const mobileMenuBtn = ref<HTMLButtonElement | null>(null);
+
+// Ruta "de sección": cambia la vista, pero no la paginación interna de una tabla.
+const viewKey = computed(() => {
+  const segments = route.path.split('/').filter(Boolean);
+  // /:companyId/:seccion
+  return `${companyId.value ?? ''}/${segments[1] ?? ''}`;
+});
+
+/** Al cerrar el cajón el foco no debe quedarse en un nodo que desaparece. */
+const closeMobileSidebar = () => {
+  isMobileSidebarOpen.value = false;
+  nextTick(() => mobileMenuBtn.value?.focus());
+};
 
 const toggleMobileSidebar = () => {
   isMobileSidebarOpen.value = !isMobileSidebarOpen.value;
@@ -275,10 +384,13 @@ const handleMouseEnter = () => {
     clearTimeout(sidebarHoverTimeout);
     sidebarHoverTimeout = null;
   }
+  // Si está fijado, el hover no debe colapsarlo al salir el puntero.
+  if (isSidebarPinned.value) return;
   isSidebarExpanded.value = true;
 };
 
 const handleMouseLeave = () => {
+  if (isSidebarPinned.value) return;
   // Solo se cierra si el mouse está fuera más de 150ms reales
   sidebarHoverTimeout = setTimeout(() => {
     isSidebarExpanded.value = false;
@@ -336,14 +448,10 @@ const dashboardPathFor = (tenantId: string): string => {
 
 const handleOrgChange = async (tenantId: string) => {
   if (isSwitchingOrg.value) return;
-  if (tenantId === authStore.activeTenantId) {
-    isOrgDropdownOpen.value = false;
-    return;
-  }
+  if (tenantId === authStore.activeTenantId) return;
   isSwitchingOrg.value = true;
   try {
     authStore.setActiveTenant(tenantId);
-    isOrgDropdownOpen.value = false;
     orgSearchQuery.value = '';
     // Refrescar claims (roles/permisos son por empresa y viven en el JWT)
     await authStore.refreshTokens();
@@ -363,7 +471,6 @@ const handleOrgChange = async (tenantId: string) => {
 };
 
 const openCreateModal = () => {
-  isOrgDropdownOpen.value = false;
   createForm.name = '';
   createForm.tax_id = '';
   companyStore.error = null;
@@ -387,7 +494,6 @@ const handleCreateSubmit = async () => {
 };
 
 const handleLogout = async () => {
-  isUserDropdownOpen.value = false;
   await authStore.logout();
   router.push('/login');
 };
@@ -398,9 +504,57 @@ const handleLogout = async () => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
+  width: 100%;
   overflow: hidden;
   background-color: var(--bg-app);
+}
+
+/* Enlace de salto: oculto hasta recibir el foco por teclado */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 200;
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-elevated);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.15s ease-out;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Al saltar, el <main> no debe mostrar un contorno de foco gigante */
+.main-content:focus {
+  outline: none;
+}
+
+/* Transición de entrada al cambiar de vista. El override global de
+   prefers-reduced-motion en main.css la desactiva por completo. */
+.view-transition {
+  animation: view-in 0.18s ease-out;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* TOPBAR */
@@ -476,11 +630,9 @@ const handleLogout = async () => {
   flex-shrink: 0;
 }
 
-/* ORG SWITCHER */
-.org-switcher {
-  position: relative;
-}
-
+/* ORG DROPDOWN */
+/* El panel en sí lo posiciona y estiliza UiDropdown (.ui-dropdown-menu);
+   aquí solo se ajusta el disparador y el buscador que va dentro. */
 .org-trigger {
   display: flex;
   align-items: center;
@@ -520,19 +672,8 @@ const handleLogout = async () => {
 }
 
 /* ORG DROPDOWN */
-.org-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2);
-  z-index: 100;
-  box-shadow: var(--shadow-lg);
-  min-width: 240px;
-}
-
+/* El panel en sí lo posiciona y estiliza UiDropdown (.ui-dropdown-menu);
+   aquí solo se ajusta el buscador que va dentro. */
 .org-dropdown-search {
   display: flex;
   align-items: center;
@@ -540,6 +681,13 @@ const handleLogout = async () => {
   padding: var(--space-2);
   border-radius: var(--radius);
   color: var(--text-light);
+  background-color: var(--bg-input);
+  border: 1px solid var(--border);
+  margin: 0 var(--space-1);
+}
+.org-dropdown-search:focus-within {
+  border-color: var(--text-light);
+  background-color: var(--bg-elevated);
 }
 .org-dropdown-search input {
   border: none;
@@ -607,16 +755,6 @@ button.search-box:hover {
   gap: var(--space-3);
 }
 
-/* DROPDOWN OVERLAY */
-.dropdown-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 99;
-}
-
 /* DROPDOWN ITEMS */
 .dropdown-divider {
   height: 1px;
@@ -635,6 +773,14 @@ button.search-box:hover {
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
+  /* Reset de button: el switcher de organizaciones usa <button> y sin esto
+     se ven los estilos nativos grises del navegador. Inofensivo en los <div>. */
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  flex-shrink: 0;
 }
 .dropdown-item:hover {
   background-color: var(--bg-hover);
@@ -676,28 +822,11 @@ button.search-box:hover {
 }
 
 /* USER MENU */
-.user-menu {
-  position: relative;
-}
-
 .user-trigger {
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
-}
-
-.user-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2);
-  z-index: 100;
-  box-shadow: var(--shadow-lg);
-  min-width: 240px;
 }
 
 .user-dropdown-header {
@@ -764,6 +893,7 @@ button.search-box:hover {
   left: 0;
   width: var(--sidebar-collapsed);
   height: calc(100vh - var(--topbar-height));
+  height: calc(100dvh - var(--topbar-height));
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
@@ -857,6 +987,18 @@ button.search-box:hover {
   padding: var(--space-6) var(--space-8);
   background-color: var(--bg-app);
   margin-left: var(--sidebar-collapsed);
+  transition: margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * Solo el modo fijado ("Anclar") empuja el contenido: el expand por hover
+ * sigue siendo un overlay encima de la vista. En móvil el cajón es
+ * off-canvas, así que el empuje solo existe en desktop.
+ */
+@media (min-width: 769px) {
+  .layout-body.is-pinned-layout .main-content {
+    margin-left: var(--sidebar-width);
+  }
 }
 
 .modal-footer {

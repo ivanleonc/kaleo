@@ -6,20 +6,17 @@
         :subtitle="welcomeSubtitle"
       />
       
-      <div v-if="isLoading" class="loading-state">
-        <div class="loading-spinner"></div>
-        <span>Cargando métricas...</span>
+      <div v-if="isLoading" class="metrics-grid" aria-hidden="true">
+        <div v-for="n in 4" :key="n" class="metric-skeleton">
+          <UiSkeleton variant="avatar" />
+          <div class="metric-skeleton-text">
+            <UiSkeleton variant="text" width="55%" />
+            <UiSkeleton variant="title" width="35%" />
+          </div>
+        </div>
       </div>
 
-      <UiEmptyState
-        v-else-if="loadError"
-        title="No pudimos cargar las métricas"
-        :description="loadError"
-      >
-        <template #action>
-          <UiButton width="auto" variant="outline" @click="loadData">Reintentar</UiButton>
-        </template>
-      </UiEmptyState>
+      <UiErrorState v-else-if="loadError" :description="loadError" @retry="loadData" />
 
       <template v-else>
         <div class="metrics-grid">
@@ -119,9 +116,9 @@ import { apiErrorMessage } from '@/utils/error';
 import { Permissions } from '@/constants/permissions';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import DashboardMetricCard from '@/components/dashboard/DashboardMetricCard.vue';
-import UiButton from '@/components/ui/UiButton.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
-import UiEmptyState from '@/components/ui/UiEmptyState.vue';
+import UiSkeleton from '@/components/ui/UiSkeleton.vue';
+import UiErrorState from '@/components/ui/UiErrorState.vue';
 import {
   IconUsers,
   IconShieldLock,
@@ -200,25 +197,23 @@ const activeCompanyRole = computed(() => {
   gap: var(--space-8);
 }
 
-.loading-state {
+.metric-skeleton {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  color: var(--text-muted);
-  font-size: var(--text-base);
-  padding: var(--space-10) 0;
+  padding: var(--space-5) var(--space-6);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
-.loading-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border);
-  border-top-color: var(--text-main);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.metric-skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .metrics-grid {
   display: grid;

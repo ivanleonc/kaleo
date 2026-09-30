@@ -50,9 +50,9 @@ withDefaults(defineProps<{
 }
 
 .ui-alert-warning {
-  background-color: rgba(234, 179, 8, 0.12);
-  color: var(--text-main);
-  border: 1px solid rgba(234, 179, 8, 0.4);
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
 }
 
 .alert-icon {

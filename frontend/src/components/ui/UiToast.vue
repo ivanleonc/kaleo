@@ -1,12 +1,35 @@
 <template>
   <Teleport to="body">
-    <div class="ui-toast-stack" aria-live="polite" aria-atomic="false">
+    <!--
+      Cada toast lleva su propio rol: `alert` (asertiva) en errores y
+      `status` (polite) en el resto. Por eso el contenedor no declara
+      aria-live: se anunciaría dos veces.
+    -->
+    <div class="ui-toast-stack">
       <TransitionGroup name="ui-toast">
-        <div v-for="toast in toasts" :key="toast.id" :class="['ui-toast', `ui-toast-${toast.type}`]" role="status">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          :class="['ui-toast', `ui-toast-${toast.type}`]"
+          :role="toast.type === 'error' ? 'alert' : 'status'"
+          @mouseenter="pause(toast.id)"
+          @mouseleave="resume(toast.id)"
+          @focusin="pause(toast.id)"
+          @focusout="resume(toast.id)"
+        >
           <IconCircleCheck v-if="toast.type === 'success'" :size="18" stroke-width="2" class="toast-icon" />
+          <IconAlertTriangle v-else-if="toast.type === 'warning'" :size="18" stroke-width="2" class="toast-icon" />
           <IconAlertCircle v-else-if="toast.type === 'error'" :size="18" stroke-width="2" class="toast-icon" />
           <IconInfoCircle v-else :size="18" stroke-width="2" class="toast-icon" />
           <span class="toast-message">{{ toast.message }}</span>
+          <button
+            v-if="toast.action"
+            type="button"
+            class="toast-action"
+            @click="runAction(toast)"
+          >
+            {{ toast.action.label }}
+          </button>
           <button type="button" class="toast-close" @click="dismiss(toast.id)" aria-label="Cerrar notificación">
             <IconX :size="14" stroke-width="2" />
           </button>
@@ -17,10 +40,16 @@
 </template>
 
 <script setup lang="ts">
-import { IconCircleCheck, IconAlertCircle, IconInfoCircle, IconX } from '@tabler/icons-vue';
+import {
+  IconCircleCheck,
+  IconAlertCircle,
+  IconInfoCircle,
+  IconAlertTriangle,
+  IconX,
+} from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 
-const { toasts, dismiss } = useToast();
+const { toasts, dismiss, pause, resume, runAction } = useToast();
 </script>
 
 <style scoped>
@@ -44,8 +73,8 @@ const { toasts, dismiss } = useToast();
 }
 
 @media (pointer: coarse) {
-  .toast-close {
-    min-width: 32px;
+  .toast-close,
+  .toast-action {
     min-height: 32px;
   }
 }
@@ -68,6 +97,8 @@ const { toasts, dismiss } = useToast();
 .ui-toast-success .toast-icon { color: var(--color-success); }
 .ui-toast-error { border-left: 3px solid var(--color-danger); }
 .ui-toast-error .toast-icon { color: var(--color-danger); }
+.ui-toast-warning { border-left: 3px solid var(--color-warning); }
+.ui-toast-warning .toast-icon { color: var(--color-warning); }
 .ui-toast-info .toast-icon { color: var(--text-muted); }
 
 .toast-icon {
@@ -79,6 +110,23 @@ const { toasts, dismiss } = useToast();
   flex: 1;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+.toast-action {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.toast-action:hover {
+  color: var(--primary-hover);
 }
 
 .toast-close {

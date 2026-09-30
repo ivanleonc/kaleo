@@ -1,5 +1,6 @@
 <template>
   <UiModal
+    ref="modalRef"
     v-model="isOpen"
     :size="size"
     :label="title"
@@ -21,7 +22,7 @@
         </div>
 
         <template v-if="$slots.footer" #footer>
-          <slot name="footer"></slot>
+          <slot name="footer" :request-close="requestClose"></slot>
         </template>
       </UiCard>
     </form>
@@ -29,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import UiModal from './UiModal.vue';
 import UiCard from './UiCard.vue';
 
@@ -61,6 +63,17 @@ withDefaults(
 const isOpen = defineModel<boolean>({ default: false });
 
 const emit = defineEmits<{ (e: 'submit'): void }>();
+
+const modalRef = ref<InstanceType<typeof UiModal> | null>(null);
+
+/**
+ * Expuesto al slot `footer` para que el botón Cancelar pase por la misma
+ * comprobación de cambios sin guardar que el overlay y la tecla Escape.
+ * Sin esto, `v-model = false` en el botón descartaba el formulario en silencio.
+ */
+const requestClose = () => modalRef.value?.attemptClose();
+
+defineExpose({ requestClose });
 </script>
 
 <style scoped>

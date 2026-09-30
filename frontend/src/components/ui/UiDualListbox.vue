@@ -1,106 +1,138 @@
 <template>
   <div class="dual-listbox">
-    <label v-if="label" class="ui-label">{{ label }}</label>
+    <span v-if="label" :id="labelId" class="ui-label">{{ label }}</span>
 
-    <div class="dual-listbox-container">
-      <!-- Available -->
+    <div class="dual-listbox-container" role="group" :aria-labelledby="label ? labelId : undefined">
+      <!-- Disponibles -->
       <div class="listbox-panel">
         <div class="panel-header">
-          <span class="panel-title">{{ availableLabel }}</span>
+          <span :id="availableTitleId" class="panel-title">{{ availableLabel }}</span>
           <span class="panel-count">{{ filteredAvailable.length }}</span>
         </div>
         <div class="panel-search">
           <input
             v-model="searchAvailable"
-            type="text"
+            type="search"
             class="panel-search-input"
             :placeholder="searchPlaceholder"
+            :aria-label="`Buscar en ${availableLabel}`"
           />
         </div>
-        <ul class="panel-list">
+        <ul
+          class="panel-list"
+          role="listbox"
+          aria-multiselectable="true"
+          :aria-labelledby="availableTitleId"
+          @keydown="onPanelKeydown('available', $event)"
+        >
           <li
-            v-for="item in filteredAvailable"
+            v-for="(item, i) in filteredAvailable"
             :key="item.id"
             class="panel-item"
             :class="{ selected: tempAvailable.includes(item.id) }"
+            role="option"
+            :aria-selected="tempAvailable.includes(item.id)"
+            :tabindex="i === activeAvailable ? 0 : -1"
+            :data-id="item.id"
             @click="toggleTempAvailable(item.id)"
+            @focus="activeAvailable = i"
             @dblclick="moveToSelected([item.id])"
           >
             <span class="item-label">{{ item.label }}</span>
             <span v-if="item.description" class="item-description">{{ item.description }}</span>
           </li>
-          <li v-if="filteredAvailable.length === 0" class="panel-empty">Sin resultados</li>
+          <li v-if="filteredAvailable.length === 0" class="panel-empty" role="presentation">
+            Sin resultados
+          </li>
         </ul>
       </div>
 
-      <!-- Actions -->
+      <!-- Acciones -->
       <div class="listbox-actions">
         <button
           type="button"
           class="action-btn"
           :disabled="tempAvailable.length === 0"
-          title="Mover seleccionados a la derecha"
+          :title="`Mover ${tempAvailable.length} seleccionado(s) a ${selectedLabel}`"
+          :aria-label="`Mover seleccionados a ${selectedLabel}`"
           @click="moveToSelected(tempAvailable)"
         >
-          <IconChevronRight :size="16" />
+          <IconChevronRight :size="16" aria-hidden="true" />
         </button>
         <button
           type="button"
           class="action-btn"
           :disabled="tempSelected.length === 0"
-          title="Mover seleccionados a la izquierda"
+          :title="`Mover ${tempSelected.length} seleccionado(s) a ${availableLabel}`"
+          :aria-label="`Mover seleccionados a ${availableLabel}`"
           @click="moveToAvailable(tempSelected)"
         >
-          <IconChevronLeft :size="16" />
+          <IconChevronLeft :size="16" aria-hidden="true" />
         </button>
-        <div class="action-divider" />
+        <div class="action-divider" role="presentation" />
         <button
           type="button"
           class="action-btn"
-          :disabled="available.length === 0"
+          :disabled="props.modelValue.length === 0"
           title="Mover todos a la derecha"
+          :aria-label="`Mover todos a ${selectedLabel}`"
           @click="moveAllToSelected"
         >
-          <IconChevronsRight :size="16" />
+          <IconChevronsRight :size="16" aria-hidden="true" />
         </button>
         <button
           type="button"
           class="action-btn"
-          :disabled="selected.length === 0"
+          :disabled="props.modelValue.length === 0"
           title="Mover todos a la izquierda"
+          :aria-label="`Mover todos a ${availableLabel}`"
           @click="moveAllToAvailable"
         >
-          <IconChevronsLeft :size="16" />
+          <IconChevronsLeft :size="16" aria-hidden="true" />
         </button>
       </div>
 
-      <!-- Selected -->
+      <!-- Seleccionados -->
       <div class="listbox-panel">
         <div class="panel-header">
-          <span class="panel-title">{{ selectedLabel }}</span>
+          <span :id="selectedTitleId" class="panel-title">{{ selectedLabel }}</span>
           <span class="panel-count">{{ filteredSelected.length }}</span>
         </div>
         <div class="panel-search">
           <input
             v-model="searchSelected"
-            type="text"
+            type="search"
             class="panel-search-input"
             :placeholder="searchPlaceholder"
+            :aria-label="`Buscar en ${selectedLabel}`"
           />
         </div>
-        <ul class="panel-list">
+        <ul
+          class="panel-list"
+          role="listbox"
+          aria-multiselectable="true"
+          :aria-labelledby="selectedTitleId"
+          @keydown="onPanelKeydown('selected', $event)"
+        >
           <li
-            v-for="item in filteredSelected"
+            v-for="(item, i) in filteredSelected"
             :key="item.id"
             class="panel-item selected"
             :class="{ 'temp-selected': tempSelected.includes(item.id) }"
+            role="option"
+            :aria-selected="tempSelected.includes(item.id)"
+            :tabindex="i === activeSelected ? 0 : -1"
+            :data-id="item.id"
             @click="toggleTempSelected(item.id)"
+            @focus="activeSelected = i"
             @dblclick="moveToAvailable([item.id])"
           >
             <span class="item-label">{{ item.label }}</span>
             <span v-if="item.description" class="item-description">{{ item.description }}</span>
           </li>
-          <li v-if="filteredSelected.length === 0" class="panel-empty">Sin resultados</li>
+          <li v-if="filteredSelected.length === 0" class="panel-empty" role="presentation">
+            Sin resultados
+          </li>
         </ul>
       </div>
     </div>
@@ -108,8 +140,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { IconChevronRight, IconChevronLeft, IconChevronsRight, IconChevronsLeft } from '@tabler/icons-vue';
+import { ref, computed, watch, nextTick } from 'vue';
+import {
+  IconChevronRight,
+  IconChevronLeft,
+  IconChevronsRight,
+  IconChevronsLeft,
+} from '@tabler/icons-vue';
 
 export interface DualListboxItem {
   id: string;
@@ -128,6 +165,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  label: '',
   availableLabel: 'Disponibles',
   selectedLabel: 'Seleccionados',
   searchPlaceholder: 'Buscar...',
@@ -137,22 +175,28 @@ const emit = defineEmits<{
   'update:modelValue': [value: string[]];
 }>();
 
+const labelId = 'dual-listbox-label';
+const availableTitleId = 'dual-listbox-available-title';
+const selectedTitleId = 'dual-listbox-selected-title';
+
 const searchAvailable = ref('');
 const searchSelected = ref('');
 const tempAvailable = ref<string[]>([]);
 const tempSelected = ref<string[]>([]);
+const activeAvailable = ref(0);
+const activeSelected = ref(0);
 
 const filteredAvailable = computed(() => {
-  const q = searchAvailable.value.toLowerCase();
+  const q = searchAvailable.value.trim().toLowerCase();
   return props.available.filter(
-    (item) => !props.modelValue.includes(item.id) && item.label.toLowerCase().includes(q)
+    (item) => !props.modelValue.includes(item.id) && item.label.toLowerCase().includes(q),
   );
 });
 
 const filteredSelected = computed(() => {
-  const q = searchSelected.value.toLowerCase();
+  const q = searchSelected.value.trim().toLowerCase();
   return props.selected.filter(
-    (item) => props.modelValue.includes(item.id) && item.label.toLowerCase().includes(q)
+    (item) => props.modelValue.includes(item.id) && item.label.toLowerCase().includes(q),
   );
 });
 
@@ -169,28 +213,93 @@ function toggleTempSelected(id: string) {
 }
 
 function moveToSelected(ids: string[]) {
-  const newVal = [...props.modelValue, ...ids];
-  emit('update:modelValue', newVal);
+  if (ids.length === 0) return;
+  const next = [...props.modelValue, ...ids.filter((id) => !props.modelValue.includes(id))];
+  emit('update:modelValue', next);
   tempAvailable.value = tempAvailable.value.filter((id) => !ids.includes(id));
 }
 
 function moveToAvailable(ids: string[]) {
-  const newVal = props.modelValue.filter((id) => !ids.includes(id));
-  emit('update:modelValue', newVal);
+  if (ids.length === 0) return;
+  emit('update:modelValue', props.modelValue.filter((id) => !ids.includes(id)));
   tempSelected.value = tempSelected.value.filter((id) => !ids.includes(id));
 }
 
+/**
+ * "Mover todos" ignora el buscador a propósito: si respetara el filtro, limpiar
+ * el panel derecho con una búsqueda activa descartaría en silencio las
+ * selecciones que no coincidían con ella.
+ */
 function moveAllToSelected() {
-  const allIds = filteredAvailable.value.map((i) => i.id);
-  emit('update:modelValue', [...props.modelValue, ...allIds]);
+  emit('update:modelValue', props.available.map((i) => i.id));
   tempAvailable.value = [];
+  tempSelected.value = [];
+  searchSelected.value = '';
 }
 
 function moveAllToAvailable() {
-  const keepIds = filteredAvailable.value.map((i) => i.id);
-  emit('update:modelValue', keepIds);
+  emit('update:modelValue', []);
   tempSelected.value = [];
+  tempAvailable.value = [];
+  searchAvailable.value = '';
 }
+
+/** Navegación por teclado de los paneles (patrón listbox con tabindex único). */
+function onPanelKeydown(panel: 'available' | 'selected', event: KeyboardEvent) {
+  const isAvailable = panel === 'available';
+  const list = (isAvailable ? filteredAvailable : filteredSelected).value;
+  const active = isAvailable ? activeAvailable : activeSelected;
+
+  if (list.length === 0) return;
+
+  // currentTarget se anula al terminar el dispatch, hay que leerlo ya.
+  const panelEl = event.currentTarget as HTMLElement | null;
+
+  const setActive = (index: number) => {
+    const clamped = Math.max(0, Math.min(index, list.length - 1));
+    if (isAvailable) activeAvailable.value = clamped;
+    else activeSelected.value = clamped;
+    nextTick(() => {
+      panelEl?.querySelectorAll<HTMLElement>('[role="option"]')[clamped]?.focus();
+    });
+  };
+
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault();
+      setActive(active.value + 1);
+      break;
+    case 'ArrowUp':
+      event.preventDefault();
+      setActive(active.value - 1);
+      break;
+    case 'Home':
+      event.preventDefault();
+      setActive(0);
+      break;
+    case 'End':
+      event.preventDefault();
+      setActive(list.length - 1);
+      break;
+    case 'Enter':
+    case ' ': {
+      const id = list[active.value]?.id;
+      if (!id) return;
+      event.preventDefault();
+      if (isAvailable) toggleTempAvailable(id);
+      else toggleTempSelected(id);
+      break;
+    }
+  }
+}
+
+// El índice activo se reajusta al cambiar el filtro para no apuntar a "nada".
+watch(filteredAvailable, (list) => {
+  if (activeAvailable.value > list.length - 1) activeAvailable.value = 0;
+});
+watch(filteredSelected, (list) => {
+  if (activeSelected.value > list.length - 1) activeSelected.value = 0;
+});
 </script>
 
 <style scoped>
@@ -273,7 +382,7 @@ function moveAllToAvailable() {
   outline: none;
 }
 
-.panel-search-input:focus {
+.panel-search-input:focus-visible {
   border-color: var(--text-main);
   box-shadow: 0 0 0 1px var(--text-main);
 }
@@ -300,12 +409,18 @@ function moveAllToAvailable() {
   background: var(--bg-hover);
 }
 
+/* Los options se focused con el teclado, no solo con el ratón */
+.panel-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .panel-item.selected {
   background: var(--bg-hover);
 }
 
 .panel-item.temp-selected {
-  background: var(--color-primary-light, #dbeafe);
+  background: var(--color-primary-light);
 }
 
 .item-label {

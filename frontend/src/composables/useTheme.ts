@@ -1,12 +1,22 @@
 import { ref, onMounted } from 'vue';
 
+const THEME_COLORS = { dark: '#181818', light: '#ffffff' } as const;
+
+function syncThemeColor(dark: boolean) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? THEME_COLORS.dark : THEME_COLORS.light);
+}
+
 export function useTheme() {
-  const isDarkMode = ref(true);
+  const isDarkMode = ref(
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+  );
 
   const applyTheme = (dark: boolean) => {
     isDarkMode.value = dark;
     document.documentElement.classList.toggle('dark', dark);
     localStorage.setItem('theme', dark ? 'dark' : 'light');
+    syncThemeColor(dark);
   };
 
   const toggleTheme = () => {
@@ -16,17 +26,13 @@ export function useTheme() {
   const initTheme = () => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
-      isDarkMode.value = false;
-      document.documentElement.classList.remove('dark');
+      applyTheme(false);
     } else if (savedTheme === 'dark') {
-      isDarkMode.value = true;
-      document.documentElement.classList.add('dark');
+      applyTheme(true);
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      isDarkMode.value = true;
-      document.documentElement.classList.add('dark');
+      applyTheme(true);
     } else {
-      isDarkMode.value = false;
-      document.documentElement.classList.remove('dark');
+      applyTheme(false);
     }
   };
 

@@ -37,9 +37,24 @@
       </div>
 
       <!-- Loading -->
-      <div v-if="auditStore.isLoading && auditStore.logs.length === 0" class="loading-state">
-        Cargando registros...
+      <div
+        v-if="auditStore.isLoading && auditStore.logs.length === 0"
+        class="timeline"
+        aria-hidden="true"
+      >
+        <div v-for="n in 6" :key="n" class="timeline-skeleton">
+          <UiSkeleton variant="avatar" width="28px" height="28px" />
+          <UiSkeleton variant="block" height="72px" radius="var(--radius-lg)" />
+        </div>
       </div>
+
+      <!-- Error -->
+      <UiErrorState
+        v-else-if="auditStore.error && auditStore.logs.length === 0"
+        title="No pudimos cargar la auditoría"
+        :description="auditStore.error"
+        @retry="auditStore.fetchLogs()"
+      />
 
       <!-- Empty -->
       <UiEmptyState
@@ -232,6 +247,8 @@ import type { BadgeVariant } from '@/types/ui';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
+import UiSkeleton from '@/components/ui/UiSkeleton.vue';
+import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCursorPagination from '@/components/ui/UiCursorPagination.vue';
 import UiExportButton from '@/components/ui/UiExportButton.vue';
@@ -542,6 +559,16 @@ onMounted(() => {
   gap: 0;
 }
 
+.timeline-skeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+.timeline-skeleton :last-child {
+  flex: 1;
+}
+
 .timeline-item {
   position: relative;
   display: flex;
@@ -561,10 +588,22 @@ onMounted(() => {
   flex-shrink: 0;
   margin-top: 12px;
 }
-.timeline-dot.action-create { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.timeline-dot.action-update { background: rgba(234, 179, 8, 0.15); color: #eab308; }
-.timeline-dot.action-delete { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.timeline-dot.action-read { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.timeline-dot.action-create {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.timeline-dot.action-update {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.timeline-dot.action-delete {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.timeline-dot.action-read {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
 .timeline-dot.action-default { background: var(--bg-app); color: var(--text-muted); }
 
 .timeline-connector {
@@ -604,7 +643,7 @@ onMounted(() => {
 }
 
 .action-path {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-main);
   overflow-wrap: anywhere;
@@ -618,7 +657,7 @@ onMounted(() => {
 
 .duration-badge {
   font-size: 10px;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   color: var(--text-muted);
   background: var(--bg-app);
   border: 1px solid var(--border);
@@ -645,10 +684,10 @@ onMounted(() => {
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-sm);
-  color: #ef4444;
+  color: var(--color-danger-text);
   font-size: var(--text-sm);
 }
 
@@ -764,8 +803,12 @@ onMounted(() => {
 }
 .change-row:last-child { border-bottom: none; }
 
-.change-row.old .change-value { color: var(--color-danger); text-decoration: line-through; opacity: 0.7; }
-.change-row.new .change-value { color: #22c55e; }
+.change-row.old .change-value {
+  color: var(--diff-remove-text);
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+.change-row.new .change-value { color: var(--diff-add-text); }
 
 .change-entry {
   padding: var(--space-2) 0;
@@ -784,8 +827,8 @@ onMounted(() => {
   margin-right: var(--space-2);
   flex-shrink: 0;
 }
-.mini-badge.old { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
-.mini-badge.new { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
+.mini-badge.old { background: var(--diff-remove-bg); color: var(--diff-remove-text); }
+.mini-badge.new { background: var(--diff-add-bg); color: var(--diff-add-text); }
 
 .array-summary {
   display: flex;
@@ -794,8 +837,8 @@ onMounted(() => {
   font-size: 11px;
   margin: 2px 0 6px;
 }
-.array-count.added { color: #22c55e; font-weight: 700; }
-.array-count.removed { color: #ef4444; font-weight: 700; }
+.array-count.added { color: var(--diff-add-text); font-weight: 700; }
+.array-count.removed { color: var(--diff-remove-text); font-weight: 700; }
 .array-count.same { color: var(--text-muted); }
 
 .array-item {
@@ -805,9 +848,9 @@ onMounted(() => {
   font-size: var(--text-xs);
   padding: 2px 0;
 }
-.array-item.removed { color: #ef4444; }
+.array-item.removed { color: var(--diff-remove-text); }
 .array-item.removed span:last-child { text-decoration: line-through; opacity: 0.8; }
-.array-item.added { color: #22c55e; }
+.array-item.added { color: var(--diff-add-text); }
 .array-item.same { color: var(--text-muted); }
 .array-sign { font-weight: 700; width: 12px; flex-shrink: 0; }
 

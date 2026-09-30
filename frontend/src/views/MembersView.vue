@@ -32,6 +32,12 @@
           :columns="memberColumns"
           :rows="filteredMembers"
           :loading="isInitialLoading"
+          :error="memberStore.error"
+          error-title="No pudimos cargar los miembros"
+          @retry="memberStore.fetchMembers()"
+          sortable
+          v-model:sort-key="memberSortKey"
+          v-model:sort-dir="memberSortDir"
           :empty-title="memberStore.members.length === 0 ? 'No hay miembros todavía' : 'Sin resultados'"
           :empty-description="memberStore.members.length === 0
             ? 'Invita a tu primera persona al equipo para empezar.'
@@ -51,11 +57,15 @@
           </template>
           <template #cell-roles="{ row }">
             <div class="roles-cell">
-              <span v-for="role in row.roles" :key="role" class="badge-role"
-                :class="{ 'owner-badge': role === 'Owner' || role === 'owner' }">
-                <IconCrown v-if="role === 'Owner' || role === 'owner'" :size="12" stroke-width="2" class="owner-icon" />
+              <UiBadge
+                v-for="role in row.roles"
+                :key="role"
+                :variant="isOwnerRole(role) ? 'warning' : 'neutral'"
+                size="sm"
+              >
+                <IconCrown v-if="isOwnerRole(role)" :size="12" stroke-width="2" />
                 {{ role }}
-              </span>
+              </UiBadge>
             </div>
           </template>
           <template #cell-status="{ row }">
@@ -76,8 +86,13 @@
           <template #cell-actions="{ row }">
             <div class="row-actions" v-permission="Permissions.USERS.UPDATE">
               <UiDropdown align="end" label="Acciones del miembro">
-                <template #trigger="{ toggle }">
-                  <button class="dots-btn" @click.stop="toggle" aria-haspopup="menu" :aria-label="`Acciones para ${row.name}`">
+                <template #trigger="{ toggle, triggerAria }">
+                  <button
+                    class="dots-btn"
+                    @click.stop="toggle"
+                    v-bind="triggerAria"
+                    :aria-label="`Acciones para ${row.name}`"
+                  >
                     <IconDotsVertical :size="16" stroke-width="1.8" />
                   </button>
                 </template>
@@ -124,7 +139,9 @@
         :page="memberStore.page"
         :total="memberStore.total"
         :limit="memberStore.limit"
+        show-page-size
         @update:page="memberStore.goToPage"
+        @update:limit="memberStore.setLimit"
       />
 
       <!-- Add Member Modal -->
@@ -170,9 +187,9 @@
             selected-label="Asignados"
           />
         </template>
-        <template #footer>
+        <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isAddModalOpen = false">
+            <UiButton type="button" variant="outline" @click="requestClose">
               {{ newMemberCredentials ? 'Cerrar' : 'Cancelar' }}
             </UiButton>
             <UiButton v-if="!newMemberCredentials" type="submit" :loading="memberStore.isLoading">
@@ -214,9 +231,9 @@
           selected-label="Asignados"
         />
 
-        <template #footer>
+        <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isEditModalOpen = false">
+            <UiButton type="button" variant="outline" @click="requestClose">
               Cancelar
             </UiButton>
             <UiButton type="submit" :loading="memberStore.isLoading">
@@ -372,12 +389,15 @@ const filterStatus = ref('');
 const isInitialLoading = computed(() => memberStore.isLoading && memberStore.members.length === 0);
 
 const memberColumns = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'email', label: 'Email' },
-  { key: 'roles', label: 'Rol' },
-  { key: 'status', label: 'Estado' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'email', label: 'Email', sortable: true },
+  { key: 'roles', label: 'Rol', sortable: true, sortAccessor: (m: any) => (m.roles ?? []).join(', ') },
+  { key: 'status', label: 'Estado', sortable: true, sortAccessor: (m: any) => (m.is_active ? 1 : 0) },
   { key: 'actions', label: '', align: 'right' as const },
 ];
+
+const memberSortKey = ref<string | null>(null);
+const memberSortDir = ref<'asc' | 'desc'>('asc');
 
 const hasActiveFilters = computed(() => searchQuery.value || filterRole.value || filterStatus.value);
 
@@ -423,6 +443,8 @@ const statusVariant = (status?: string): BadgeVariant => {
 };
 
 const isSelf = (memberId: string): boolean => authStore.user?.id === memberId;
+
+const isOwnerRole = (role: string): boolean => role === 'Owner' || role === 'owner';
 
 // --- ADD MEMBER ---
 const isAddModalOpen = ref(false);
@@ -665,20 +687,6 @@ const confirmResetPasswordEmail = async () => {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-
-.badge-temp {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
-  background: rgba(234, 179, 8, 0.15);
-  color: #eab308;
-  border: 1px solid rgba(234, 179, 8, 0.35);
-  white-space: nowrap;
-}
-.owner-icon { color: var(--accent-amber); margin-right: 4px; }
 
 .password-row {
   display: flex;

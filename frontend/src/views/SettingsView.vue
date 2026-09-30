@@ -12,7 +12,30 @@
         </template>
       </UiPageHeader>
 
-      <div v-if="isLoadingDetail" class="loading-state">Cargando datos...</div>
+      <UiCard v-if="isLoadingDetail" aria-hidden="true">
+        <template #header>
+          <div class="company-hero">
+            <UiSkeleton variant="avatar" width="48px" height="48px" radius="var(--radius-lg)" />
+            <div class="skeleton-hero-text">
+              <UiSkeleton variant="title" width="180px" />
+              <UiSkeleton variant="text" width="120px" />
+            </div>
+          </div>
+        </template>
+        <div class="info-grid">
+          <div v-for="n in 5" :key="n" class="info-row">
+            <UiSkeleton variant="text" width="120px" />
+            <UiSkeleton variant="text" width="160px" />
+          </div>
+        </div>
+      </UiCard>
+
+      <UiErrorState
+        v-else-if="detailError"
+        title="No pudimos cargar la empresa"
+        :description="detailError"
+        @retry="loadCompanyData"
+      />
 
       <template v-else-if="company">
         <UiCard>
@@ -116,9 +139,9 @@
           placeholder="America/Bogota"
         />
 
-        <template #footer>
+        <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isEditModalOpen = false">
+            <UiButton type="button" variant="outline" @click="requestClose">
               Cancelar
             </UiButton>
             <UiButton type="submit" :loading="companyStore.isLoading">
@@ -147,11 +170,14 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
+import UiSkeleton from '@/components/ui/UiSkeleton.vue';
+import UiErrorState from '@/components/ui/UiErrorState.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { emptyToUndefined } from '@/utils/text';
+import { apiErrorMessage } from '@/utils/error';
 import { Permissions } from '@/constants/permissions';
 
 const companyStore = useCompanyStore();
@@ -163,6 +189,7 @@ const { companyId, companyPath } = useCompanyPath();
 
 const isEditModalOpen = ref(false);
 const isLoadingDetail = ref(false);
+const detailError = ref<string | null>(null);
 const company = ref<CompanyDetail | null>(null);
 const form = reactive({
   name: '',
@@ -217,12 +244,13 @@ const loadCompanyData = async () => {
   const activeId = companyId.value;
   if (!activeId) return;
   isLoadingDetail.value = true;
+  detailError.value = null;
   try {
     const result = await companyService.getCompany(activeId);
     company.value = result.data;
     fillForm();
   } catch (error) {
-    console.error('Error al cargar la empresa:', error);
+    detailError.value = apiErrorMessage(error, 'No pudimos cargar la empresa');
   } finally {
     isLoadingDetail.value = false;
   }
@@ -332,6 +360,14 @@ const handleSubmit = async () => {
   gap: var(--space-4);
 }
 
+.skeleton-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
 .slug-field {
   display: flex;
   flex-direction: column;
@@ -343,7 +379,7 @@ const handleSubmit = async () => {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   word-break: break-all;
 }
 </style>

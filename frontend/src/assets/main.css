@@ -27,6 +27,8 @@
   --primary-foreground: #ffffff;
   --primary-hover: #1aad64;
   --primary-active: rgba(28, 156, 90, 0.1);
+  --color-primary-light: rgba(28, 156, 90, 0.12);
+  --focus-ring: #1c9c5a;
 
   /* Status colors */
   --color-success: #1c9c5a;
@@ -45,6 +47,27 @@
   --color-info-bg: rgba(13, 110, 253, 0.08);
   --color-info-border: rgba(13, 110, 253, 0.2);
   --color-info-text: #0a58ca;
+
+  /* Diff (auditoría) */
+  --diff-add-bg: rgba(28, 156, 90, 0.12);
+  --diff-add-text: #1a8a4d;
+  --diff-remove-bg: rgba(220, 53, 69, 0.12);
+  --diff-remove-text: #c82333;
+
+  /* Colores por módulo de permisos (puntos de RolesView).
+     Única fuente: el TS lee estos tokens vía getComputedStyle, no lleva hex. */
+  --module-auth: #dc2626;
+  --module-users: #2563eb;
+  --module-roles: #7c3aed;
+  --module-company: #0891b2;
+  --module-settings: #6b7280;
+  --module-profile: #059669;
+  --module-dashboard: #d97706;
+  --module-branches: #db2777;
+  --module-audit: #ea580c;
+  --module-billing: #0d9488;
+  --module-notifications: #9333ea;
+  --module-integrations: #4f46e5;
 
   /* Accent colors */
   --accent-purple: #7c3aed;
@@ -80,6 +103,8 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
 
   /* Radius */
   --radius-sm: 0.375rem;
@@ -95,6 +120,10 @@
   --text-md: 0.9375rem;
   --text-lg: 1.125rem;
   --text-xl: 1.5rem;
+
+  /* Typography families */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
   color-scheme: light;
 }
@@ -122,6 +151,8 @@
   --primary-foreground: #ffffff;
   --primary-hover: #1aad64;
   --primary-active: rgba(28, 156, 90, 0.15);
+  --color-primary-light: rgba(28, 156, 90, 0.22);
+  --focus-ring: #3edb89;
 
   --color-success: #1c9c5a;
   --color-success-bg: rgba(28, 156, 90, 0.15);
@@ -139,6 +170,25 @@
   --color-info-bg: rgba(62, 144, 255, 0.15);
   --color-info-border: rgba(62, 144, 255, 0.3);
   --color-info-text: #79b8ff;
+
+  --diff-add-bg: rgba(62, 219, 137, 0.15);
+  --diff-add-text: #3edb89;
+  --diff-remove-bg: rgba(255, 99, 105, 0.15);
+  --diff-remove-text: #ff6369;
+
+  /* Los módulos se aclaran en dark mode para mantener el contraste. */
+  --module-auth: #f87171;
+  --module-users: #60a5fa;
+  --module-roles: #a78bfa;
+  --module-company: #22d3ee;
+  --module-settings: #9ca3af;
+  --module-profile: #34d399;
+  --module-dashboard: #fbbf24;
+  --module-branches: #f472b6;
+  --module-audit: #fb923c;
+  --module-billing: #2dd4bf;
+  --module-notifications: #c084fc;
+  --module-integrations: #818cf8;
 
   --accent-purple: #a78bfa;
   --accent-purple-bg: rgba(167, 139, 250, 0.15);
@@ -388,7 +438,7 @@ body {
 
 /* ═══════════════ ACCESSIBILITY ═══════════════ */
 :is(button, a, [role='button'], input[type='checkbox'], input[type='radio'], select):focus-visible {
-  outline: 2px solid var(--text-main);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -397,6 +447,19 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* Solo para lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .user-cell-text {

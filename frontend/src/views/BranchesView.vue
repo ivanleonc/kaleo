@@ -29,6 +29,12 @@
           :columns="branchColumns"
           :rows="filteredBranches"
           :loading="isInitialLoading"
+          :error="branchStore.error"
+          error-title="No pudimos cargar las sedes"
+          @retry="branchStore.fetchBranches()"
+          sortable
+          v-model:sort-key="branchSortKey"
+          v-model:sort-dir="branchSortDir"
           :empty-title="branchStore.branches.length === 0 ? 'No hay sedes todavía' : 'Sin resultados'"
           :empty-description="branchStore.branches.length === 0
             ? 'Agrega tu primera ubicación para empezar.'
@@ -73,8 +79,13 @@
           <template #cell-actions="{ row }">
             <div class="row-actions" v-permission="Permissions.BRANCHES.UPDATE">
               <UiDropdown align="end" label="Acciones de la sede">
-                <template #trigger="{ toggle }">
-                  <button class="dots-btn" @click.stop="toggle" aria-haspopup="menu" :aria-label="`Acciones para ${row.name}`">
+                <template #trigger="{ toggle, triggerAria }">
+                  <button
+                    class="dots-btn"
+                    @click.stop="toggle"
+                    v-bind="triggerAria"
+                    :aria-label="`Acciones para ${row.name}`"
+                  >
                     <IconDotsVertical :size="16" stroke-width="1.8" />
                   </button>
                 </template>
@@ -151,9 +162,9 @@
           :options="mainOptions"
         />
 
-        <template #footer>
+        <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isFormModalOpen = false">
+            <UiButton type="button" variant="outline" @click="requestClose">
               Cancelar
             </UiButton>
             <UiButton type="submit" :loading="branchStore.isLoading">
@@ -251,17 +262,26 @@ const clearFilters = () => {
 const isInitialLoading = computed(() => branchStore.isLoading && branchStore.branches.length === 0);
 
 const branchColumns = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'location', label: 'Ubicación' },
-  { key: 'contact', label: 'Contacto' },
-  { key: 'status', label: 'Estado' },
+  { key: 'name', label: 'Nombre', sortable: true },
+  { key: 'location', label: 'Ubicación', sortable: true },
+  { key: 'contact', label: 'Contacto', sortable: true },
+  { key: 'status', label: 'Estado', sortable: true, sortAccessor: (b: Branch) => (b.is_active ? 1 : 0) },
   { key: 'actions', label: '', align: 'right' as const },
 ];
 
+const branchSortKey = ref<string | null>(null);
+const branchSortDir = ref<'asc' | 'desc'>('asc');
+
 const handleToggleActive = async (branch: Branch) => {
+  const wasActive = branch.is_active;
   try {
-    await branchStore.updateBranch(branch.id, { is_active: !branch.is_active });
-    toast.success(branch.is_active ? 'Sede desactivada' : 'Sede activada');
+    await branchStore.updateBranch(branch.id, { is_active: !wasActive });
+    // El toggle es reversible, así que el aviso ofrece deshacerlo sin abrir la fila.
+    toast.withAction(
+      'success',
+      wasActive ? 'Sede desactivada' : 'Sede activada',
+      { label: 'Deshacer', onClick: () => handleToggleActive({ ...branch, is_active: wasActive }) },
+    );
   } catch (err: any) {
     toast.error(apiErrorMessage(err, 'Error al cambiar el estado'));
   }
@@ -417,7 +437,7 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
-  background-color: var(--accent-blue-bg, rgba(59, 130, 246, 0.1));
+  background-color: var(--accent-blue-bg);
   color: var(--accent-blue);
   display: flex;
   align-items: center;
@@ -430,6 +450,6 @@ onMounted(() => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--accent-amber, #eab308);
+  color: var(--accent-amber);
 }
 </style>

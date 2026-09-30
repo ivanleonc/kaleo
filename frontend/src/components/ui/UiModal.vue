@@ -1,7 +1,29 @@
 <template>
   <Teleport to="body">
     <div v-if="isOpen" class="modal-overlay" @click.self="attemptClose">
+      <!-- Confirmación de descarte: se sustituye el contenido para no anidar modales. -->
       <div
+        v-if="isConfirming"
+        class="modal-content modal-small"
+        role="alertdialog"
+        aria-modal="true"
+        :aria-label="confirmMessage"
+      >
+        <div class="modal-confirm">
+          <p class="modal-confirm-text">{{ confirmMessage }}</p>
+          <div class="modal-confirm-actions">
+            <UiButton variant="ghost" size="sm" width="auto" @click="cancelConfirm">
+              Seguir editando
+            </UiButton>
+            <UiButton variant="danger" size="sm" width="auto" @click="confirmDiscard">
+              Descartar
+            </UiButton>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-else
         ref="contentRef"
         class="modal-content"
         :class="`modal-${size}`"
@@ -18,6 +40,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue';
+import UiButton from '@/components/ui/UiButton.vue';
 
 interface Props {
   size?: 'small' | 'default' | 'large';
@@ -37,7 +60,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const isOpen = defineModel<boolean>({ default: false });
 const contentRef = ref<HTMLElement | null>(null);
+const isConfirming = ref(false);
 let lastFocused: HTMLElement | null = null;
+let previousBodyOverflow = '';
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
@@ -85,29 +110,50 @@ const close = () => {
   isOpen.value = false;
 };
 
+const confirmDiscard = () => {
+  isConfirming.value = false;
+  close();
+};
+
+const cancelConfirm = () => {
+  isConfirming.value = false;
+  nextTick(() => focusFirst());
+};
+
 const attemptClose = () => {
   if (props.confirmOnDirty && props.dirty) {
-    if (!window.confirm(props.confirmMessage)) return;
+    // Confirmación dentro del propio modal: window.confirm se ve ajeno al diseño
+    // y no se puede estilar ni traducir de forma consistente.
+    isConfirming.value = true;
+    return;
   }
   close();
 };
 
+// `immediate` es necesario: si el modal nace abierto (v-model ya en true al
+// montarse) sin él no se instalarían el bloqueo de scroll ni el foco/Escape.
 watch(isOpen, (value) => {
   if (value) {
     lastFocused = document.activeElement as HTMLElement | null;
+    isConfirming.value = false;
+    // Bloquea el scroll del fondo mientras el modal está abierto.
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     nextTick(() => {
       focusFirst();
       window.addEventListener('keydown', onKeydown, true);
     });
   } else {
     window.removeEventListener('keydown', onKeydown, true);
+    document.body.style.overflow = previousBodyOverflow;
     lastFocused?.focus?.();
     lastFocused = null;
   }
-});
+}, { immediate: true });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown, true);
+  if (isOpen.value) document.body.style.overflow = previousBodyOverflow;
 });
 
 defineExpose({ close, attemptClose });
@@ -133,8 +179,32 @@ defineExpose({ close, attemptClose });
   width: 100%;
   max-width: 400px;
   max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   overflow-y: auto;
   animation: modal-in 0.2s ease-out;
+}
+
+.modal-confirm {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.modal-confirm-text {
+  font-size: var(--text-base);
+  color: var(--text-main);
+  line-height: 1.45;
+}
+
+.modal-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .modal-small { max-width: 340px; }
@@ -148,6 +218,7 @@ defineExpose({ close, attemptClose });
   }
   .modal-content {
     max-height: calc(100vh - 1rem);
+    max-height: calc(100dvh - 1rem);
   }
 }
 

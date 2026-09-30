@@ -2,11 +2,13 @@
   <Teleport to="body">
     <div v-if="open" class="palette-overlay" @click="close">
       <div
+        ref="dialogRef"
         class="palette"
         role="dialog"
         aria-modal="true"
         aria-label="Búsqueda rápida"
         @click.stop
+        @keydown="onDialogKeydown"
       >
         <div class="palette-input-row">
           <IconSearch :size="16" stroke-width="1.8" class="palette-search-icon" />
@@ -16,14 +18,25 @@
             type="text"
             class="palette-input"
             placeholder="Buscar páginas y acciones..."
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="palette-listbox"
+            :aria-activedescendant="activeId"
+            aria-autocomplete="list"
             aria-label="Buscar páginas y acciones"
             @keydown="onKeydown"
           />
           <kbd class="palette-kbd">ESC</kbd>
         </div>
-        <div class="palette-list" role="listbox" aria-label="Resultados">
+        <div
+          id="palette-listbox"
+          class="palette-list"
+          role="listbox"
+          aria-label="Resultados"
+        >
           <button
             v-for="(item, i) in filtered"
+            :id="`palette-opt-${item.id}`"
             :key="item.id"
             type="button"
             role="option"
@@ -91,6 +104,18 @@ const open = computed({
 const query = ref('');
 const activeIndex = ref(0);
 const inputRef = ref<HTMLInputElement | null>(null);
+const dialogRef = ref<HTMLElement | null>(null);
+let lastFocused: HTMLElement | null = null;
+
+/**
+ * El foco real nunca sale del input (patrón combobox), así que la opción
+ * resaltada se comunica con aria-activedescendant. Sin esto el lector de
+ * pantalla anuncia la lista inicial y no los cambios con las flechas.
+ */
+const activeId = computed(() => {
+  const item = filtered.value[activeIndex.value];
+  return item ? `palette-opt-${item.id}` : '';
+});
 
 const can = (permission: string): boolean => authStore.hasPermission(permission);
 
@@ -142,6 +167,7 @@ const close = () => {
 };
 
 const run = (item: PaletteItem) => {
+  // Se cierra antes de navegar: si la ruta falla, el diálogo ya está fuera.
   close();
   item.run();
 };
@@ -157,18 +183,62 @@ const onKeydown = (event: KeyboardEvent) => {
     event.preventDefault();
     const item = filtered.value[activeIndex.value];
     if (item) run(item);
-  } else if (event.key === 'Escape') {
+  }
+  // Escape no se trata aquí: lo lleva onDialogKeydown a nivel de diálogo.
+  // Si se mantuviera en los dos sitios, el evento propagado cerraría dos veces.
+};
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+
+/** Escape en cualquier punto y trampa de foco mientras el diálogo está abierto. */
+const onDialogKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    event.stopPropagation();
     close();
+    return;
+  }
+  if (event.key !== 'Tab' || !dialogRef.value) return;
+
+  const focusables = Array.from(
+    dialogRef.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  );
+  if (focusables.length === 0) {
+    event.preventDefault();
+    return;
+  }
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const active = document.activeElement as HTMLElement | null;
+
+  if (event.shiftKey && (active === first || !dialogRef.value.contains(active))) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first?.focus();
   }
 };
 
-watch(open, (value) => {
-  if (value) {
-    query.value = '';
-    activeIndex.value = 0;
-    nextTick(() => inputRef.value?.focus());
-  }
-});
+// `immediate`: si el componente se monta ya abierto, sin él el input nunca
+// recibe el foco y el combobox arranca "ciego".
+watch(
+  open,
+  (value) => {
+    if (value) {
+      lastFocused = document.activeElement as HTMLElement | null;
+      query.value = '';
+      activeIndex.value = 0;
+      nextTick(() => inputRef.value?.focus());
+    } else if (lastFocused) {
+      // Devolver el foco evita que se quede en el body tras cerrar.
+      lastFocused.focus?.();
+      lastFocused = null;
+    }
+  },
+  { immediate: true },
+);
 
 watch(filtered, () => {
   activeIndex.value = 0;

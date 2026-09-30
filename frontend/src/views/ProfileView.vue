@@ -97,9 +97,9 @@
           <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
         </div>
 
-        <template #footer>
+        <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isProfileModalOpen = false">
+            <UiButton type="button" variant="outline" @click="requestClose">
               Cancelar
             </UiButton>
             <UiButton type="submit" :loading="isSavingProfile">
@@ -146,9 +146,9 @@
           Las contraseñas no coinciden.
         </p>
 
-        <template #footer>
+        <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isPasswordModalOpen = false">
+            <UiButton type="button" variant="outline" @click="requestClose">
               Cancelar
             </UiButton>
             <UiButton type="submit" :loading="isChangingPassword">

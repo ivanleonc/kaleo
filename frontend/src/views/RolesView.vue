@@ -12,13 +12,26 @@
         </template>
       </UiPageHeader>
 
-      <div v-if="isLoading" class="skeleton-grid" aria-label="Cargando roles">
-        <div v-for="n in 3" :key="n" class="skeleton-card">
+      <div
+        v-if="isLoading"
+        class="skeleton-grid"
+        role="status"
+        aria-busy="true"
+      >
+        <span class="sr-only">Cargando roles…</span>
+        <div v-for="n in 3" :key="n" class="skeleton-card" aria-hidden="true">
           <div class="skeleton skeleton-card-title"></div>
           <div class="skeleton skeleton-card-line"></div>
           <div class="skeleton skeleton-card-line short"></div>
         </div>
       </div>
+
+      <UiErrorState
+        v-else-if="loadError"
+        title="No pudimos cargar los roles"
+        :description="loadError"
+        @retry="fetchData"
+      />
 
       <UiEmptyState
         v-else-if="roles.length === 0"
@@ -56,8 +69,13 @@
             </div>
             <div class="role-actions" v-if="!role.is_system">
               <UiDropdown align="end" label="Acciones del rol">
-                <template #trigger="{ toggle }">
-                  <button class="role-menu-btn" @click.stop="toggle" aria-haspopup="menu" :aria-label="`Acciones para ${role.name}`">
+                <template #trigger="{ toggle, triggerAria }">
+                  <button
+                    class="role-menu-btn"
+                    @click.stop="toggle"
+                    v-bind="triggerAria"
+                    :aria-label="`Acciones para ${role.name}`"
+                  >
                     <IconDotsVertical :size="16" />
                   </button>
                 </template>
@@ -92,7 +110,10 @@
               >
                 <button class="module-header" @click="toggleModule(role.id, String(module))">
                   <div class="module-info">
-                    <span class="module-dot" :class="`dot-${module}`" />
+                    <span
+                      class="module-dot"
+                      :style="{ '--module-color': `var(--module-${module}, var(--text-muted))` }"
+                    />
                     <span class="module-name">{{ getModuleName(String(module)) }}</span>
                   </div>
                   <div class="module-right">
@@ -149,9 +170,9 @@
         selected-label="Asignados al Rol"
       />
 
-      <template #footer>
+      <template #footer="{ requestClose }">
         <div class="modal-footer">
-          <UiButton type="button" variant="outline" @click="isModalOpen = false">Cancelar</UiButton>
+          <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
           <UiButton type="submit" :loading="isSaving">Guardar Rol</UiButton>
         </div>
       </template>
@@ -180,9 +201,9 @@
       available-label="Disponibles"
       selected-label="Asignados al Rol"
     />
-    <template #footer>
+    <template #footer="{ requestClose }">
       <div class="modal-footer">
-        <UiButton type="button" variant="outline" @click="isEditModalOpen = false">Cancelar</UiButton>
+        <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
         <UiButton type="submit" :loading="isSaving">Guardar Cambios</UiButton>
       </div>
     </template>
@@ -221,6 +242,7 @@ import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
+import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
@@ -241,6 +263,7 @@ const { companyId } = useCompanyPath();
 const roles = ref<Role[]>([]);
 const allPermissions = ref<Permission[]>([]);
 const isLoading = ref(true);
+const loadError = ref<string | null>(null);
 const isSaving = ref(false);
 const errorMsg = ref('');
 
@@ -282,21 +305,6 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   Owner: 'Control total del sistema. Gestión de usuarios, roles, facturación y configuración.',
   Admin: 'Acceso extendido excepto eliminación de usuarios y gestión de roles.',
   Viewer: 'Solo lectura. Puede consultar pero no modificar datos.',
-};
-
-const MODULE_COLORS: Record<string, string> = {
-  auth: '#ef4444',
-  users: '#3b82f6',
-  roles: '#8b5cf6',
-  company: '#06b6d4',
-  settings: '#6b7280',
-  profile: '#10b981',
-  dashboard: '#f59e0b',
-  branches: '#ec4899',
-  audit: '#f97316',
-  billing: '#14b8a6',
-  notifications: '#a855f7',
-  integrations: '#6366f1',
 };
 
 function getRoleDescription(name: string): string {
@@ -394,6 +402,8 @@ async function handleDeleteSubmit() {
 
 const fetchData = async () => {
   if (!companyId.value) return;
+  isLoading.value = true;
+  loadError.value = null;
   try {
     const [rolesData, permsData] = await Promise.all([
       roleService.getRoles(),
@@ -402,7 +412,7 @@ const fetchData = async () => {
     roles.value = rolesData;
     allPermissions.value = permsData;
   } catch (error) {
-    console.error('Error cargando datos', error);
+    loadError.value = apiErrorMessage(error, 'No pudimos cargar los roles');
   } finally {
     isLoading.value = false;
   }
@@ -486,11 +496,11 @@ const handleCreateSubmit = async () => {
   flex-shrink: 0;
 }
 .role-icon.system {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
 }
 .role-icon.custom {
-  background: rgba(107, 114, 128, 0.1);
+  background: var(--bg-hover);
   color: var(--text-muted);
 }
 
@@ -588,19 +598,9 @@ const handleCreateSubmit = async () => {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  /* El color real viene de --module-*: se define en main.css y tiene variante dark. */
+  background: var(--module-color, var(--text-muted));
 }
-.dot-auth { background: #ef4444; }
-.dot-users { background: #3b82f6; }
-.dot-roles { background: #8b5cf6; }
-.dot-company { background: #06b6d4; }
-.dot-settings { background: #6b7280; }
-.dot-profile { background: #10b981; }
-.dot-dashboard { background: #f59e0b; }
-.dot-branches { background: #ec4899; }
-.dot-audit { background: #f97316; }
-.dot-billing { background: #14b8a6; }
-.dot-notifications { background: #a855f7; }
-.dot-integrations { background: #6366f1; }
 
 .module-name {
   font-size: var(--text-sm);
