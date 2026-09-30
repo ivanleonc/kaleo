@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue';
+import { computed, isRef, ref, type Ref } from 'vue';
 import {
   createTableHook,
   tableFeatures,
@@ -21,6 +21,7 @@ import {
   type ColumnDef,
   type RowData,
   type SortingState,
+  type TableOptionsWithReactiveData,
   type Updater,
 } from '@tanstack/vue-table';
 
@@ -74,12 +75,32 @@ export type AppColumnDef<TData extends RowData> = ColumnDef<AppFeatures, TData, 
  * - Sin multi-sort: una sola columna a la vez, como el UiDataTable anterior.
  * - `getRowId` por defecto usa `row.id` (todas las entidades lo tienen).
  */
-export const { useAppTable, createAppColumnHelper } = createTableHook({
+const { useAppTable: useBaseAppTable, createAppColumnHelper } = createTableHook({
   features: appFeatures,
   enableSortingRemoval: false,
   enableMultiSort: false,
   getRowId: (row: any) => String(row?.id ?? ''),
 });
+
+export { createAppColumnHelper };
+
+/**
+ * Crea la tabla. `data` DEBE ser un ref o un computed: TanStack solo se
+ * suscribe a valores reactivos. Pasar el array pelado (p. ej. la propiedad
+ * de un store de Pinia, que desenvuelve los refs) congela la tabla con los
+ * datos del mount — el síntoma es "al recargar no aparecen las filas".
+ */
+export function useAppTable<TData extends RowData>(
+  options: Omit<TableOptionsWithReactiveData<AppFeatures, TData>, 'features'>,
+) {
+  if (!isRef(options.data) && import.meta.env.DEV) {
+    console.warn(
+      '[useAppTable] `data` no es un ref ni un computed: la tabla no reaccionará a ' +
+        'los cambios. Si viene de un store de Pinia, envuélvelo: `data: computed(() => store.items)`.',
+    );
+  }
+  return useBaseAppTable(options);
+}
 
 /** Sort en el idioma del backend (`sortBy`/`sortDir` del SortQueryDto). */
 export interface ServerSort {

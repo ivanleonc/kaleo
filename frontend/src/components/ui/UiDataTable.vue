@@ -1,5 +1,20 @@
 <template>
   <div class="table-wrapper" :class="{ 'table-scroll': sticky }">
+    <!--
+      Sin esto, un refetch fallido con filas viejas es invisible: el estado
+      de error completo solo se muestra cuando no hay filas que enseñar.
+    -->
+    <UiAlert v-if="error && visibleRows.length > 0" type="warning" class="ui-table-error-banner">
+      <span class="ui-table-error-text">{{ error }}</span>
+      <button
+        v-if="hasRetryListener"
+        type="button"
+        class="ui-table-error-retry"
+        @click="emit('retry')"
+      >
+        Reintentar
+      </button>
+    </UiAlert>
     <table
       v-if="!loading && visibleRows.length > 0"
       class="ui-table"
@@ -129,6 +144,7 @@ import type {
 import type { AppFeatures } from '@/composables/useAppTable';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
+import UiAlert from '@/components/ui/UiAlert.vue';
 
 const props = withDefaults(defineProps<{
   /** Instancia creada con `useAppTable`. El presentador solo renderiza. */
@@ -157,10 +173,12 @@ const emit = defineEmits<{
 
 // Los listeners de un emit declarado no llegan a $attrs, así que se mira el vnode.
 const instance = getCurrentInstance();
-const retryAttrs = computed(() => {
-  const onRetry = (instance?.vnode.props as Record<string, unknown> | null)?.onRetry;
-  return onRetry ? { onRetry: () => emit('retry') } : {};
-});
+const hasRetryListener = computed(
+  () => !!(instance?.vnode.props as Record<string, unknown> | null)?.onRetry,
+);
+const retryAttrs = computed(() =>
+  hasRetryListener.value ? { onRetry: () => emit('retry') } : {},
+);
 
 const headerGroups = computed(() => props.table.getHeaderGroups());
 const visibleRows = computed(() => props.table.getRowModel().rows);
@@ -243,6 +261,46 @@ const columnSkeletonWidth = (id: string, label: string): number => {
 .ui-table-sort.is-active .sort-icon {
   opacity: 1;
   color: var(--color-primary);
+}
+
+/* Aviso no bloqueante: el refetch falló pero se siguen viendo filas viejas. */
+.ui-table-error-banner {
+  margin-bottom: var(--space-3);
+}
+
+.ui-table-error-banner.ui-alert .alert-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.ui-table-error-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-table-error-retry {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ui-table-error-retry:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.ui-table-error-retry:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 @media (max-width: 640px) {

@@ -11,30 +11,32 @@
       </UiPageHeader>
 
       <!-- Filters -->
-      <div class="filters-bar">
-        <div class="filter-group">
-          <UiSelect
-            v-model="filterEntity"
-            :options="entityOptions"
-            placeholder="Todas las entidades"
-          />
-        </div>
-        <div class="filter-group filter-group-grow">
-          <UiSearchInput
-            v-model="filterAction"
-            placeholder="Buscar por acción..."
-            @update:model-value="debouncedFetch"
-          />
-        </div>
-        <div class="filter-group filter-dates">
-          <input v-model="filterFrom" type="date" class="filter-date" @change="applyFilters" />
-          <span class="date-sep">hasta</span>
-          <input v-model="filterTo" type="date" class="filter-date" @change="applyFilters" />
-        </div>
-        <button v-if="hasActiveFilters" class="clear-btn" @click="clearFilters">
-          <IconX :size="14" /> Limpiar
-        </button>
-      </div>
+      <UiTableFilters v-model="auditFilterValues" :filters="auditFilterDefs">
+        <!--
+          Par de fechas con el "hasta" original: ejemplo de filtro especial
+          montado sobre el escape hatch `#filter-{key}` en vez de dos
+          controles genéricos sueltos.
+        -->
+        <template #filter-from="{ values, update }">
+          <div class="filter-dates">
+            <input
+              :value="values.from"
+              type="date"
+              class="filter-date"
+              aria-label="Desde"
+              @input="update('from', ($event.target as HTMLInputElement).value)"
+            />
+            <span class="date-sep">hasta</span>
+            <input
+              :value="values.to"
+              type="date"
+              class="filter-date"
+              aria-label="Hasta"
+              @input="update('to', ($event.target as HTMLInputElement).value)"
+            />
+          </div>
+        </template>
+      </UiTableFilters>
 
       <!-- Loading -->
       <div
@@ -244,8 +246,7 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import type { BadgeVariant } from '@/types/ui';
-import UiSelect from '@/components/ui/UiSelect.vue';
-import UiSearchInput from '@/components/ui/UiSearchInput.vue';
+import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
@@ -259,9 +260,9 @@ import {
   useNowTick,
 } from '@/utils/date';
 import { auditService } from '@/services/audit.service';
+import { useFilterSync } from '@/composables/useFilterSync';
 import {
   IconClipboardList,
-  IconX,
   IconChevronDown,
   IconGlobe,
   IconPlus,
@@ -275,51 +276,46 @@ import {
 const auditStore = useAuditStore();
 const authStore = useAuthStore();
 
-const filterEntity = ref('');
-const filterAction = ref('');
-const filterFrom = ref('');
-const filterTo = ref('');
-const expandedLogs = ref(new Set<string>());
-const expandedResponses = ref(new Set<string>());
-let debounceTimer: ReturnType<typeof setTimeout>;
+// Un solo objeto + un solo watcher profundo: todas las claves disparan el
+// fetch (el select de entidad antes no tenía trigger y parecía "muerto").
+const auditFilterValues = ref({ entityType: '', action: '', from: '', to: '' });
 
-const entityOptions = computed(() => [
-  { label: 'Todas las entidades', value: '' },
-  ...auditStore.entityTypes.map((t) => ({ label: t, value: t })),
+const auditFilterDefs = computed<TableFilterDef[]>(() => [
+  {
+    key: 'entityType',
+    type: 'select',
+    label: 'Filtrar por entidad',
+    placeholder: 'Todas las entidades',
+    options: auditStore.entityTypes.map((t) => ({ label: t, value: t })),
+  },
+  {
+    key: 'action',
+    type: 'search',
+    label: 'Buscar por acción',
+    placeholder: 'Buscar por acción...',
+    grow: true,
+  },
+  { key: 'from', type: 'date', label: 'Desde' },
 ]);
 
-const hasActiveFilters = computed(() =>
-  filterEntity.value || filterAction.value || filterFrom.value || filterTo.value
+useFilterSync(auditFilterValues, (v) =>
+  auditStore.setFilters({
+    entityType: v.entityType || undefined,
+    action: v.action || undefined,
+    from: v.from || undefined,
+    to: v.to || undefined,
+  }),
 );
 
-function debouncedFetch() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(applyFilters, 300);
-}
-
-function applyFilters() {
-  auditStore.setFilters({
-    entityType: filterEntity.value || undefined,
-    action: filterAction.value || undefined,
-    from: filterFrom.value || undefined,
-    to: filterTo.value || undefined,
-  });
-}
-
-function clearFilters() {
-  filterEntity.value = '';
-  filterAction.value = '';
-  filterFrom.value = '';
-  filterTo.value = '';
-  auditStore.resetFilters();
-}
+const expandedLogs = ref(new Set<string>());
+const expandedResponses = ref(new Set<string>());
 
 function fetchExportBlob() {
   return auditService.fetchCsvBlob({
-    entityType: filterEntity.value || undefined,
-    action: filterAction.value || undefined,
-    from: filterFrom.value || undefined,
-    to: filterTo.value || undefined,
+    entityType: auditFilterValues.value.entityType || undefined,
+    action: auditFilterValues.value.action || undefined,
+    from: auditFilterValues.value.from || undefined,
+    to: auditFilterValues.value.to || undefined,
   });
 }
 

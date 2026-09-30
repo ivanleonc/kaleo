@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
-import { defineComponent, h, nextTick, ref, computed } from 'vue';
+import { defineComponent, h, nextTick, ref, computed, reactive } from 'vue';
+import type { ComputedRef, Ref } from 'vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import {
   useAppTable,
@@ -45,6 +46,8 @@ afterEach(() => {
 interface MountOptions {
   columns?: AppColumnDef<TestRow>[];
   data?: TestRow[];
+  /** Ref externa (simula un fetch que resuelve después del mount). */
+  dataRef?: Ref<TestRow[]> | ComputedRef<TestRow[]>;
   props?: Record<string, unknown>;
   slots?: Record<string, (...args: any[]) => any>;
   initialSorting?: SortingState;
@@ -54,6 +57,7 @@ interface MountOptions {
 const mountTable = async ({
   columns = defaultColumns,
   data = baseRows,
+  dataRef,
   props = {},
   slots = {},
   initialSorting = [],
@@ -68,7 +72,7 @@ const mountTable = async ({
       const sorting = useSortingState(initialSorting);
       const table = useAppTable<TestRow>({
         columns,
-        data: ref(data.map((r) => ({ ...r }))),
+        data: dataRef ?? ref(data.map((r) => ({ ...r }))),
         ...useControlledSorting(sorting),
         ...tableOptions,
       });
@@ -180,6 +184,53 @@ describe('UiDataTable — ordenamiento (modo cliente)', () => {
   });
 });
 
+describe('UiDataTable — reactividad de datos (regresión)', () => {
+  it('reacciona cuando los datos llegan después del mount (fetch async)', async () => {
+    const live = ref<TestRow[]>([]);
+    await mountTable({ dataRef: live });
+    expect(document.querySelector('.empty-state')).not.toBeNull();
+
+    live.value = baseRows.map((r) => ({ ...r }));
+    await nextTick();
+    await nextTick();
+
+    expect(document.querySelectorAll('tbody tr')).toHaveLength(3);
+    expect(bodyTexts()[0]).toBe('Zoe');
+  });
+
+  it('reacciona con el patrón de la app: computed sobre store reactivo', async () => {
+    // Los setup stores de Pinia van en reactive() y desenvuelven los refs:
+    // `store.items` es el array pelado, por eso las vistas pasan un computed.
+    const fakeStore = reactive({ items: [] as TestRow[] });
+    await mountTable({ dataRef: computed(() => fakeStore.items) });
+    expect(document.querySelector('.empty-state')).not.toBeNull();
+
+    fakeStore.items = baseRows.map((r) => ({ ...r }));
+    await nextTick();
+    await nextTick();
+
+    expect(document.querySelectorAll('tbody tr')).toHaveLength(3);
+  });
+
+  it('avisa en DEV si `data` no es reactivo (footgun de Pinia)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fakeStore = reactive({ items: [] as TestRow[] });
+      // El array pelado, tal como lo entrega `store.items`: la tabla nace
+      // congelada con él y jamás se entera de los reemplazos.
+      await mountTable({ dataRef: fakeStore.items as unknown as Ref<TestRow[]> });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[useAppTable]'));
+
+      fakeStore.items = baseRows.map((r) => ({ ...r }));
+      await nextTick();
+      await nextTick();
+      expect(document.querySelectorAll('tbody tr')).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 describe('UiDataTable — estructura', () => {
   it('renderiza celdas custom por slot cell-{id}', async () => {
     await mountTable({
@@ -232,5 +283,24 @@ describe('UiDataTable — estructura', () => {
     await nextTick();
 
     expect(tableComponent().emitted('retry')).toHaveLength(1);
+  });
+
+  it('muestra un aviso no bloqueante si el refetch falla con filas viejas', async () => {
+    await mountTable({ props: { error: 'Se perdió la conexión', onRetry: () => {} } });
+    // Las filas viejas siguen visibles…
+    expect(document.querySelectorAll('tbody tr')).toHaveLength(3);
+    // …pero el error ya no es silencioso.
+    const banner = document.querySelector('.ui-table-error-banner');
+    expect(banner?.textContent).toContain('Se perdió la conexión');
+
+    banner?.querySelector<HTMLButtonElement>('.ui-table-error-retry')?.click();
+    await nextTick();
+    expect(tableComponent().emitted('retry')).toHaveLength(1);
+  });
+
+  it('el banner no sale sin listener de retry', async () => {
+    await mountTable({ props: { error: 'Fallo de red' } });
+    expect(document.querySelector('.ui-table-error-banner')).not.toBeNull();
+    expect(document.querySelector('.ui-table-error-retry')).toBeNull();
   });
 });

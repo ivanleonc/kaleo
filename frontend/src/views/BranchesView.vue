@@ -12,17 +12,7 @@
         </template>
       </UiPageHeader>
 
-      <div class="filters-bar">
-        <div class="filter-group filter-group-grow">
-          <UiSearchInput v-model="searchQuery" placeholder="Buscar por nombre o ciudad..." />
-        </div>
-        <div class="filter-group">
-          <UiSelect v-model="filterStatus" :options="statusFilterOptions" />
-        </div>
-        <button v-if="hasActiveFilters" class="clear-btn" @click="clearFilters">
-          <IconX :size="14" /> Limpiar
-        </button>
-      </div>
+      <UiTableFilters v-model="branchFilterValues" :filters="branchFilterDefs" />
 
       <div class="table-section">
         <UiDataTable
@@ -196,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useBranchStore } from '@/stores/branch.store';
 import { useMemberStore } from '@/stores/member.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -212,14 +202,14 @@ import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
-import UiSearchInput from '@/components/ui/UiSearchInput.vue';
+import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { useToast } from '@/composables/useToast';
 import { useDirtyForm } from '@/composables/useDirtyForm';
-import { useDebounceFn } from '@/composables/useDebounceFn';
+import { useFilterSync } from '@/composables/useFilterSync';
 import {
   useAppTable,
   createAppColumnHelper,
@@ -237,7 +227,6 @@ import {
   IconTrash,
   IconBuildingCommunity,
   IconSwitchHorizontal,
-  IconX,
 } from '@tabler/icons-vue';
 
 const branchStore = useBranchStore();
@@ -246,31 +235,36 @@ const authStore = useAuthStore();
 const toast = useToast();
 
 // --- FILTERS ---
-const searchQuery = ref('');
-const filterStatus = ref('');
+// El filtrado ocurre en el servidor para que page/total sigan siendo
+// coherentes. Un solo watcher profundo (useFilterSync) cubre todas las claves.
+const branchFilterValues = ref({ search: '', status: '' });
 
-const statusFilterOptions = [
-  { label: 'Todos los estados', value: '' },
-  { label: 'Activa', value: 'active' },
-  { label: 'Inactiva', value: 'inactive' },
+const branchFilterDefs: TableFilterDef[] = [
+  {
+    key: 'search',
+    type: 'search',
+    label: 'Buscar sedes',
+    placeholder: 'Buscar por nombre o ciudad...',
+    grow: true,
+  },
+  {
+    key: 'status',
+    type: 'select',
+    label: 'Filtrar por estado',
+    options: [
+      { label: 'Todos los estados', value: '' },
+      { label: 'Activa', value: 'active' },
+      { label: 'Inactiva', value: 'inactive' },
+    ],
+  },
 ];
 
-const hasActiveFilters = computed(() => searchQuery.value || filterStatus.value);
-
-// El filtrado ocurre en el servidor para que page/total sigan siendo coherentes.
-const applyCurrentFilters = useDebounceFn(() => {
+useFilterSync(branchFilterValues, (v) =>
   branchStore.applyFilters({
-    search: emptyToUndefined(searchQuery.value),
-    status: filterStatus.value || undefined,
-  });
-}, 350);
-
-watch([searchQuery, filterStatus], applyCurrentFilters);
-
-const clearFilters = () => {
-  searchQuery.value = '';
-  filterStatus.value = '';
-};
+    search: emptyToUndefined(v.search),
+    status: v.status || undefined,
+  }),
+);
 
 const isInitialLoading = computed(() => branchStore.isLoading && branchStore.branches.length === 0);
 
@@ -302,12 +296,14 @@ const branchColumns: AppColumnDef<Branch>[] = [
 const branchSorting = useSortingState();
 const branchTable = useAppTable<Branch>({
   columns: branchColumns,
-  data: branchStore.branches,
+  // computed, no el array pelado: los stores de Pinia desenvuelven los refs
+  // y la tabla solo reacciona a refs/computed (si no, "a veces" no hay filas).
+  data: computed(() => branchStore.branches),
   manualSorting: true,
   manualPagination: true,
   autoResetPageIndex: false,
   ...useControlledSorting(branchSorting, (sorting) => {
-    void branchStore.setSort(sortingStateToServer(sorting));
+    branchStore.setSort(sortingStateToServer(sorting)).catch(() => {});
   }),
 });
 

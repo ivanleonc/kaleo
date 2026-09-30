@@ -72,13 +72,15 @@ export const useAuditStore = defineStore('audit', () => {
   function setFilters(f: AuditFilters) {
     filters.value = f;
     cursorStack.value = [null];
-    fetchLogs();
+    // Flotante a propósito: el error ya vive en `error` y la vista lo
+    // muestra; el catch evita ruido de unhandled rejection en consola.
+    fetchLogs().catch(() => {});
   }
 
   function resetFilters() {
     filters.value = {};
     cursorStack.value = [null];
-    fetchLogs();
+    fetchLogs().catch(() => {});
   }
 
   return {

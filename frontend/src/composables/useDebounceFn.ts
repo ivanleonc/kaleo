@@ -1,4 +1,4 @@
-import { onUnmounted } from 'vue';
+import { getCurrentInstance, onUnmounted } from 'vue';
 
 /**
  * Debounce con limpieza automática al desmontar el componente.
@@ -27,7 +27,9 @@ export function useDebounceFn<A extends unknown[]>(
     timer = null;
   };
 
-  onUnmounted(() => debounced.cancel());
+  // Solo hay instancia dentro de un setup(): fuera (tests, utilidades) no
+  // hay nada que limpiar y el hook no debe advertir.
+  if (getCurrentInstance()) onUnmounted(() => debounced.cancel());
 
   return debounced;
 }

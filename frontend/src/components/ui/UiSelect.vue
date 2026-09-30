@@ -5,16 +5,17 @@
     </label>
 
     <div class="ui-select-control">
-      <select
-        :id="id"
-        v-model="model"
-        class="ui-select"
-        :class="{ 'has-error': !!error }"
-        :required="required"
-        :disabled="disabled"
-        :aria-invalid="!!error"
-        :aria-describedby="error ? errorId : undefined"
-      >
+        <select
+          :id="id"
+          v-model="model"
+          class="ui-select"
+          :class="{ 'has-error': !!error }"
+          :required="required"
+          :disabled="disabled"
+          :aria-label="ariaLabel"
+          :aria-invalid="!!error"
+          :aria-describedby="error ? errorId : undefined"
+        >
         <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
         <option v-for="option in options" :key="option.value" :value="option.value">
           {{ option.label }}
@@ -38,6 +39,8 @@ interface Props {
   required?: boolean;
   disabled?: boolean;
   error?: string | null;
+  /** Nombre accesible cuando no hay <label> visible (barras de filtros). */
+  ariaLabel?: string;
 }
 
 withDefaults(defineProps<Props>(), {

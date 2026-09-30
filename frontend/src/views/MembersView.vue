@@ -12,20 +12,7 @@
         </template>
       </UiPageHeader>
 
-      <div class="filters-bar">
-        <div class="filter-group filter-group-grow">
-          <UiSearchInput v-model="searchQuery" placeholder="Buscar por nombre o email..." />
-        </div>
-        <div class="filter-group">
-          <UiSelect v-model="filterRole" :options="roleFilterOptions" />
-        </div>
-        <div class="filter-group">
-          <UiSelect v-model="filterStatus" :options="statusFilterOptions" />
-        </div>
-        <button v-if="hasActiveFilters" class="clear-btn" @click="clearFilters">
-          <IconX :size="14" /> Limpiar
-        </button>
-      </div>
+      <UiTableFilters v-model="memberFilterValues" :filters="memberFilterDefs" />
 
       <div class="table-section">
         <UiDataTable
@@ -331,7 +318,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, ref, computed, watch } from 'vue';
+import { reactive, onMounted, ref, computed } from 'vue';
 import { useMemberStore } from '@/stores/member.store';
 import { roleService, type Role } from '@/services/role.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -350,14 +337,14 @@ import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
+import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
-import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import { emptyToUndefined } from '@/utils/text';
 import { useClipboard } from '@/composables/useClipboard';
-import { useDebounceFn } from '@/composables/useDebounceFn';
+import { useFilterSync } from '@/composables/useFilterSync';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import {
   useAppTable,
@@ -370,7 +357,7 @@ import {
 import type { Member } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
-import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconMail, IconCopy, IconUsers, IconX } from '@tabler/icons-vue';
+import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconMail, IconCopy, IconUsers } from '@tabler/icons-vue';
 
 const authStore = useAuthStore();
 const memberStore = useMemberStore();
@@ -387,9 +374,47 @@ const roleItems = computed(() =>
 
 const { copyToClipboard } = useClipboard();
 
-const searchQuery = ref('');
-const filterRole = ref('');
-const filterStatus = ref('');
+// El filtrado ocurre en el servidor para que page/total sigan siendo
+// coherentes. Un solo watcher profundo (useFilterSync) cubre todas las
+// claves: ningún filtro queda "muerto" sin trigger.
+const memberFilterValues = ref({ search: '', roleId: '', status: '' });
+
+const memberFilterDefs = computed<TableFilterDef[]>(() => [
+  {
+    key: 'search',
+    type: 'search',
+    label: 'Buscar miembros',
+    placeholder: 'Buscar por nombre o email...',
+    grow: true,
+  },
+  {
+    key: 'roleId',
+    type: 'select',
+    label: 'Filtrar por rol',
+    options: [
+      { label: 'Todos los roles', value: '' },
+      ...availableRoles.value.map((r) => ({ label: r.name, value: r.id })),
+    ],
+  },
+  {
+    key: 'status',
+    type: 'select',
+    label: 'Filtrar por estado',
+    options: [
+      { label: 'Todos los estados', value: '' },
+      { label: 'Activo', value: 'active' },
+      { label: 'Inactivo', value: 'inactive' },
+    ],
+  },
+]);
+
+useFilterSync(memberFilterValues, (v) =>
+  memberStore.applyFilters({
+    search: emptyToUndefined(v.search),
+    status: v.status || undefined,
+    roleId: v.roleId || undefined,
+  }),
+);
 
 const isInitialLoading = computed(() => memberStore.isLoading && memberStore.members.length === 0);
 
@@ -415,45 +440,17 @@ const memberColumns: AppColumnDef<Member>[] = [
 const memberSorting = useSortingState();
 const memberTable = useAppTable<Member>({
   columns: memberColumns,
-  data: memberStore.members,
+  // computed, no el array pelado: los stores de Pinia desenvuelven los refs
+  // y la tabla solo reacciona a refs/computed (si no, "a veces" no hay filas).
+  data: computed(() => memberStore.members),
   manualSorting: true,
   manualPagination: true,
   autoResetPageIndex: false,
   ...useControlledSorting(memberSorting, (sorting) => {
-    void memberStore.setSort(sortingStateToServer(sorting));
+    memberStore.setSort(sortingStateToServer(sorting)).catch(() => {});
   }),
 });
 
-const hasActiveFilters = computed(() => searchQuery.value || filterRole.value || filterStatus.value);
-
-const roleFilterOptions = computed(() => [
-  { label: 'Todos los roles', value: '' },
-  ...availableRoles.value.map((r) => ({ label: r.name, value: r.id })),
-]);
-
-const statusFilterOptions = computed(() => [
-  { label: 'Todos los estados', value: '' },
-  { label: 'Activo', value: 'active' },
-  { label: 'Inactivo', value: 'inactive' },
-]);
-
-// El filtrado ocurre en el servidor para que page/total sigan siendo coherentes.
-
-const applyCurrentFilters = useDebounceFn(() => {
-  memberStore.applyFilters({
-    search: emptyToUndefined(searchQuery.value),
-    status: filterStatus.value || undefined,
-    roleId: filterRole.value || undefined,
-  });
-}, 350);
-
-watch([searchQuery, filterRole, filterStatus], applyCurrentFilters);
-
-const clearFilters = () => {
-  searchQuery.value = '';
-  filterRole.value = '';
-  filterStatus.value = '';
-};
 const statusLabel = (status?: string): string => {
   if (status === 'inactive') return 'Inactivo';
   if (status === 'pending') return 'Pendiente';
