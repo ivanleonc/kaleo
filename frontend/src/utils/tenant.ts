@@ -35,3 +35,42 @@ export function companyPathFor(tenant: Tenant | undefined, suffix = ''): string 
   const base = companyBasePath(tenant);
   return base ? `${base}${suffix}` : '';
 }
+
+/**
+ * Secciones cuya permanencia tiene sentido al cambiar de empresa.
+ * Cualquier otra ruta (NotFound, Onboarding, auth pública…) cae al Panel.
+ */
+export const PRESERVABLE_SECTIONS: ReadonlySet<string> = new Set([
+  'Dashboard',
+  'Settings',
+  'Profile',
+  'ChangePassword',
+  'Members',
+  'Branches',
+  'Roles',
+  'Audit',
+]);
+
+/**
+ * Sección a conservar al cambiar de empresa: quita el prefijo
+ * `/companies/<companyId>` del path (misma regex que usa el guard de rutas
+ * para canonizar). Devuelve `/dashboard` cuando la ruta actual no es una
+ * sección conocida de empresa.
+ *
+ * Nota: la comprobación de permisos la hace el guard de rutas (ya con los
+ * claims frescos de la nueva empresa), que redirige al Panel la sección
+ * denegada — por eso aquí basta con la sección.
+ */
+export function preservableSection(
+  currentPath: string,
+  routeName: string | symbol | null | undefined,
+): string {
+  if (
+    typeof routeName === 'string' &&
+    PRESERVABLE_SECTIONS.has(routeName) &&
+    currentPath.startsWith('/companies/')
+  ) {
+    return currentPath.replace(/^\/companies\/[^/]+/, '') || '/dashboard';
+  }
+  return '/dashboard';
+}

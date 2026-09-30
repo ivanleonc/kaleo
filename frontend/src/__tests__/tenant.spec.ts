@@ -4,6 +4,8 @@ import {
   tenantUrlParam,
   companyBasePath,
   companyPathFor,
+  preservableSection,
+  PRESERVABLE_SECTIONS,
 } from '@/utils/tenant';
 import type { Tenant } from '@/types/auth';
 
@@ -54,5 +56,39 @@ describe('company path helpers', () => {
   it('devuelve vacío sin tenant', () => {
     expect(companyBasePath(undefined)).toBe('');
     expect(companyPathFor(undefined, '/dashboard')).toBe('');
+  });
+});
+
+describe('preservableSection', () => {
+  it('conserva la sección quitando el parámetro de empresa (slug o UUID)', () => {
+    expect(preservableSection('/companies/acme/members', 'Members')).toBe('/members');
+    expect(preservableSection('/companies/uuid-a/audit', 'Audit')).toBe('/audit');
+    expect(preservableSection('/companies/acme/dashboard', 'Dashboard')).toBe('/dashboard');
+  });
+
+  it('conserva secciones anidadas tal cual', () => {
+    expect(preservableSection('/companies/acme/settings/plan', 'Settings')).toBe(
+      '/settings/plan',
+    );
+  });
+
+  it.each([...PRESERVABLE_SECTIONS])('cubre la ruta conocida %s', (name) => {
+    expect(preservableSection(`/companies/acme/${name.toLowerCase()}`, name)).not.toBe('');
+  });
+
+  it('cae al dashboard fuera de secciones conocidas', () => {
+    // NotFound dentro de la empresa: no tiene sentido preservarla.
+    expect(preservableSection('/companies/acme/xyz', 'NotFound')).toBe('/dashboard');
+    // Rutas fuera de /companies (login, onboarding…) aunque el nombre coincida.
+    expect(preservableSection('/login', 'Login')).toBe('/dashboard');
+    // Nombre desconocido o ausente: no preservar.
+    expect(preservableSection('/companies/acme/members', 'Report')).toBe('/dashboard');
+    expect(preservableSection('/companies/acme/members', undefined)).toBe('/dashboard');
+    // Símbolos (nombres internos de ruta) tampoco preservan.
+    expect(preservableSection('/companies/acme/members', Symbol('Members'))).toBe('/dashboard');
+  });
+
+  it('cae al dashboard ante la ruta base de empresa sin sección', () => {
+    expect(preservableSection('/companies/acme', 'Dashboard')).toBe('/dashboard');
   });
 });

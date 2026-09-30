@@ -292,7 +292,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
-import { companyPathFor, tenantUrlParam } from '@/utils/tenant';
+import { companyPathFor, tenantUrlParam, preservableSection } from '@/utils/tenant';
 import { Permissions } from '@/constants/permissions';
 import UiModal from '@/components/ui/UiModal.vue';
 import UiCard from '@/components/ui/UiCard.vue';
@@ -456,14 +456,20 @@ const handleOrgChange = async (tenantId: string) => {
     // Refrescar claims (roles/permisos son por empresa y viven en el JWT)
     await authStore.refreshTokens();
     await authStore.fetchProfile();
-    const target = dashboardPathFor(tenantId);
-    await router.push(target).catch(() => {});
-    // Reconciliar: si la navegación fue abortada/superada, la URL manda al recargar
     const tenant = authStore.user?.tenants?.find((t) => t.id === tenantId);
+    // Quedarse en la sección actual: el guard de rutas (con los claims ya
+    // frescos) solo redirige al Panel si la nueva empresa no tiene permiso.
+    const section = preservableSection(route.path, route.name);
+    const target =
+      section === '/dashboard'
+        ? dashboardPathFor(tenantId)
+        : companyPathFor(tenant, section) || dashboardPathFor(tenantId);
+    await router.push({ path: target, query: route.query, hash: route.hash }).catch(() => {});
+    // Reconciliar: si la navegación fue abortada/superada, la URL manda al recargar
     const expectedParam = tenantUrlParam(tenant) ?? tenantId;
     const landed = router.currentRoute.value.params.companyId;
     if (landed !== expectedParam) {
-      await router.push(target).catch(() => {});
+      await router.push({ path: target, query: route.query, hash: route.hash }).catch(() => {});
     }
   } finally {
     isSwitchingOrg.value = false;
