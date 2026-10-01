@@ -8,6 +8,7 @@ import { PasswordHistoryRepository } from './repositories/password-history.repos
 import { AuditLogService } from '../audit/audit-log.service.js';
 import { EmailService } from '../email/email.service.js';
 import { CompanyService } from '../company/company.service.js';
+import { validatePasswordStrength } from './utils/password-validator.js';
 
 const SALT_ROUNDS = 10;
 const PASSWORD_HISTORY_LIMIT = 3;
@@ -30,11 +31,12 @@ export class PasswordService {
   }
 
   async changeTemporaryPassword(userId: string, newPasswordPlain: string) {
+    validatePasswordStrength(newPasswordPlain);
     const user = await this.userRepository.findById(userId);
     if (!user) throw new UnauthorizedException('Usuario no encontrado');
 
+    await this.checkPasswordHistory(userId, newPasswordPlain);
     const newPasswordHash = await bcrypt.hash(newPasswordPlain, SALT_ROUNDS);
-    await this.checkPasswordHistory(userId, newPasswordHash);
     await this.userRepository.updateTemporaryPassword(userId, newPasswordHash);
     await this.savePasswordHistory(userId, newPasswordHash);
 
@@ -53,6 +55,7 @@ export class PasswordService {
   }
 
   async changePassword(userId: string, currentPassword: string, newPasswordPlain: string) {
+    validatePasswordStrength(newPasswordPlain);
     const user = await this.userRepository.findByEmail(
       (await this.userRepository.findById(userId))?.email,
     );
@@ -61,8 +64,8 @@ export class PasswordService {
     const isValid = await bcrypt.compare(currentPassword, user.password_hash);
     if (!isValid) throw new UnauthorizedException('La contraseña actual es incorrecta');
 
+    await this.checkPasswordHistory(userId, newPasswordPlain);
     const newPasswordHash = await bcrypt.hash(newPasswordPlain, SALT_ROUNDS);
-    await this.checkPasswordHistory(userId, newPasswordHash);
     await this.userRepository.updatePassword(userId, newPasswordHash);
     await this.savePasswordHistory(userId, newPasswordHash);
 
@@ -106,6 +109,7 @@ export class PasswordService {
   }
 
   async resetPassword(email: string, token: string, newPasswordPlain: string) {
+    validatePasswordStrength(newPasswordPlain);
     const user = await this.userRepository.findByEmail(email);
     if (!user) throw new UnauthorizedException('Token inválido o expirado.');
 
@@ -117,8 +121,8 @@ export class PasswordService {
       throw new UnauthorizedException('Token inválido o expirado.');
     }
 
+    await this.checkPasswordHistory(user.id, newPasswordPlain);
     const newPasswordHash = await bcrypt.hash(newPasswordPlain, SALT_ROUNDS);
-    await this.checkPasswordHistory(user.id, newPasswordHash);
     await this.userRepository.updatePassword(user.id, newPasswordHash);
     await this.savePasswordHistory(user.id, newPasswordHash);
     await this.refreshTokenRepository.revokeAllForUser(user.id);
@@ -142,11 +146,12 @@ export class PasswordService {
   }
 
   async adminResetPassword(adminUserId: string, targetUserId: string, companyId: string, tempPasswordPlain: string) {
+    validatePasswordStrength(tempPasswordPlain);
     const targetUser = await this.userRepository.findById(targetUserId);
     if (!targetUser) throw new UnauthorizedException('Usuario no encontrado');
 
+    await this.checkPasswordHistory(targetUserId, tempPasswordPlain);
     const newHash = await bcrypt.hash(tempPasswordPlain, SALT_ROUNDS);
-    await this.checkPasswordHistory(targetUserId, newHash);
     await this.userRepository.updatePassword(targetUserId, newHash);
     await this.userRepository.setMustChangePassword(targetUserId, true);
     await this.savePasswordHistory(targetUserId, newHash);
@@ -164,10 +169,10 @@ export class PasswordService {
     return { message: 'Contraseña reseteada exitosamente.' };
   }
 
-  private async checkPasswordHistory(userId: string, newPasswordHash: string): Promise<void> {
+  private async checkPasswordHistory(userId: string, newPasswordPlain: string): Promise<void> {
     const recentHashes = await this.passwordHistoryRepository.getRecent(userId, PASSWORD_HISTORY_LIMIT);
     for (const oldHash of recentHashes) {
-      if (await bcrypt.compare(newPasswordHash, oldHash)) {
+      if (await bcrypt.compare(newPasswordPlain, oldHash)) {
         throw new ForbiddenException(`No puedes usar una de las últimas ${PASSWORD_HISTORY_LIMIT} contraseñas.`);
       }
     }

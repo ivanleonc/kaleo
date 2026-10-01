@@ -5,6 +5,7 @@ import { UserRepository } from './repositories/user.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
 import { CompanyService } from '../company/company.service.js';
 import { RbacService } from '../rbac/rbac.service.js';
+import { validatePasswordStrength } from './utils/password-validator.js';
 
 const SALT_ROUNDS = 10;
 const ACCESS_TOKEN_EXPIRY = '15m';
@@ -21,6 +22,7 @@ export class RegistrationService {
   ) {}
 
   async register(email: string, passwordPlain: string, name?: string) {
+    validatePasswordStrength(passwordPlain);
     const existingUser = await this.userRepository.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('El correo electrónico ya está registrado');

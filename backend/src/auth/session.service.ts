@@ -341,6 +341,10 @@ export class SessionService {
       throw new UnauthorizedException('Enlace de verificación inválido o expirado');
     }
 
+    if (user.email_verification_expires_at && new Date(user.email_verification_expires_at) <= new Date()) {
+      throw new UnauthorizedException('El enlace ha expirado. Solicita uno nuevo.');
+    }
+
     await this.userRepository.confirmEmailChange(user.id, user.pending_email);
 
     const companyId = await this.getFirstCompanyId(user.id);

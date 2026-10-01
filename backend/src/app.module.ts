@@ -14,6 +14,8 @@ import { BranchesModule } from './branches/branches.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
 
 @Module({
   imports: [
@@ -34,6 +36,15 @@ import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
         url: configService.get<string>('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: false,
+        // Ninguna consulta espera eternamente: ante pooler saturado o
+        // latencia (incidentes), se falla rápido en vez de colgar deploys.
+        extra: {
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+          statement_timeout: 10000,
+          query_timeout: 15000,
+        },
       }),
     }),
     AuditLogModule,
@@ -44,7 +55,9 @@ import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
     MemberModule,
     BranchesModule,
   ],
+  controllers: [AppController],
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

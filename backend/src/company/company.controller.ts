@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { CompanyService } from './company.service.js';
 import { CreateCompanyDto } from './dto/create-company.dto.js';
@@ -6,6 +6,8 @@ import { UpdateCompanyDto } from './dto/update-company.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Ok } from '../common/dto/api-response.dto.js';
 import { Audit } from '../common/decorators/audit-context.decorator.js';
+import { PermissionsGuard } from '../common/guards/permissions.guard.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 
 @ApiTags('Companies')
 @ApiBearerAuth()
@@ -48,7 +50,9 @@ export class CompanyController {
   // /companies/users y /companies/branches (Express registra first-match-wins
   // según dependencias de módulos y ParseUUIDPipe devolvería 400).
   @Get(':id/detail')
-  @ApiOperation({ summary: 'Obtener detalle de una empresa', description: 'Solo miembros de la empresa. El id debe ser un UUID válido.' })
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('company:read')
+  @ApiOperation({ summary: 'Obtener detalle de una empresa', description: 'Solo miembros de la empresa con permiso company:read. El id debe ser un UUID válido.' })
   @ApiParam({ name: 'id', description: 'UUID de la empresa' })
   @ApiResponse({ status: 200, description: 'Detalle de la empresa' })
   @ApiResponse({ status: 403, description: 'No tienes acceso a esta empresa' })

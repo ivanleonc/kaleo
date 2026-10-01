@@ -176,7 +176,7 @@
             <IconLayoutDashboard :size="22" stroke-width="1.8" />
             <span class="nav-label">Panel</span>
           </router-link>
-          <router-link :to="companyPath('/members')" class="nav-link" active-class="active">
+          <router-link :to="companyPath('/members')" class="nav-link" active-class="active" v-permission="Permissions.USERS.READ">
             <IconUsers :size="22" stroke-width="1.8" />
             <span class="nav-label">Equipo</span>
           </router-link>
@@ -192,7 +192,7 @@
             <IconClipboardList :size="22" stroke-width="1.8" />
             <span class="nav-label">Auditoría</span>
           </router-link>
-          <router-link :to="companyPath('/settings')" class="nav-link" active-class="active">
+          <router-link :to="companyPath('/settings')" class="nav-link" active-class="active" v-permission="Permissions.COMPANY.READ">
             <IconSettings :size="22" stroke-width="1.8" />
             <span class="nav-label">Ajustes</span>
           </router-link>

@@ -61,7 +61,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/companies/:companyId/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
-    meta: { requiresAuth: true, title: 'Configuración' },
+    meta: { requiresAuth: true, requiredPermission: Permissions.COMPANY.READ, title: 'Configuración' },
   },
   {
     path: '/companies/:companyId/profile',
@@ -79,7 +79,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/companies/:companyId/members',
     name: 'Members',
     component: () => import('@/views/MembersView.vue'),
-    meta: { requiresAuth: true, title: 'Miembros' },
+    meta: { requiresAuth: true, requiredPermission: Permissions.USERS.READ, title: 'Miembros' },
   },
   {
     path: '/companies/:companyId/branches',

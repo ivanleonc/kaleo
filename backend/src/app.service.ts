@@ -8,6 +8,13 @@ export interface HealthStatus {
   uptimeSeconds: number;
 }
 
+function healthTimeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    const timer = setTimeout(() => reject(new Error(`health check timeout (${ms}ms)`)), ms);
+    timer.unref?.();
+  });
+}
+
 @Injectable()
 export class AppService {
   private readonly startedAt = Date.now();
@@ -22,7 +29,9 @@ export class AppService {
   async getHealth(): Promise<HealthStatus> {
     let database: 'up' | 'down' = 'down';
     try {
-      await this.dataSource.query('SELECT 1');
+      // Timeout propio además del pool: el health check del hosting debe
+      // fallar rápido (503) y nunca colgar el deploy esperando a la BD.
+      await Promise.race([this.dataSource.query('SELECT 1'), healthTimeout(5000)]);
       database = 'up';
     } catch {
       database = 'down';

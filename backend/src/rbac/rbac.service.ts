@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PermissionRepository } from './repositories/permission.repository.js';
 import { RoleRepository } from './repositories/role.repository.js';
 import { IMMUTABLE_ROLES, PROTECTED_ROLES } from '../common/constants/roles.js';
@@ -18,19 +18,23 @@ export class RbacService {
     return this.permissionRepository.findByModule(module);
   }
 
-  async getRolesWithPermissions(companyId?: string) {
+  async getRolesWithPermissions(companyId: string) {
     return this.roleRepository.getRolesWithPermissions(companyId);
   }
 
-  async getRoleById(id: string) {
+  async getRoleById(id: string, companyId: string) {
     const role = await this.roleRepository.findById(id);
     if (!role) throw new NotFoundException('Rol no encontrado');
+
+    if (role.company_id !== null && role.company_id !== companyId) {
+      throw new NotFoundException('Rol no encontrado');
+    }
 
     const permissions = await this.roleRepository.getPermissions(id);
     return { ...role, permissions };
   }
 
-  async createRole(name: string, permissionIds: string[], companyId?: string, description?: string, color?: string) {
+  async createRole(name: string, permissionIds: string[], companyId: string, description?: string, color?: string) {
     const existing = await this.roleRepository.findByName(name, companyId);
     if (existing) throw new ConflictException(`El rol "${name}" ya existe`);
 
@@ -43,7 +47,7 @@ export class RbacService {
     return { ...role, permissions: await this.roleRepository.getPermissions(role.id) };
   }
 
-  async updateRolePermissions(roleId: string, permissionIds: string[]) {
+  async updateRolePermissions(roleId: string, permissionIds: string[], companyId: string) {
     const role = await this.roleRepository.findById(roleId);
     if (!role) throw new NotFoundException('Rol no encontrado');
 
@@ -51,16 +55,24 @@ export class RbacService {
       throw new ConflictException(`No se pueden modificar los permisos del rol ${role.name}`);
     }
 
+    if (role.company_id !== null && role.company_id !== companyId) {
+      throw new ForbiddenException('No tienes acceso a este rol');
+    }
+
     await this.roleRepository.setPermissions(roleId, permissionIds);
     return { ...role, permissions: await this.roleRepository.getPermissions(roleId) };
   }
 
-  async updateRole(roleId: string, data: { name?: string; description?: string; color?: string; permissionIds?: string[] }) {
+  async updateRole(roleId: string, data: { name?: string; description?: string; color?: string; permissionIds?: string[] }, companyId: string) {
     const role = await this.roleRepository.findById(roleId);
     if (!role) throw new NotFoundException('Rol no encontrado');
 
     if (IMMUTABLE_ROLES.includes(role.name as any)) {
       throw new ConflictException(`No se pueden modificar los roles del sistema (${role.name})`);
+    }
+
+    if (role.company_id !== null && role.company_id !== companyId) {
+      throw new ForbiddenException('No tienes acceso a este rol');
     }
 
     if (data.name && data.name !== role.name) {
@@ -84,12 +96,16 @@ export class RbacService {
     return { ...updatedRole, permissions };
   }
 
-  async deleteRole(id: string) {
+  async deleteRole(id: string, companyId: string) {
     const role = await this.roleRepository.findById(id);
     if (!role) throw new NotFoundException('Rol no encontrado');
 
     if (PROTECTED_ROLES.includes(role.name as any)) {
       throw new ConflictException(`No se pueden eliminar los roles del sistema (${PROTECTED_ROLES.join(', ')})`);
+    }
+
+    if (role.company_id !== null && role.company_id !== companyId) {
+      throw new ForbiddenException('No tienes acceso a este rol');
     }
 
     await this.roleRepository.delete(id);

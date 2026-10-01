@@ -17,6 +17,8 @@ export class RbacController {
   constructor(private readonly rbacService: RbacService) {}
 
   @Get('permissions')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRoles.OWNER, SystemRoles.ADMIN, SystemRoles.VIEWER)
   @ApiOperation({ summary: 'Obtener catálogo maestro de permisos' })
   @ApiResponse({ status: 200, description: 'Lista de todos los permisos del sistema' })
   async getAllPermissions() {
@@ -25,22 +27,30 @@ export class RbacController {
   }
 
   @Get('roles')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRoles.OWNER, SystemRoles.ADMIN, SystemRoles.VIEWER)
   @ApiOperation({ summary: 'Obtener roles con sus permisos' })
-  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa (opcional, para filtrar)', required: false })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa', required: true })
   @ApiResponse({ status: 200, description: 'Lista de roles con permisos anidados' })
-  async getRoles(@Headers('x-company-id') companyId?: string) {
+  async getRoles(@Headers('x-company-id') companyId: string) {
     const roles = await this.rbacService.getRolesWithPermissions(companyId);
     return Ok(roles);
   }
 
   @Get('roles/:id')
+  @UseGuards(RolesGuard)
+  @Roles(SystemRoles.OWNER, SystemRoles.ADMIN, SystemRoles.VIEWER)
   @ApiOperation({ summary: 'Obtener un rol por ID con sus permisos', description: 'El id debe ser un UUID válido.' })
   @ApiParam({ name: 'id', description: 'UUID del rol', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa', required: true })
   @ApiResponse({ status: 200, description: 'Rol con permisos' })
   @ApiResponse({ status: 400, description: 'id no es un UUID válido' })
   @ApiResponse({ status: 404, description: 'Rol no encontrado' })
-  async getRoleById(@Param('id', ParseUUIDPipe) id: string) {
-    const role = await this.rbacService.getRoleById(id);
+  async getRoleById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-company-id') companyId: string,
+  ) {
+    const role = await this.rbacService.getRoleById(id, companyId);
     return Ok(role);
   }
 
@@ -54,7 +64,7 @@ export class RbacController {
   @ApiResponse({ status: 409, description: 'Ya existe un rol con ese nombre' })
   async createRole(
     @Body() dto: CreateRoleDto,
-    @Headers('x-company-id') companyId?: string,
+    @Headers('x-company-id') companyId: string,
   ) {
     const role = await this.rbacService.createRole(dto.name, dto.permissionIds || [], companyId, dto.description, dto.color);
     return Ok(role, 'Rol creado exitosamente');
@@ -73,8 +83,9 @@ export class RbacController {
   async updateRolePermissions(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRolePermissionsDto,
+    @Headers('x-company-id') companyId: string,
   ) {
-    const role = await this.rbacService.updateRolePermissions(id, dto.permissionIds || []);
+    const role = await this.rbacService.updateRolePermissions(id, dto.permissionIds || [], companyId);
     return Ok(role, 'Permisos actualizados correctamente');
   }
 
@@ -90,8 +101,9 @@ export class RbacController {
   async updateRole(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRoleDto,
+    @Headers('x-company-id') companyId: string,
   ) {
-    const role = await this.rbacService.updateRole(id, dto);
+    const role = await this.rbacService.updateRole(id, dto, companyId);
     return Ok(role, 'Rol actualizado correctamente');
   }
 
@@ -104,8 +116,11 @@ export class RbacController {
   @ApiResponse({ status: 200, description: 'Rol eliminado' })
   @ApiResponse({ status: 400, description: 'id no es un UUID válido' })
   @ApiResponse({ status: 409, description: 'No se puede eliminar un rol del sistema' })
-  async deleteRole(@Param('id', ParseUUIDPipe) id: string) {
-    const result = await this.rbacService.deleteRole(id);
+  async deleteRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('x-company-id') companyId: string,
+  ) {
+    const result = await this.rbacService.deleteRole(id, companyId);
     return Ok(undefined, result.message);
   }
 }

@@ -28,6 +28,11 @@ export class AuditLogInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    // El health check del hosting no se audita: debe ser mínimo y rápido.
+    if (url.split('?')[0] === '/health') {
+      return next.handle();
+    }
+
     const startTime = Date.now();
     const isMutation = method === 'PUT' || method === 'PATCH' || method === 'DELETE' || method === 'POST';
     const auditOptions = this.reflector.get<AuditContextOptions | undefined>(

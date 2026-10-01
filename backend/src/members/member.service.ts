@@ -1,11 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { MemberRepository } from './repositories/member.repository.js';
 import type { SortSpec } from '../common/dto/pagination-query.dto.js';
 import { PasswordService } from '../auth/password.service.js';
 import { RefreshTokenRepository } from '../auth/repositories/refresh-token.repository.js';
 import { EmailService } from '../email/email.service.js';
-
-const TEMP_PASSWORD_LENGTH = 12;
 
 @Injectable()
 export class MemberService {
@@ -99,11 +98,7 @@ export class MemberService {
   }
 
   private generateTempPassword(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-    let password = '';
-    for (let i = 0; i < TEMP_PASSWORD_LENGTH; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+    // randomBytes(8) gives 16 hex chars (lowercase + digits), append 'Ax' for uppercase + guaranteed mix
+    return randomBytes(8).toString('hex') + 'Ax';
   }
 }

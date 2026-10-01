@@ -106,7 +106,7 @@ export class UserRepository {
 
   async findByVerificationToken(token: string) {
     const result = await this.dataSource.query(
-      `SELECT id, email, name, pending_email FROM users
+      `SELECT id, email, name, pending_email, email_verification_expires_at FROM users
        WHERE email_verification_token = $1 AND deleted_at IS NULL`,
       [token],
     );
@@ -114,8 +114,10 @@ export class UserRepository {
   }
 
   async requestEmailChange(userId: string, pendingEmail: string, token: string): Promise<void> {
+    // NOTE: migration 015 must add column email_verification_expires_at (TIMESTAMPTZ) to users table
     await this.dataSource.query(
-      `UPDATE users SET pending_email = $1, email_verification_token = $2 WHERE id = $3`,
+      `UPDATE users SET pending_email = $1, email_verification_token = $2,
+              email_verification_expires_at = NOW() + INTERVAL '24 hours' WHERE id = $3`,
       [pendingEmail, token, userId],
     );
   }
