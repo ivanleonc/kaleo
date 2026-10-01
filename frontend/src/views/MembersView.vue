@@ -277,7 +277,7 @@ import {
 import type { Member } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
-import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconMail, IconCopy, IconUsers } from '@tabler/icons-vue';
+import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconUsers } from '@tabler/icons-vue';
 
 const authStore = useAuthStore();
 const memberStore = useMemberStore();
@@ -405,8 +405,6 @@ const addForm = reactive({
   document_type: '',
   document_number: '',
 });
-const newMemberCredentials = ref<null>(null); // mantenido por compatibilidad con el store
-
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const addEmailError = computed(() =>
   addForm.email && !emailRegex.test(addForm.email) ? 'Correo electrónico inválido' : null

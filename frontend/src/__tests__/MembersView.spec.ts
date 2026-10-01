@@ -17,7 +17,6 @@ vi.mock('@/services/member.service', () => ({
     updateMember: vi.fn(),
     removeMember: vi.fn(),
     resetPassword: vi.fn(),
-    resetPasswordAndSendEmail: vi.fn(),
   },
 }));
 

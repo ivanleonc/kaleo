@@ -73,5 +73,32 @@ export class AuditRetentionService {
     if (totalDeleted > 0) {
       this.logger.log(`Retention cleanup complete: ${totalDeleted} total rows deleted`);
     }
+
+    // Limpieza de tokens revocados/expirados: la blacklist crece con cada
+    // logout y cambio de contraseña. Sin esto la tabla crece para siempre.
+    try {
+      const blacklist = await this.dataSource.query(
+        `DELETE FROM token_blacklist WHERE expires_at < NOW()`,
+      );
+      const blacklistCount = blacklist.rowCount || 0;
+      if (blacklistCount > 0) {
+        this.logger.log(`Blacklist cleanup: ${blacklistCount} expired tokens deleted`);
+      }
+    } catch (error: any) {
+      this.logger.debug(`Blacklist cleanup skipped: ${error.message}`);
+    }
+
+    // Limpieza de refresh tokens revocados/expirados.
+    try {
+      const refresh = await this.dataSource.query(
+        `DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE`,
+      );
+      const refreshCount = refresh.rowCount || 0;
+      if (refreshCount > 0) {
+        this.logger.log(`Refresh tokens cleanup: ${refreshCount} rows deleted`);
+      }
+    } catch (error: any) {
+      this.logger.debug(`Refresh tokens cleanup skipped: ${error.message}`);
+    }
   }
 }

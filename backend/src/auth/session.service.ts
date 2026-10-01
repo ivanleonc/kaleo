@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { EmailService } from '../email/email.service.js';
@@ -29,6 +30,7 @@ export class SessionService {
     private auditLogService: AuditLogService,
     private rbacService: RbacService,
     private emailService: EmailService,
+    private dataSource: DataSource,
   ) {}
 
   private get jwtSecret(): string {
@@ -148,8 +150,9 @@ export class SessionService {
       throw new UnauthorizedException('Refresh token inválido o revocado');
     }
 
-    await this.refreshTokenRepository.revoke(refreshToken);
-
+    // Revocar el viejo y crear el nuevo en UNA transacción: si la creación
+    // falla después de revocar, el rollback deja el token viejo válido y el
+    // cliente puede reintentar (sin esto el usuario quedaba bloqueado).
     const user = await this.userRepository.findById(decoded.sub);
     if (!user) throw new UnauthorizedException('Usuario no encontrado');
 
@@ -166,7 +169,7 @@ export class SessionService {
     const defaultRoles = firstCompanyId ? (companyRoles[firstCompanyId] || []) : [];
     const defaultPermissions = firstCompanyId ? (companyPermissions[firstCompanyId] || []) : [];
 
-    const tokens = await this.generateTokenPair(user.id, {
+    const accessToken = this.jwtService.sign({
       id: user.id,
       must_change_password: user.must_change_password,
       companies: companyIds,
@@ -174,7 +177,37 @@ export class SessionService {
       companyPermissions,
       roles: defaultRoles,
       permissions: defaultPermissions,
+    }, { expiresIn: ACCESS_TOKEN_EXPIRY });
+
+    const newRefreshPayload = { sub: user.id, type: 'refresh' };
+    const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
+      expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
     });
+    const newRefreshExpiresAt = new Date();
+    newRefreshExpiresAt.setDate(newRefreshExpiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+
+    const { sha256 } = await import('../common/utils/crypto.js');
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      await runner.query(
+        `UPDATE refresh_tokens SET revoked = TRUE WHERE token_hash = $1`,
+        [sha256(refreshToken)],
+      );
+      await runner.query(
+        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+        [user.id, sha256(newRefreshToken), newRefreshExpiresAt],
+      );
+      await runner.commitTransaction();
+    } catch (err) {
+      await runner.rollbackTransaction();
+      throw err;
+    } finally {
+      await runner.release();
+    }
+
+    const tokens = { accessToken, refreshToken: newRefreshToken };
 
     // Auditar rotación de tokens si el usuario ya pertenece a alguna empresa.
     // (usuarios sin empresa aún no tienen companyId para anclar el registro)

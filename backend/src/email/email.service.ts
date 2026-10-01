@@ -191,9 +191,10 @@ export class EmailService implements OnModuleInit {
 
   async sendPasswordReset(email: string, resetToken: string): Promise<void> {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
+    // encodeURIComponent: un email con `+`, `&` o `#` rompería la URL sin esto.
     const { subject, html } = passwordResetTemplate(
       resetToken,
-      `${frontendUrl}/reset-password?token=${resetToken}&email=${email}`,
+      `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`,
     );
     await this.send({ to: email, subject, html });
   }

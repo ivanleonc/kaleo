@@ -104,7 +104,8 @@ describe('MemberRepository.getMembersByCompany', () => {
     const result = await repository.getMembersByCompany('company-1', 0, 5000);
 
     expect(result.page).toBe(1);
-    expect(result.limit).toBe(200);
+    // Mismo tope que el DTO (@Max(100)): defensa en profundidad.
+    expect(result.limit).toBe(100);
     expect(result.total).toBe(0);
     expect(result.data).toEqual([]);
   });

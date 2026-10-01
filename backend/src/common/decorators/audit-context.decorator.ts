@@ -22,6 +22,12 @@ export interface AuditContextOptions {
   resolveCreatedId?: (response: any) => string | undefined;
   /** Desactiva la captura de valores antes/después. */
   skipDiff?: boolean;
+  /**
+   * Omite por completo el registro del interceptor para este endpoint.
+   * Úsalo cuando el servicio ya escribe su propia entrada de auditoría
+   * (ej. ADMIN_PASSWORD_RESET) para no duplicar filas.
+   */
+  skip?: boolean;
 }
 
 /**

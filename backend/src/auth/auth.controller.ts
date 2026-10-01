@@ -221,6 +221,7 @@ export class AuthController {
   @Public()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Confirmar cambio de correo con token', description: 'Endpoint público. Activa el correo pendiente.' })
   @ApiBody({ schema: { example: { token: 'a1b2c3d4e5f6...' } } })
   @ApiResponse({ status: 200, description: 'Correo verificado y actualizado' })

@@ -24,7 +24,9 @@ export class MemberRepository {
     sort: SortSpec = {},
   ) {
     const safePage = Math.max(1, page);
-    const safeLimit = Math.min(200, Math.max(1, limit));
+    // Mismo tope que el DTO (@Max(100)): defensa en profundidad si el
+    // repositorio se llama directo sin pasar por la validación del DTO.
+    const safeLimit = Math.min(100, Math.max(1, limit));
     const offset = (safePage - 1) * safeLimit;
 
     const { where, values, nextIndex } = buildWhere(

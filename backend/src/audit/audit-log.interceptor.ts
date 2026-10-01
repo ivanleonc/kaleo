@@ -33,6 +33,17 @@ export class AuditLogInterceptor implements NestInterceptor {
       return next.handle();
     }
 
+    const auditOptionsEarly = this.reflector.get<AuditContextOptions | undefined>(
+      AUDIT_CONTEXT_KEY,
+      context.getHandler(),
+    );
+
+    // Endpoints con auditoría manual propia (ej. ADMIN_PASSWORD_RESET):
+    // el servicio ya escribe la entrada, el interceptor no duplica.
+    if (auditOptionsEarly?.skip) {
+      return next.handle();
+    }
+
     const startTime = Date.now();
     const isMutation = method === 'PUT' || method === 'PATCH' || method === 'DELETE' || method === 'POST';
     const auditOptions = this.reflector.get<AuditContextOptions | undefined>(

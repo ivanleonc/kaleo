@@ -244,6 +244,10 @@ const branchFilterValues = ref({ search: '', status: '' });
 watch(companyId, (newId, oldId) => {
   if (newId !== oldId && newId) {
     branchFilterValues.value = { search: '', status: '' };
+    // El dropdown de "Responsable" se alimenta de memberStore.members: al
+    // cambiar de empresa hay que recargarlo (el store resetea solo, pero
+    // onMounted no vuelve a correr porque la vista ya está montada).
+    memberStore.fetchMembers().catch(() => {});
   }
 });
 

@@ -133,7 +133,8 @@ export class UserRepository {
 
   async clearPendingEmail(userId: string): Promise<void> {
     await this.dataSource.query(
-      `UPDATE users SET pending_email = NULL, email_verification_token = NULL WHERE id = $1`,
+      `UPDATE users SET pending_email = NULL, email_verification_token = NULL,
+              email_verification_expires_at = NULL WHERE id = $1`,
       [userId],
     );
   }

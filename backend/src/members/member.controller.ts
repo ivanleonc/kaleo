@@ -143,7 +143,8 @@ export class MemberController {
   @Post(':userId/reset-password')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:update')
-  @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true })
+  // skip: el servicio ya escribe ADMIN_PASSWORD_RESET con actor + email destino.
+  @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true, skip: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resetear contraseña de un miembro', description: 'Genera una nueva contraseña temporal. Requiere permiso users:update. El userId debe ser un UUID válido.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
@@ -174,7 +175,8 @@ export class MemberController {
   @Post(':userId/reset-password-email')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:update')
-  @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true })
+  // skip: mismo motivo que reset-password (el servicio escribe ADMIN_PASSWORD_RESET).
+  @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true, skip: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resetear contraseña y enviar al correo del miembro', description: 'Genera una contraseña temporal y la envía al email del usuario. Requiere permiso users:update.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
