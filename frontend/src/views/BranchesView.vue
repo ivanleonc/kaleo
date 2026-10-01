@@ -192,6 +192,8 @@ import { useMemberStore } from '@/stores/member.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { Permissions } from '@/constants/permissions';
 import type { Branch } from '@/types/branch';
+import { useModal } from '@/composables/useModal';
+import { useBranchColumns } from '@/composables/useBranchColumns';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -213,11 +215,9 @@ import { useFilterSync } from '@/composables/useFilterSync';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import {
   useAppTable,
-  createAppColumnHelper,
   useSortingState,
   useControlledSorting,
   sortingStateToServer,
-  type AppColumnDef,
 } from '@/composables/useAppTable';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
@@ -280,34 +280,9 @@ useFilterSync(branchFilterValues, (v) =>
 
 const isInitialLoading = computed(() => branchStore.isLoading && branchStore.branches.length === 0);
 
-const branchColumnHelper = createAppColumnHelper<Branch>();
-
-/**
- * Modo servidor: el orden lo resuelve el backend (`sortBy`/`sortDir`).
- * Los ids coinciden con las claves del whitelist (`location`, `contact`…).
- */
-const branchColumns: AppColumnDef<Branch>[] = [
-  branchColumnHelper.accessor('name', { header: 'Nombre', meta: { label: 'Nombre' } }),
-  branchColumnHelper.accessor(
-    (b) => [b.city, b.state, b.country].filter(Boolean).join(', '),
-    { id: 'location', header: 'Ubicación', meta: { label: 'Ubicación' } },
-  ),
-  branchColumnHelper.accessor((b) => b.phone || b.email || '', {
-    id: 'contact',
-    header: 'Contacto',
-    meta: { label: 'Contacto' },
-  }),
-  branchColumnHelper.accessor('is_active', {
-    id: 'status',
-    header: 'Estado',
-    meta: { label: 'Estado' },
-  }),
-  branchColumnHelper.display({ id: 'actions', header: '', meta: { label: '', align: 'right' } }),
-];
-
 const branchSorting = useSortingState();
 const branchTable = useAppTable<Branch>({
-  columns: branchColumns,
+  columns: useBranchColumns(),
   // computed, no el array pelado: los stores de Pinia desenvuelven los refs
   // y la tabla solo reacciona a refs/computed (si no, "a veces" no hay filas).
   data: computed(() => branchStore.branches),
@@ -334,13 +309,9 @@ const handleToggleActive = async (branch: Branch) => {
   }
 };
 
-const openDeleteModal = (branch: Branch) => {
-  deletingBranch.value = branch;
-  isDeleteModalOpen.value = true;
-};
-
 // --- CREATE / EDIT ---
-const isFormModalOpen = ref(false);
+const formModal = useModal<Branch>();
+const isFormModalOpen = formModal.isOpen;
 const editingBranch = ref<Branch | null>(null);
 const formError = ref('');
 
@@ -450,15 +421,19 @@ const handleSubmit = async () => {
 };
 
 // --- DELETE ---
-const isDeleteModalOpen = ref(false);
-const deletingBranch = ref<Branch | null>(null);
+const deleteModal = useModal<Branch>();
+const isDeleteModalOpen = deleteModal.isOpen;
+const deletingBranch = deleteModal.target;
+
+const openDeleteModal = (branch: Branch) => {
+  deleteModal.open(branch);
+};
 
 const confirmDelete = async () => {
   if (!deletingBranch.value) return;
   try {
     await branchStore.deleteBranch(deletingBranch.value.id);
-    isDeleteModalOpen.value = false;
-    deletingBranch.value = null;
+    deleteModal.reset();
     toast.success('Sede eliminada correctamente');
   } catch (err: any) {
     toast.error(apiErrorMessage(err, 'Error al eliminar la sede'));

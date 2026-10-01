@@ -63,13 +63,26 @@ export const useAuthStore = defineStore('auth', () => {
 
   const hasPermission = (permission: string): boolean => {
     if (!user.value) return false;
-    if (user.value.roles?.includes(SystemRoles.OWNER)) return true;
-    return user.value.permissions?.includes(permission) || false;
+    const activeId = activeTenantId.value;
+    // Roles del tenant activo (para Owner bypass)
+    const activeRoles = activeId
+      ? (user.value.companyRoles?.[activeId] ?? user.value.roles ?? [])
+      : (user.value.roles ?? []);
+    if (activeRoles.includes(SystemRoles.OWNER)) return true;
+    // Permisos del tenant activo (no del primero del JWT)
+    const activePerms = activeId
+      ? (user.value.companyPermissions?.[activeId] ?? user.value.permissions ?? [])
+      : (user.value.permissions ?? []);
+    return activePerms.includes(permission);
   };
 
   const hasRole = (role: string): boolean => {
     if (!user.value) return false;
-    return user.value.roles?.includes(role) || false;
+    const activeId = activeTenantId.value;
+    const activeRoles = activeId
+      ? (user.value.companyRoles?.[activeId] ?? user.value.roles ?? [])
+      : (user.value.roles ?? []);
+    return activeRoles.includes(role);
   };
 
   const login = async (payload: LoginPayload) => {

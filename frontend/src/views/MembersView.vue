@@ -243,6 +243,8 @@ import { roleService, type Role } from '@/services/role.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { Permissions } from '@/constants/permissions';
+import { useModal } from '@/composables/useModal';
+import { useMemberColumns } from '@/composables/useMemberColumns';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiCard from '@/components/ui/UiCard.vue';
@@ -268,11 +270,9 @@ import { useFilterSync } from '@/composables/useFilterSync';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import {
   useAppTable,
-  createAppColumnHelper,
   useSortingState,
   useControlledSorting,
   sortingStateToServer,
-  type AppColumnDef,
 } from '@/composables/useAppTable';
 import type { Member } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
@@ -345,28 +345,9 @@ useFilterSync(memberFilterValues, (v) =>
 
 const isInitialLoading = computed(() => memberStore.isLoading && memberStore.members.length === 0);
 
-const memberColumnHelper = createAppColumnHelper<Member>();
-
-/**
- * Modo servidor: el orden lo resuelve el backend (`sortBy`/`sortDir`).
- * `roles` no es sorteable — es un agregado que SQL no puede ordenar.
- */
-const memberColumns: AppColumnDef<Member>[] = [
-  memberColumnHelper.accessor('name', { header: 'Nombre', meta: { label: 'Nombre' } }),
-  memberColumnHelper.accessor('email', { header: 'Email', meta: { label: 'Email' } }),
-  memberColumnHelper.accessor((m) => (m.roles ?? []).join(', '), {
-    id: 'roles',
-    header: 'Rol',
-    enableSorting: false,
-    meta: { label: 'Rol' },
-  }),
-  memberColumnHelper.accessor('status', { header: 'Estado', meta: { label: 'Estado' } }),
-  memberColumnHelper.display({ id: 'actions', header: '', meta: { label: '', align: 'right' } }),
-];
-
 const memberSorting = useSortingState();
 const memberTable = useAppTable<Member>({
-  columns: memberColumns,
+  columns: useMemberColumns(),
   // computed, no el array pelado: los stores de Pinia desenvuelven los refs
   // y la tabla solo reacciona a refs/computed (si no, "a veces" no hay filas).
   data: computed(() => memberStore.members),
@@ -395,7 +376,8 @@ const isSelf = (memberId: string): boolean => authStore.user?.id === memberId;
 const isOwnerRole = (role: string): boolean => role === 'Owner' || role === 'owner';
 
 // --- ADD MEMBER ---
-const isAddModalOpen = ref(false);
+const addModal = useModal();
+const isAddModalOpen = addModal.isOpen;
 const addForm = reactive({
   name: '',
   email: '',
@@ -439,7 +421,7 @@ const openAddModal = () => {
   addForm.document_number = '';
   memberStore.error = null;
   captureAddForm();
-  isAddModalOpen.value = true;
+  addModal.open();
 };
 
 const handleAddSubmit = async () => {
@@ -457,7 +439,7 @@ const handleAddSubmit = async () => {
     const data = await memberStore.addMember(payload);
 
     // La contraseña temporal ya no se muestra en pantalla: se envía por email.
-    isAddModalOpen.value = false;
+    addModal.close();
     toast.success(
       data?.isNewUser
         ? `Miembro agregado. Contraseña temporal enviada a ${addForm.email}.`
@@ -477,7 +459,8 @@ const handleAddSubmit = async () => {
 };
 
 // --- EDIT MEMBER ---
-const isEditModalOpen = ref(false);
+const editModal = useModal();
+const isEditModalOpen = editModal.isOpen;
 const editForm = reactive({
   id: '',
   name: '',
@@ -528,7 +511,7 @@ const openEditModal = (member: any) => {
 
   memberStore.error = null;
   captureEditForm();
-  isEditModalOpen.value = true;
+  editModal.open();
 };
 
 const handleEditSubmit = async () => {
@@ -549,25 +532,24 @@ const handleEditSubmit = async () => {
 };
 
 // --- DELETE MEMBER ---
-const isDeleteModalOpen = ref(false);
-const deleteTarget = ref<{ id: string; name: string } | null>(null);
+const deleteModal = useModal<{ id: string; name: string }>();
+const isDeleteModalOpen = deleteModal.isOpen;
+const deleteTarget = deleteModal.target;
 
 const handleDelete = async (userId: string, userName: string) => {
   if (isSelf(userId)) {
     toast.error('No puedes eliminarte a ti mismo del equipo.');
     return;
   }
-  deleteTarget.value = { id: userId, name: userName };
+  deleteModal.open({ id: userId, name: userName });
   memberStore.error = null;
-  isDeleteModalOpen.value = true;
 };
 
 const confirmDelete = async () => {
   if (!deleteTarget.value) return;
   try {
     await memberStore.removeMember(deleteTarget.value.id);
-    isDeleteModalOpen.value = false;
-    deleteTarget.value = null;
+    deleteModal.reset();
     toast.success('Miembro removido del equipo');
   } catch (error) {
     // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
@@ -575,22 +557,22 @@ const confirmDelete = async () => {
 };
 
 // --- RESET PASSWORD (siempre envía por correo) ---
-const isResetModalOpen = ref(false);
-const resetTarget = ref<{ id: string; name: string; email: string } | null>(null);
+const resetModal = useModal<{ id: string; name: string; email: string }>();
+const isResetModalOpen = resetModal.isOpen;
+const resetTarget = resetModal.target;
 
 const openResetPasswordModal = (member: any) => {
-  resetTarget.value = { id: member.id, name: member.name, email: member.email };
+  resetModal.open({ id: member.id, name: member.name, email: member.email });
   memberStore.error = null;
-  isResetModalOpen.value = true;
 };
 
 const confirmResetPassword = async () => {
   if (!resetTarget.value) return;
   try {
     await memberStore.resetPassword(resetTarget.value.id);
-    isResetModalOpen.value = false;
-    toast.success(`Contraseña reseteada y enviada a ${resetTarget.value.email}`);
-    resetTarget.value = null;
+    const email = resetTarget.value.email;
+    resetModal.reset();
+    toast.success(`Contraseña reseteada y enviada a ${email}`);
   } catch {
     // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
   }

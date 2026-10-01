@@ -27,6 +27,8 @@ export interface AuthUser {
   tenants: Tenant[];
   roles: string[];
   permissions: string[];
+  companyRoles?: Record<string, string[]>;       // { [tenantId]: ['Owner', ...] }
+  companyPermissions?: Record<string, string[]>; // { [tenantId]: ['users:read', ...] }
 }
 
 export interface Tenant {
