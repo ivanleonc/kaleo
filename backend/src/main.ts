@@ -11,6 +11,26 @@ for (const path of [`.env.${process.env.NODE_ENV}`, '.env']) {
   }
 }
 
+// Sentry DEBE inicializarse antes de importar AppModule para que la
+// instrumentación automática de NestJS funcione correctamente.
+import * as Sentry from '@sentry/nestjs';
+const sentryDsn = process.env.SENTRY_DSN;
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: process.env.NODE_ENV || 'development',
+    release: process.env.APP_VERSION,
+    // 10 % de requests tracados en producción para performance.
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    // No capturar errores 4xx (son comportamiento esperado de la app).
+    beforeSend(event, hint) {
+      const status = (hint?.originalException as any)?.status ?? (hint?.originalException as any)?.statusCode;
+      if (status && status >= 400 && status < 500) return null;
+      return event;
+    },
+  });
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -18,6 +38,7 @@ import helmet from 'helmet';
 import { timingSafeEqual } from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module.js';
+import { SentryExceptionFilter } from './common/filters/sentry-exception.filter.js';
 
 function swaggerBasicAuth(req: Request, res: Response, next: NextFunction) {
   const user = process.env.SWAGGER_USER || '';
@@ -99,6 +120,10 @@ async function bootstrap() {
     whitelist: true,
     transform: true,
   }));
+
+  // Filtro global: captura excepciones no manejadas, las reporta a Sentry
+  // (solo 5xx) y devuelve respuestas de error consistentes en JSON.
+  app.useGlobalFilters(new SentryExceptionFilter());
 
   // Graceful shutdown: en Render/Docker el host envía SIGTERM antes de matar
   // el proceso. Sin esto, TypeORM/pg cierra conexiones abruptamente cortando

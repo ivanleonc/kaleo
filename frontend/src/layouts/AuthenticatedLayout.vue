@@ -252,6 +252,9 @@
     </UiModal>
 
     <CommandPalette v-model="isPaletteOpen" />
+
+    <!-- Banner de sin conexión: aparece fijo en la parte inferior -->
+    <UiOfflineBanner />
   </div>
 </template>
 
@@ -302,6 +305,7 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import CommandPalette from '@/components/CommandPalette.vue';
+import UiOfflineBanner from '@/components/ui/UiOfflineBanner.vue';
 import {
   IconBolt,
   IconLayoutDashboard,
