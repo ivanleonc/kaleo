@@ -1,0 +1,16 @@
+# Dependencias del workspace raíz (Turborepo, etc.)
+node_modules/
+
+# Turborepo cache
+.turbo/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Variables de entorno (cada sub-paquete tiene su propio .gitignore para los suyos)
+.env.local
