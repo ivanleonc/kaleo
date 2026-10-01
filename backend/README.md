@@ -4,8 +4,8 @@ API REST con **NestJS 12 + ESM** (`"type": "module"`), **TypeORM + PostgreSQL** 
 
 ## Requisitos
 
-- Node.js `>=22 <25` (ver `engines`), npm 10+
-- Base de datos PostgreSQL (Supabase). Una por ambiente: sandbox, staging, prod
+- Node.js `>=22 <25` (ver `engines` en `package.json`), npm 10+
+- PostgreSQL via Supabase. Un proyecto por ambiente: sandbox, staging, prod.
 
 ## Instalación
 
@@ -23,92 +23,207 @@ Nunca se commitean (`.gitignore` las cubre). Hay un archivo por objetivo:
 | `.env` | Default local | `npm run dev` |
 | `.env.sandbox` | Desarrollo con BD limpia | `npm run dev:sandbox` |
 | `.env.staging` | Probar contra staging | `npm run dev:staging` |
-| Producción/Render | Solo dashboard de Render | (no existe archivo) |
+| `.env.prod` | Migraciones a prod (local, nunca en Render) | `npm run migrate -- prod` |
+| Render dashboard | Producción en vivo | (sin archivo) |
 
-Carga en `src/main.ts`: primero `.env.[NODE_ENV]`, luego `.env` como respaldo; si no hay archivo, mandan las variables del host. Ver `.env.example` para la lista completa.
+Copia `.env.example` como punto de partida. Las variables obligatorias para arrancar:
 
-| Variable | Para qué |
-|---|---|
-| `DATABASE_URL` | Conexión Postgres (pooler Supabase `:6543` en nube) |
-| `JWT_SECRET` | Firma de tokens. **Distinto por ambiente**; rotarlo cierra todas las sesiones |
-| `CORS_ORIGIN` / `FRONTEND_URL` | Dominio exacto del frontend (CORS y enlaces de emails) |
-| `PORT` | Lo inyecta el host; default `3000` en local |
-| `SWAGGER_ENABLED` | `'true'` para exponer `/api/docs` (default: apagado) |
-| `SWAGGER_USER` / `SWAGGER_PASSWORD` | Basic Auth de la documentación |
+| Variable | Obligatoria | Para qué |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Conexión Postgres. En nube: pooler Supabase `:6543` |
+| `JWT_SECRET` | ✅ | Firma de tokens. **Distinto por ambiente.** Rotarlo cierra todas las sesiones |
+| `CORS_ORIGIN` | ✅ | Dominio(s) exacto(s) del frontend, coma-separados. Sin esto el servidor no arranca |
+| `FRONTEND_URL` | ✅ | URL base del frontend (se usa en los enlaces de los correos) |
+| `PORT` | — | Lo inyecta el host; default `3000` en local |
+| `NODE_ENV` | — | `development` / `production`. Afecta al modo del stub de email y nivel de logs |
+| `SWAGGER_ENABLED` | — | `'true'` para exponer `/api/docs`. Por defecto apagado |
+| `SWAGGER_USER` / `SWAGGER_PASSWORD` | — | Basic Auth de la documentación (si está encendida) |
+| `BREVO_API_KEY` | — | Proveedor de email principal (puerto 443, recomendado en Render) |
+| `SMTP_HOST/PORT/SECURE/USER/PASS` | — | Proveedor SMTP alternativo |
+| `EMAIL_FROM` | — | Remitente visible. Debe estar verificado en el proveedor |
+| `SENTRY_DSN` | — | DSN del proyecto NestJS en sentry.io (opt-in, sin él no hay telemetría) |
+| `APP_VERSION` | — | Release para agrupar eventos de Sentry |
+| `LOG_LEVEL` | — | Nivel de logs pino: `debug` (dev) / `info` (prod). Default: automático por `NODE_ENV` |
 
 ## Scripts
 
 | Comando | Uso |
 |---|---|
 | `npm run dev` / `dev:sandbox` / `dev:staging` | Desarrollo con watch contra cada BD |
-| `npm run build` | Compila a `dist/` (lo corre Render) |
-| `npm run start:prod` | `node dist/main.js` (producción) |
+| `npm run build` | Compila a `dist/` (lo corre Render en producción) |
+| `npm run start:prod` | `node dist/main.js` (arranque de producción) |
 | `npm run typecheck` | `tsc --noEmit` — **correr antes de cada push** |
-| `npm test` | Vitest |
+| `npm run lint` | `oxlint --type-aware src/ test/` |
+| `npm test` | Vitest (85 tests) |
+| `npm run migrate -- <entorno>` | Aplica migraciones usando `.env.<entorno>` |
+| `npm run migrate -- <entorno> --status` | Lista el estado de migraciones |
+| `npm run seed:owner -- <entorno> <email> <nombre> <empresa>` | Crea el primer Owner en un ambiente vacío |
 
 ## Base de datos y migraciones
 
-SQL plano en `src/migrations/`, se ejecutan **a mano en el SQL editor de Supabase** (no hay runner automático).
+SQL plano en `src/migrations/`, aplicado **a mano en el SQL editor de Supabase**.
 
-- Orden estricto: `000-baseline-schema.sql` → `002` → … → `011` (luego `012`, …).
-- `000` es el esquema extraído de producción: re-ejecutable sin errores.
-- **Reglas de oro**: nunca editar una migración ya aplicada; cada cambio = archivo nuevo numerado; probar siempre en sandbox → staging → prod.
-- Seeds de roles/permisos del sistema viven en `003`/`004` (Owner/Admin/Viewer + 28 permisos).
-- `audit_logs` es **particionada por rango** (`created_at`): `y2026h2`, `y2027` y `default`. Los `ALTER` siempre a la tabla **padre** (se propagan solas).
+### Orden de aplicación (siempre de menor a mayor)
+```
+000 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010
+→ 011 → 012 → 013 → 014 → 015 → 016
+```
+(No existe `001`.)
 
-## Arquitectura (cómo está organizado)
+### Verificar qué está aplicado
+```sql
+SELECT version FROM schema_migrations ORDER BY version;
+```
+
+### Reglas
+- **Nunca editar** una migración ya aplicada — crear un nuevo archivo numerado.
+- `000` representa el esquema completo; es re-ejecutable sin errores.
+- `audit_logs` es **particionada por rango** (`y2026h2`, `y2027`, `default`): los `ALTER TABLE` van solo a la tabla padre, nunca a las particiones.
+- Probar siempre en sandbox → staging → prod.
+
+### Runner automatizado (opcional)
+```powershell
+# Listar estado (no aplica nada):
+npm run migrate -- staging --status
+
+# Aplicar todas las pendientes:
+npm run migrate -- staging
+
+# Aplicar solo una:
+npm run migrate -- staging --only 015-add-email-verification-expiry.sql
+```
+Requiere `.env.<entorno>` con `DATABASE_URL`.
+
+## Arquitectura
 
 ```
 src/
-├── auth/          # Login, registro, sesión, passwords, guards, strategies
-├── members/       # Miembros del equipo (altas, roles, estados, reseteo)
-├── company/       # Empresas y tenancy
-├── branches/      # Sedes
-├── rbac/          # Roles, permisos y guards de permisos
-├── audit/         # Interceptor global, repositorio particionado, retención, CSV
-├── email/         # Envíos (verificación, reseteo, temporales)
-├── common/        # Guards, decoradores, constantes RBAC
-└── migrations/    # SQL versionado (ver arriba)
+├── auth/
+│   ├── strategies/         → JwtStrategy (verifica blacklist en cada request)
+│   ├── guards/             → JwtAuthGuard, PasswordChangedGuard
+│   ├── repositories/       → user, refresh-token, token-blacklist, password-history
+│   ├── utils/              → password-validator.ts (política única: 8+, mayús+min+num)
+│   ├── registration.service.ts  → registro con transacción atómica (user + refresh token)
+│   ├── session.service.ts       → login, logout, refresh, cambio de email, perfil
+│   └── password.service.ts      → cambio/reset de contraseña con transacciones atómicas
+│
+├── members/                → Altas (por email, contraseña temporal), roles, estados, reseteo
+├── company/                → Empresas, tenancy, companyAccessGuard
+├── branches/               → Sedes paginadas, soft-delete, is_main guard
+├── rbac/                   → Roles y permisos (scoped por empresa, anti-IDOR)
+├── audit/                  → Interceptor global, repositorio particionado, retención 365d, CSV
+├── email/                  → Brevo API → SMTP → stub (stub lanza error en producción)
+│
+├── common/
+│   ├── constants/          → permissions.ts y roles.ts (fuente de verdad RBAC)
+│   ├── decorators/         → @Public, @RequirePermissions, @Roles, @Audit, @CurrentUser
+│   ├── dto/                → api-response, pagination-query (SortQueryDto, buildOrderBy)
+│   ├── filters/            → SentryExceptionFilter (global, captura 5xx, envía a Sentry)
+│   ├── guards/             → PermissionsGuard, RolesGuard, CompanyAccessGuard
+│   ├── middleware/         → RequestLoggerMiddleware (request-id + logs pino JSON)
+│   └── utils/              → crypto (sha256), sql.helper, membership.helper
+│
+├── migrations/             → SQL versionado (000–016)
+├── app.module.ts           → Módulo raíz: guards globales, interceptores, middleware
+├── app.controller.ts       → GET / (Hello World) + GET /health (BD check)
+├── app.service.ts          → HealthStatus con timeout de 5s
+└── main.ts                 → Bootstrap: validación de env, Sentry init, CORS, filtro global
 ```
 
-Conceptos clave:
+### Guards en orden de ejecución (todos globales)
+1. `ThrottlerGuard` — 30 req/min global; endpoints de auth tienen límites propios más estrictos
+2. `JwtAuthGuard` — verifica Bearer token **y blacklist** en cada request autenticado; `@Public()` exime
+3. `PasswordChangedGuard` — bloquea todo si `must_change_password = true`; `@SkipPasswordChanged()` exime
+4. `CompanyAccessGuard` — verifica que el usuario pertenezca a la empresa del `x-company-id` header
 
-- **Multi-tenancy**: cada request autenticada lleva header `x-company-id`. Todo filtra por empresa.
-- **Guards globales** (`app.module.ts`): `ThrottlerGuard` (30 req/min) → `JwtAuthGuard` → `PasswordChangedGuard`. `@Public()` exime auth; `@SkipPasswordChanged()` exime cambio forzado.
-- **RBAC**: fuente de verdad en `src/common/constants/` (`permissions.ts` formato `modulo:accion`, `roles.ts`). `Owner` todo (inmutable), `Admin` todo menos gestión de roles/borrado de usuarios, `Viewer` solo lectura.
-- **Auditoría automática**: `AuditLogInterceptor` (global) registra toda mutación con antes/después (resolviendo IDs a nombres), respuesta, duración, IP y usuario. Lee `src/audit/` antes de tocarlo: hay reglas finas (endpoints `/audit` excluidos para no auto-loguearse, secretos redactados).
-- **Sesiones**: los claims del JWT (roles/permisos/empresas) se congelan al emitir; se refrescan en cada `refresh`, cambio de empresa y creación de empresa. Revocar refresh tokens cierra sesiones ajenas (se usa al resetear/eliminar/desactivar).
-- **Health check**: `GET /health` es público a propósito (lo usa Render como health path: responde 200 solo si la BD contesta, 503 si no).
+### Sistema RBAC
 
-## Emails transaccionales (`src/email/`)
+| Rol | Qué puede hacer |
+|---|---|
+| `Owner` | Todo — inmutable, no se pueden cambiar sus permisos |
+| `Admin` | Todo excepto gestión de roles y borrado de usuarios |
+| `Viewer` | Solo lectura en todas las secciones que tiene acceso |
 
-`EmailService.send()` elige transporte por variables presentes, en este orden:
+Permisos por módulo: `auth`, `users`, `roles`, `company`, `settings`, `profile`, `dashboard`, `branches`, `audit`. Cada uno tiene `read`, `create`, `update`, `delete` según aplique.
 
-1. **Brevo HTTP API** (`BREVO_API_KEY`): puerto 443, no lo filtran los hostings. Reintenta 1 vez ante errores de red o 5xx (no ante 4xx).
-2. **SMTP clásico** (`SMTP_HOST/PORT/SECURE/USER/PASS`): puede estar filtrado según el host (Render bloquea el relay SMTP de Brevo).
-3. **Stub**: sin configuración, solo loguea (dev) o avisa (prod). Nunca falla.
+Para agregar un permiso nuevo:
+1. Agregar la constante en `src/common/constants/permissions.ts`
+2. Espejarlo en `frontend/src/constants/permissions.ts`
+3. Agregar el `INSERT` en `src/migrations/004-seed-permissions-roles.sql` (nueva migración si ya está aplicada)
+4. Usar `@RequirePermissions(Permissions.MODULE.ACTION)` en el controlador
+
+### Seguridad implementada
+
+- **Logout real**: los access tokens se añaden a la blacklist al cerrar sesión o cambiar contraseña.
+- **No roles globales**: `POST /roles` requiere `x-company-id`; sin él el servidor rechaza con 400.
+- **Anti-IDOR en roles**: `PUT/DELETE /roles/:id` verifica que el rol pertenezca a la empresa del llamador.
+- **Password history**: compara la candidata en claro contra los últimos 3 hashes (bcrypt.compare correcto).
+- **Política de contraseña unificada**: 8+ caracteres, al menos una mayúscula, minúscula y número — en registro, cambio y reseteo.
+- **Temporales con `crypto.randomBytes`**: seguro criptográficamente; las contraseñas temporales se envían por correo, nunca en el JSON de respuesta.
+- **Verificación con expiración**: los enlaces de cambio de email expiran en 24h (`email_verification_expires_at`).
+- **Último Owner protegido**: no se puede eliminar el único Owner de una empresa.
+
+## Emails transaccionales
+
+`EmailService.send()` elige transporte en este orden:
+
+1. **Brevo HTTP API** (`BREVO_API_KEY`) — puerto 443, no filtrado por hostings. Reintenta 1× en 5xx/red.
+2. **SMTP clásico** (`SMTP_HOST/PORT/SECURE/USER/PASS`) — puede estar filtrado en Render; usar Brevo API mejor.
+3. **Stub** — sin configuración: loguea en dev; lanza `InternalServerErrorException` en producción (no finge éxito silencioso).
 
 Reglas:
-- `EMAIL_FROM` acepta `"Nombre <email@dominio>"` o email plano; el remitente debe estar verificado en el proveedor.
-- Jamás se loguean tokens ni cuerpos con secretos (solo destino y asunto).
-- Al arrancar, el servicio registra su modo (`brevo-api`, `smtp` o stub) — míralo en logs si un correo no llega.
-- Plantillas en `src/email/templates.ts` (funciones puras, testeadas). Para un correo nuevo: agrega su template + método `send*` + test.
-- Tests: `npx vitest run src/email/email.service.spec.ts`.
+- `EMAIL_FROM` acepta `"Nombre <email@dominio>"` o email plano. El remitente debe estar verificado en el proveedor.
+- Jamás se loguean tokens ni contraseñas (solo destino y asunto).
+- Al arrancar, el servicio registra su modo (`brevo-api`, `smtp` o `stub`) en los logs.
+- Para un correo nuevo: agregar template en `src/email/templates.ts` + método `send*` en `EmailService`.
+
+Correos activos: **recuperación de contraseña** (link JWT 15min), **verificación de email** (token 24h), **contraseña temporal** (al invitar o resetear).
+
+## Observabilidad
+
+### Logs estructurados (pino)
+- Cada request recibe un `x-request-id` UUID (o propaga el del cliente).
+- Los logs salen en **JSON** con: `type`, `requestId`, `method`, `url`, `ip`, `statusCode`, `durationMs`.
+- Los endpoints sensibles (`/auth/login`, `/auth/register`) no loguean el body.
+- Ver en tiempo real: Render → Logs. Buscar por `requestId` para seguir una petición de punta a punta.
+- Para pretty-print en local: `npm run dev | npx pino-pretty`.
+
+### Sentry (opt-in)
+- Solo se activa con `SENTRY_DSN` en las variables de entorno.
+- Captura únicamente errores 5xx (los 4xx son comportamiento esperado).
+- Cada evento incluye: `request-id` (para correlacionar con logs de Render), `userId`, método, URL y body sanitizado.
+- Para crear un proyecto: sentry.io → New Project → **NestJS** → copiar DSN.
+
+### Health check
+- `GET /health` — público, usado por Render y UptimeRobot.
+- Responde `200 {"status":"ok","database":"up","uptimeSeconds":...}` si la BD contesta en 5s.
+- Responde `503` si la BD no contesta (Render detiene el deploy; UptimeRobot alerta).
 
 ## Documentación API
 
-Con `SWAGGER_ENABLED=true` + credenciales: `http://localhost:3000/api/docs` (JSON en `/api/docs-json`). En producción va apagado salvo necesidad.
+Con `SWAGGER_ENABLED=true` + credenciales: `http://localhost:3000/api/docs` (JSON en `/api/docs-json`). En producción apagado por defecto. Si se necesita temporalmente en prod: encender, consultar, apagar.
 
-## Despliegue (Render)
+## Despliegue en Render
 
-Servicio **Web Service**, root `backend`, build `npm install && npm run build`, start `npm run start:prod`, plan Free (duerme sin tráfico; UptimeRobot lo mantiene tibio), health path `/health`, y variable extra obligatoria: `NPM_CONFIG_PRODUCTION=false` (si no, falta `@nestjs/cli` y el build muere con `nest: not found`). Variables obligatorias en el dashboard: `DATABASE_URL` (pooler Supabase), `JWT_SECRET` (único por entorno), `CORS_ORIGIN` + `FRONTEND_URL` (URL real de la web), `NODE_ENV=production`, `SWAGGER_ENABLED=false`.
+Configuración del servicio Web Service:
+- **Root**: `backend`
+- **Build command**: `npm install && npm run build`
+- **Start command**: `npm run start:prod`
+- **Health check path**: `/health`
+- **Variable extra obligatoria**: `NPM_CONFIG_PRODUCTION=false` (sin esto, `@nestjs/cli` no está disponible y el build muere con `nest: not found`)
+
+Variables mínimas en el dashboard (ver `.env.example` para lista completa):
+`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `FRONTEND_URL`, `NODE_ENV=production`, `SWAGGER_ENABLED=false`.
 
 ## Problemas comunes
 
-| Síntoma | Causa típica |
-|---|---|
-| `400` en `GET /companies/users` | Conflicto de rutas `:id` (ver comentario en `app.module.ts`) |
-| `401` tras cambio de empresa | Tokens viejos: refrescar sesión / re-login |
-| `403` inesperado | Claims del JWT desactualizados (roles por empresa) o falta permiso |
-| Conexión a BD cae en nube | Usar pooler `:6543`; revisar `DATABASE_URL` del ambiente correcto |
-| `JWT_SECRET required` al arrancar | Falta la variable (no hay default a propósito) |
+| Síntoma | Causa típica | Solución |
+|---|---|---|
+| El servidor no arranca: `Faltan variables...` | `DATABASE_URL`, `JWT_SECRET` o `CORS_ORIGIN` no configuradas | Revisar dashboard de Render o el `.env` local |
+| `400` en `GET /companies/users` | Conflicto de rutas (ver comentario en `company.controller.ts`) | Usar la ruta exacta `/api/companies/users` |
+| `401` tras cambio de empresa | Tokens viejos en el cliente | Re-login o cambiar de empresa desde la UI |
+| `403` inesperado | Claims del JWT desactualizados o permiso insuficiente | Cambiar de empresa (refresca claims) o contactar al Owner |
+| Deploy queda en "Waiting for health check" | BD no responde en 5s (Supabase pausado o incidente) | Restaurar proyecto en Supabase → Manual Deploy en Render |
+| `nest: not found` en el build de Render | `NPM_CONFIG_PRODUCTION=true` (default de Render) | Agregar `NPM_CONFIG_PRODUCTION=false` en las env vars |
+| Email nunca llega | Remitente no verificado en Brevo o falta `BREVO_API_KEY` | Ver los logs del arranque (`[EmailService] Modo de envío: ...`) |
+| Conexión a BD cae en nube | Usando pooler incorrecto (`:5432` en vez de `:6543`) | Cambiar `DATABASE_URL` al pooler `:6543` |
