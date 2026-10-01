@@ -36,8 +36,23 @@ export const useMemberStore = defineStore('member', () => {
 
   const currentCompanyId = computed(() => companyId.value);
 
+  const lastCompanyId = ref<string | undefined>(undefined);
+
+  const resetState = () => {
+    members.value = [];
+    page.value = 1;
+    total.value = 0;
+    filters.value = {};
+    sortBy.value = undefined;
+    sortDir.value = 'asc';
+  };
+
   const fetchMembers = async (targetPage = page.value) => {
     if (!currentCompanyId.value) return;
+    if (currentCompanyId.value !== lastCompanyId.value) {
+      resetState();
+      lastCompanyId.value = currentCompanyId.value;
+    }
     await withLoading(async () => {
       const response = await memberService.getMembers({
         page: targetPage,
@@ -143,6 +158,7 @@ export const useMemberStore = defineStore('member', () => {
     filters,
     sortBy,
     sortDir,
+    resetState,
     fetchMembers,
     goToPage,
     setLimit,

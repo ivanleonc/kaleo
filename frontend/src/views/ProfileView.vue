@@ -16,6 +16,22 @@
         </div>
       </div>
 
+      <UiAlert v-if="profileLoadError" type="warning">
+        {{ profileLoadError }}
+        <UiButton size="sm" variant="ghost" width="auto" @click="retryProfileLoad">Reintentar</UiButton>
+      </UiAlert>
+
+      <template v-if="isLoadingProfile">
+        <UiCard aria-hidden="true">
+          <div class="info-grid">
+            <div v-for="n in 3" :key="n" class="info-row">
+              <UiSkeleton variant="text" width="100px" />
+              <UiSkeleton variant="text" width="160px" />
+            </div>
+          </div>
+        </UiCard>
+      </template>
+
       <UiAlert v-if="authStore.user?.pending_email" type="info">
         Tienes un cambio de correo pendiente a <strong>{{ authStore.user?.pending_email }}</strong>.
         Revísalo para verificarlo.
@@ -24,10 +40,20 @@
         <UiButton variant="outline" size="sm" width="auto" :loading="isResending" @click="handleResend">
           Reenviar verificación
         </UiButton>
-        <UiButton variant="ghost" size="sm" width="auto" @click="handleCancelPending">
+        <UiButton variant="ghost" size="sm" width="auto" @click="isCancelEmailConfirmOpen = true">
           Cancelar cambio
         </UiButton>
       </div>
+
+      <UiConfirmDialog
+        v-model="isCancelEmailConfirmOpen"
+        title="Cancelar cambio de correo"
+        variant="danger"
+        confirm-label="Sí, cancelar"
+        @confirm="handleCancelPending"
+      >
+        ¿Seguro que deseas cancelar el cambio de correo a <strong>{{ authStore.user?.pending_email }}</strong>?
+      </UiConfirmDialog>
 
       <!-- Profile Info Card -->
       <UiCard>
@@ -176,6 +202,8 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
+import UiSkeleton from '@/components/ui/UiSkeleton.vue';
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { passwordErrorMessage } from '@/utils/password';
@@ -185,6 +213,24 @@ import { useDirtyForm } from '@/composables/useDirtyForm';
 
 const authStore = useAuthStore();
 const toast = useToast();
+
+// --- PROFILE LOADING ---
+const isLoadingProfile = ref(true);
+const profileLoadError = ref<string | null>(null);
+
+const loadProfile = async () => {
+  isLoadingProfile.value = true;
+  profileLoadError.value = null;
+  try {
+    await authStore.fetchProfile();
+  } catch (err: any) {
+    profileLoadError.value = apiErrorMessage(err, 'No pudimos cargar tu perfil');
+  } finally {
+    isLoadingProfile.value = false;
+  }
+};
+
+const retryProfileLoad = () => loadProfile();
 
 // --- PROFILE ---
 const isProfileModalOpen = ref(false);
@@ -204,6 +250,7 @@ const form = reactive({
 });
 
 const isResending = ref(false);
+const isCancelEmailConfirmOpen = ref(false);
 
 const profileName = computed(() => authStore.user?.name || '');
 const profileEmail = computed(() => authStore.user?.email || '');
@@ -211,7 +258,7 @@ const profileAvatar = computed(() => authStore.user?.avatar_url || '');
 const profilePosition = computed(() => authStore.user?.position || '');
 
 onMounted(async () => {
-  await authStore.fetchProfile();
+  await loadProfile();
 });
 
 const getInitials = (name?: string): string => {

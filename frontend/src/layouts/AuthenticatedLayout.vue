@@ -495,7 +495,7 @@ const handleCreateSubmit = async () => {
       router.push(dashboardPathFor(newTenantId));
     }
   } catch (error) {
-    console.error('Error al crear la empresa', error);
+    if (import.meta.env.DEV) console.error('Error al crear la empresa', error);
   }
 };
 

@@ -186,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useBranchStore } from '@/stores/branch.store';
 import { useMemberStore } from '@/stores/member.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -210,6 +210,7 @@ import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { useToast } from '@/composables/useToast';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useFilterSync } from '@/composables/useFilterSync';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import {
   useAppTable,
   createAppColumnHelper,
@@ -233,11 +234,18 @@ const branchStore = useBranchStore();
 const memberStore = useMemberStore();
 const authStore = useAuthStore();
 const toast = useToast();
+const { companyId } = useCompanyPath();
 
 // --- FILTERS ---
 // El filtrado ocurre en el servidor para que page/total sigan siendo
 // coherentes. Un solo watcher profundo (useFilterSync) cubre todas las claves.
 const branchFilterValues = ref({ search: '', status: '' });
+
+watch(companyId, (newId, oldId) => {
+  if (newId !== oldId && newId) {
+    branchFilterValues.value = { search: '', status: '' };
+  }
+});
 
 const branchFilterDefs: TableFilterDef[] = [
   {

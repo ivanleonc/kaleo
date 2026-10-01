@@ -375,7 +375,6 @@ async function handleEditSubmit() {
     toast.success('Rol actualizado correctamente');
     await fetchData();
   } catch (error: any) {
-    console.error('Error actualizando rol:', error);
     errorMsg.value = apiErrorMessage(error, 'Error al actualizar el rol');
   } finally {
     isSaving.value = false;
@@ -393,7 +392,6 @@ async function handleDeleteSubmit() {
     toast.success('Rol eliminado correctamente');
     await fetchData();
   } catch (error: any) {
-    console.error('Error eliminando rol:', error);
     errorMsg.value = apiErrorMessage(error, 'Error al eliminar el rol');
   } finally {
     isSaving.value = false;
@@ -449,7 +447,6 @@ const handleCreateSubmit = async () => {
     toast.success('Rol creado correctamente');
     await fetchData();
   } catch (error: any) {
-    console.error('Error creando rol', error);
     errorMsg.value = apiErrorMessage(error, 'Error al crear el rol');
   } finally {
     isSaving.value = false;

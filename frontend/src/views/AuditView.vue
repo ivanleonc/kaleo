@@ -239,9 +239,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuditStore } from '@/stores/audit.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
@@ -275,10 +276,17 @@ import {
 
 const auditStore = useAuditStore();
 const authStore = useAuthStore();
+const { companyId } = useCompanyPath();
 
 // Un solo objeto + un solo watcher profundo: todas las claves disparan el
 // fetch (el select de entidad antes no tenía trigger y parecía "muerto").
 const auditFilterValues = ref({ entityType: '', action: '', from: '', to: '' });
+
+watch(companyId, (newId, oldId) => {
+  if (newId !== oldId && newId) {
+    auditFilterValues.value = { entityType: '', action: '', from: '', to: '' };
+  }
+});
 
 const auditFilterDefs = computed<TableFilterDef[]>(() => [
   {

@@ -125,6 +125,17 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Enrich 403 and network errors with Spanish messages for better UX
+    const status = error.response?.status;
+    if (status === 403) {
+      error._isForbidden = true;
+      error._userMessage = 'No tienes permiso para realizar esta acción.';
+    }
+    if (!error.response && (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !navigator.onLine)) {
+      error._isOffline = true;
+      error._userMessage = 'Sin conexión. Revisa tu internet e intenta de nuevo.';
+    }
+
     return Promise.reject(error);
   }
 );

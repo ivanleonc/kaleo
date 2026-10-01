@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { branchService } from '@/services/branch.service';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import type { ServerSort } from '@/composables/useAppTable';
 import type { Branch, CreateBranchPayload, UpdateBranchPayload } from '@/types/branch';
 
@@ -11,6 +12,8 @@ export interface BranchFilters {
 }
 
 export const useBranchStore = defineStore('branch', () => {
+  const { companyId } = useCompanyPath();
+
   const branches = ref<Branch[]>([]);
 
   const {
@@ -30,7 +33,22 @@ export const useBranchStore = defineStore('branch', () => {
   const hasPrev = computed(() => page.value > 1);
   const hasNext = computed(() => page.value < totalPages.value);
 
+  const lastCompanyId = ref<string | undefined>(undefined);
+
+  const resetState = () => {
+    branches.value = [];
+    page.value = 1;
+    total.value = 0;
+    filters.value = {};
+    sortBy.value = undefined;
+    sortDir.value = 'asc';
+  };
+
   const fetchBranches = async (targetPage = page.value) => {
+    if (companyId.value && companyId.value !== lastCompanyId.value) {
+      resetState();
+      lastCompanyId.value = companyId.value;
+    }
     await withLoading(async () => {
       const response = await branchService.getBranches({
         page: targetPage,
@@ -110,6 +128,7 @@ export const useBranchStore = defineStore('branch', () => {
     filters,
     sortBy,
     sortDir,
+    resetState,
     fetchBranches,
     goToPage,
     setLimit,

@@ -13,6 +13,9 @@ export function apiErrorMessage(
 ): string {
   if (typeof error === 'string' && error.trim()) return error;
 
+  // Custom enriched messages set by the axios interceptor
+  if ((error as any)?._userMessage) return (error as any)._userMessage;
+
   const data = (error as any)?.response?.data;
   if (typeof data === 'string' && data.trim()) return data;
 
@@ -21,6 +24,11 @@ export function apiErrorMessage(
 
   if (Array.isArray(message) && message.length > 0) {
     return message.map((item: any) => item?.message ?? String(item)).join(' ');
+  }
+
+  // Friendly Spanish for raw axios "Network Error"
+  if (error instanceof Error && error.message === 'Network Error') {
+    return 'Sin conexión al servidor. Revisa tu internet.';
   }
 
   if (error instanceof Error && error.message) return error.message;

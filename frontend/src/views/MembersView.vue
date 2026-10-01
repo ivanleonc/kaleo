@@ -135,7 +135,7 @@
       >
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
         <UiInput v-model="addForm.name" label="Nombre Completo" required />
-        <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required />
+        <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required :error="addEmailError" />
         <div class="form-row">
           <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
           <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
@@ -237,10 +237,11 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, ref, computed } from 'vue';
+import { reactive, onMounted, ref, computed, watch } from 'vue';
 import { useMemberStore } from '@/stores/member.store';
 import { roleService, type Role } from '@/services/role.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import { Permissions } from '@/constants/permissions';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
@@ -282,6 +283,7 @@ const authStore = useAuthStore();
 const memberStore = useMemberStore();
 const toast = useToast();
 const availableRoles = ref<Role[]>([]);
+const { companyId } = useCompanyPath();
 
 const roleItems = computed(() =>
   availableRoles.value.map((r) => ({
@@ -297,6 +299,12 @@ const { copyToClipboard } = useClipboard();
 // coherentes. Un solo watcher profundo (useFilterSync) cubre todas las
 // claves: ningún filtro queda "muerto" sin trigger.
 const memberFilterValues = ref({ search: '', roleId: '', status: '' });
+
+watch(companyId, (newId, oldId) => {
+  if (newId !== oldId && newId) {
+    memberFilterValues.value = { search: '', roleId: '', status: '' };
+  }
+});
 
 const memberFilterDefs = computed<TableFilterDef[]>(() => [
   {
@@ -398,6 +406,11 @@ const addForm = reactive({
   document_number: '',
 });
 const newMemberCredentials = ref<null>(null); // mantenido por compatibilidad con el store
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const addEmailError = computed(() =>
+  addForm.email && !emailRegex.test(addForm.email) ? 'Correo electrónico inválido' : null
+);
 
 onMounted(async () => {
   if (authStore.activeTenantId) {
@@ -533,7 +546,7 @@ const handleEditSubmit = async () => {
     isEditModalOpen.value = false;
     toast.success('Miembro actualizado correctamente');
   } catch (error) {
-    console.error('Error al editar miembro:', error);
+    // El error queda en memberStore.error y lo muestra el UiAlert del modal.
   }
 };
 
@@ -559,7 +572,7 @@ const confirmDelete = async () => {
     deleteTarget.value = null;
     toast.success('Miembro removido del equipo');
   } catch (error) {
-    console.error('Error al eliminar:', error);
+    // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
   }
 };
 

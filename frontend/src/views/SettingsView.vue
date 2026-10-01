@@ -37,6 +37,12 @@
         @retry="loadCompanyData"
       />
 
+      <UiEmptyState
+        v-else-if="!company"
+        title="Sin empresa cargada"
+        description="No se pudo obtener la información de la empresa."
+      />
+
       <template v-else-if="company">
         <UiCard>
           <template #header>
@@ -172,6 +178,7 @@ import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { useCompanyPath } from '@/composables/useCompanyPath';

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { auditService } from '@/services/audit.service';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import type { AuditLog, AuditFilters } from '@/types/audit';
 
 /**
@@ -13,6 +14,8 @@ import type { AuditLog, AuditFilters } from '@/types/audit';
  * la página `i`, y el índice 0 es `null` (la más reciente).
  */
 export const useAuditStore = defineStore('audit', () => {
+  const { companyId } = useCompanyPath();
+
   const logs = ref<AuditLog[]>([]);
   const limit = ref(20);
   const entityTypes = ref<string[]>([]);
@@ -32,7 +35,22 @@ export const useAuditStore = defineStore('audit', () => {
   const hasPrev = computed(() => pageIndex.value > 0);
   const canGoNext = computed(() => hasNext.value && nextCursor.value !== null);
 
+  const lastCompanyId = ref<string | undefined>(undefined);
+
+  const resetState = () => {
+    logs.value = [];
+    cursorStack.value = [null];
+    nextCursor.value = null;
+    hasNext.value = false;
+    filters.value = {};
+    entityTypes.value = [];
+  };
+
   async function fetchLogs() {
+    if (companyId.value && companyId.value !== lastCompanyId.value) {
+      resetState();
+      lastCompanyId.value = companyId.value;
+    }
     const cursor = cursorStack.value[pageIndex.value];
     const result = await withLoading(
       () =>
@@ -86,6 +104,7 @@ export const useAuditStore = defineStore('audit', () => {
   return {
     logs, limit, isLoading, error, entityTypes, filters,
     pageIndex, hasPrev, canGoNext,
+    resetState,
     fetchLogs, fetchEntityTypes, nextPage, prevPage, setFilters, resetFilters,
   };
 });
