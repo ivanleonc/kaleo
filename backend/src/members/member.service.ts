@@ -36,10 +36,13 @@ export class MemberService {
     const passwordHash = await this.passwordService.hashPassword(tempPassword);
     const result = await this.memberRepository.addMember(companyId, email, name, roleIds, passwordHash, extra);
 
-    return {
-      ...result,
-      temporary_password: tempPassword,
-    };
+    // La contraseña temporal se envía por correo (nunca en el JSON de respuesta).
+    // Si el envío falla el error llega al cliente como 500 — la BD YA fue
+    // commiteada (el miembro existe), así que el admin puede reintentar el
+    // reseteo manual o volver a invitar.
+    await this.emailService.sendTemporaryPassword(email, tempPassword);
+
+    return result;
   }
 
   async updateMember(
@@ -67,28 +70,20 @@ export class MemberService {
       throw new NotFoundException('El usuario no es miembro de esta empresa');
     }
 
-    const tempPassword = this.generateTempPassword();
-    await this.passwordService.adminResetPassword(adminUserId, targetUserId, companyId, tempPassword);
-
-    return { temporary_password: tempPassword };
-  }
-
-  async resetPasswordAndSendEmail(adminUserId: string, companyId: string, targetUserId: string) {
-    const isMember = await this.memberRepository.isAlreadyMember(targetUserId, companyId);
-    if (!isMember) {
-      throw new NotFoundException('El usuario no es miembro de esta empresa');
-    }
-
     const user = await this.memberRepository.findUserById(targetUserId);
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
+    if (!user) throw new NotFoundException('Usuario no encontrado');
 
     const tempPassword = this.generateTempPassword();
     await this.passwordService.adminResetPassword(adminUserId, targetUserId, companyId, tempPassword);
+    // Siempre envía por correo: nunca se devuelve la clave en el JSON.
     await this.emailService.sendTemporaryPassword(user.email, tempPassword);
 
     return { email: user.email };
+  }
+
+  async resetPasswordAndSendEmail(adminUserId: string, companyId: string, targetUserId: string) {
+    // Alias mantenido por compatibilidad con el controlador existente.
+    return this.resetPassword(adminUserId, companyId, targetUserId);
   }
 
   async removeMember(companyId: string, userId: string) {

@@ -256,6 +256,33 @@ export class MemberRepository {
   }
 
   async removeMember(companyId: string, userId: string) {
+    // Impedir dejar la empresa sin ningún Owner: si este usuario es el
+    // único Owner activo el borrado se rechaza.
+    const ownerCheck = await this.dataSource.query(
+      `SELECT COUNT(*) AS total
+       FROM user_contexts uc
+       INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
+       WHERE uc.company_id = $1
+         AND r.name = 'Owner'
+         AND uc.user_id != $2`,
+      [companyId, userId],
+    );
+    const otherOwners = parseInt(ownerCheck[0]?.total ?? '0', 10);
+
+    // Verificar si el usuario a eliminar es Owner
+    const isOwner = await this.dataSource.query(
+      `SELECT 1 FROM user_contexts uc
+       INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
+       WHERE uc.user_id = $1 AND uc.company_id = $2 AND r.name = 'Owner'`,
+      [userId, companyId],
+    );
+
+    if (isOwner.length > 0 && otherOwners === 0) {
+      throw new ConflictException(
+        'No puedes eliminar al único Owner de la empresa. Asigna otro Owner primero.',
+      );
+    }
+
     const result = await this.dataSource.query(
       `DELETE FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
       [userId, companyId],

@@ -104,11 +104,10 @@ export class MemberController {
         id: result.id,
         name: result.name,
         email: result.email,
-        temporary_password: result.temporary_password,
         role_assigned: result.role_assigned,
       },
       result.isNewUser
-        ? 'Miembro agregado exitosamente. Se generó una contraseña temporal.'
+        ? 'Miembro agregado exitosamente. Se envió la contraseña temporal por correo.'
         : 'Miembro existente agregado a la empresa.',
     );
   }
@@ -151,14 +150,12 @@ export class MemberController {
   @ApiParam({ name: 'userId', description: 'UUID del usuario', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({
     status: 200,
-    description: 'Contraseña reseteada',
+    description: 'Contraseña reseteada y enviada por email',
     schema: {
       example: {
         success: true,
-        message: 'Contraseña reseteada exitosamente.',
-        data: {
-          temporary_password: 'xK9mN2pQ7rS',
-        },
+        message: 'Contraseña reseteada y enviada a juan@empresa.com',
+        data: { email: 'juan@empresa.com' },
       },
     },
   })
@@ -171,7 +168,7 @@ export class MemberController {
     @Param('userId', ParseUUIDPipe) targetUserId: string,
   ) {
     const result = await this.memberService.resetPassword(userId, companyId, targetUserId);
-    return Ok(result, 'Contraseña reseteada exitosamente.');
+    return Ok(result, `Contraseña reseteada y enviada a ${result.email}`);
   }
 
   @Post(':userId/reset-password-email')

@@ -38,8 +38,8 @@ export interface CreateMemberResponse {
     id: string;
     name: string;
     email: string;
-    temporary_password?: string;
     role_assigned: number;
+    isNewUser?: boolean;
   };
 }
 

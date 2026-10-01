@@ -100,6 +100,11 @@ async function bootstrap() {
     transform: true,
   }));
 
+  // Graceful shutdown: en Render/Docker el host envía SIGTERM antes de matar
+  // el proceso. Sin esto, TypeORM/pg cierra conexiones abruptamente cortando
+  // queries en vuelo y pudiendo dejar transacciones abiertas.
+  app.enableShutdownHooks();
+
   const config = new DocumentBuilder()
     .setTitle('SaaS API')
     .setDescription('API para el sistema SaaS multi-tenant. Endpoints públicos: register, login, refresh, forgot-password, reset-password. Todos los demás requieren Bearer token. Header obligatorio: x-company-id (UUID de la empresa activa).')

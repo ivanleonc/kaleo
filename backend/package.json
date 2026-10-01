@@ -30,7 +30,8 @@
     "migrate:backfill": "tsx scripts/backfill-migrations.ts",
     "migrate:verify": "tsx scripts/verify-012.ts",
     "smoke:members": "tsx scripts/smoke-members.ts",
-    "smoke:seed": "tsx scripts/seed-members.ts"
+    "smoke:seed": "tsx scripts/seed-members.ts",
+    "seed:owner": "tsx scripts/seed-first-owner.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

@@ -55,7 +55,45 @@ Luego en el navegador: registro → onboarding (crear empresa) → dashboard. De
 - **Onboarding explícito**: el registro no crea empresa (un usuario puede no tener ninguna) → ruta `/onboarding`.
 - **Swagger apagado por defecto**, con Basic Auth opt-in para devs.
 
-## Costos ($0 mientras se desarrolla)
+## Checklist de deploy a producción (manual)
+
+### Pre-deploy (una vez por ambiente)
+- [ ] `npm run typecheck` + `npm run lint` + `npm test` + `npm run build` en verde (o esperar CI verde en GitHub Actions).
+- [ ] Migraciones aplicadas en Supabase SQL editor **en orden** (`000 → 002 → … → 016`):
+  ```
+  015-add-email-verification-expiry.sql
+  016-cleanup-orphan-user-contexts.sql
+  ```
+  Verificar con: `SELECT version FROM schema_migrations ORDER BY version;`
+- [ ] Variables de entorno en Render configuradas:
+  - `DATABASE_URL` — pooler Supabase `:6543`
+  - `JWT_SECRET` — único para prod, distinto al de staging
+  - `CORS_ORIGIN` — URL exacta de la web (sin `/`)
+  - `FRONTEND_URL` — igual que `CORS_ORIGIN`
+  - `NODE_ENV=production`
+  - `SWAGGER_ENABLED=false`
+  - `BREVO_API_KEY` + `EMAIL_FROM` — remitente verificado en Brevo
+  - `NPM_CONFIG_PRODUCTION=false`
+- [ ] `VITE_API_URL` configurada en Cloudflare Pages y rebuild disparado.
+- [ ] Health path en Render → `/health` (no `/`).
+- [ ] Supabase: copias de seguridad (PITR) activadas en el proyecto de prod.
+
+### Primera vez con cliente
+```powershell
+# Crea el primer owner. Imprime la contraseña temporal.
+cd backend
+npm run seed:owner -- prod admin@miempresa.com "Nombre Admin" "Mi Empresa SAS"
+```
+- [ ] Enviar la contraseña temporal al cliente por canal seguro (nunca por email sin TLS).
+- [ ] Pedirle que cambie la contraseña en el primer login (el sistema lo fuerza).
+
+### Post-deploy
+- [ ] Abrir `https://tu-api.onrender.com/health` → `"status":"ok","database":"up"`.
+- [ ] Abrir la web, iniciar sesión, recorrer Panel → Miembros → Sedes → Roles → Auditoría → Ajustes.
+- [ ] Verificar que `https://tu-api.onrender.com/api/docs` da 404 (Swagger apagado).
+- [ ] UptimeRobot apuntando a `/health` (no a `/`).
+
+
 
 Render Free (750h/mes ≈ 1 servicio 24/7 tibio vía UptimeRobot) + Cloudflare Pages + Supabase free (2 proyectos activos: pausar uno si se necesita el tercero). Al escalar: Render Starter (~$7) o Railway Hobby ($5), mismo código.
 

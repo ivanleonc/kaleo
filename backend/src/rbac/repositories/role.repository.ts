@@ -81,6 +81,17 @@ export class RoleRepository {
       `UPDATE roles SET deleted_at = NOW() WHERE id = $1 AND name NOT IN (${placeholders})`,
       [id, ...PROTECTED_ROLES],
     );
+
+    // Limpiar contextos huérfanos: miembros con este rol quedan sin acceso
+    // silenciosamente si no se reasignan. Registramos la cantidad para
+    // que el audit log del interceptor lo capture como new_values.
+    // (No eliminamos los user_contexts: el admin puede reasignar el rol.)
+    // Lo que sí hacemos es remover el rol de esos contextos para que
+    // getUserAccess no devuelva permisos de un rol invisible.
+    await this.dataSource.query(
+      `DELETE FROM user_contexts WHERE role_id = $1`,
+      [id],
+    );
   }
 
   async getPermissions(roleId: string) {
@@ -133,48 +144,26 @@ export class RoleRepository {
     }
   }
 
-  async getRolesWithPermissions(companyId?: string) {
-    let query: string;
-    let params: any[];
-
-    if (companyId) {
-      query = `
-        SELECT r.id, r.name, r.company_id,
-          COALESCE(
-            json_agg(
-              json_build_object('id', p.id, 'code', p.code, 'name', p.name, 'module', p.module)
-            ) FILTER (WHERE p.id IS NOT NULL),
-            '[]'
-          ) as permissions
-        FROM roles r
-        LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
-        WHERE r.deleted_at IS NULL
-          AND (r.company_id IS NULL OR r.company_id = $1)
-        GROUP BY r.id, r.name, r.company_id
-        ORDER BY r.name
-      `;
-      params = [companyId];
-    } else {
-      query = `
-        SELECT r.id, r.name, r.company_id,
-          COALESCE(
-            json_agg(
-              json_build_object('id', p.id, 'code', p.code, 'name', p.name, 'module', p.module)
-            ) FILTER (WHERE p.id IS NOT NULL),
-            '[]'
-          ) as permissions
-        FROM roles r
-        LEFT JOIN role_permissions rp ON r.id = rp.role_id
-        LEFT JOIN permissions p ON rp.permission_id = p.id
-        WHERE r.deleted_at IS NULL
-        GROUP BY r.id, r.name, r.company_id
-        ORDER BY r.name
-      `;
-      params = [];
-    }
-
-    return this.dataSource.query(query, params);
+  async getRolesWithPermissions(companyId: string) {
+    // Siempre filtrado por empresa: roles globales (company_id IS NULL) +
+    // roles de esa empresa. Nunca devuelve roles de otras empresas.
+    const query = `
+      SELECT r.id, r.name, r.company_id, r.description, r.color,
+        COALESCE(
+          json_agg(
+            json_build_object('id', p.id, 'code', p.code, 'name', p.name, 'module', p.module)
+          ) FILTER (WHERE p.id IS NOT NULL),
+          '[]'
+        ) as permissions
+      FROM roles r
+      LEFT JOIN role_permissions rp ON r.id = rp.role_id
+      LEFT JOIN permissions p ON rp.permission_id = p.id
+      WHERE r.deleted_at IS NULL
+        AND (r.company_id IS NULL OR r.company_id = $1)
+      GROUP BY r.id, r.name, r.company_id, r.description, r.color
+      ORDER BY r.name
+    `;
+    return this.dataSource.query(query, [companyId]);
   }
 
   /**

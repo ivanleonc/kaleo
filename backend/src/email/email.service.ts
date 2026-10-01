@@ -151,8 +151,17 @@ export class EmailService implements OnModuleInit {
     if (!transporter) {
       const env = this.configService.get<string>('NODE_ENV');
       if (env === 'production') {
-        this.logger.warn(`[EmailService] Email sending not configured in production. To: ${options.to}, Subject: ${options.subject}`);
-        return;
+        // En producción sin proveedor configurado NO fingimos éxito: lanzamos
+        // error para que el llamador sepa que el correo no se envió.
+        // (El stub silencioso era la causa de "contraseña rotada pero email
+        // nunca llegó y la API reportaba 200".)
+        this.logger.error(
+          `[EmailService] Sin proveedor configurado en producción. ` +
+          `Correo a ${options.to} ('${options.subject}') NO enviado.`,
+        );
+        throw new InternalServerErrorException(
+          'El servicio de correo no está configurado. Contacta al administrador.',
+        );
       }
       this.logger.log(`[DEV EMAIL] To: ${options.to}`);
       this.logger.log(`[DEV EMAIL] Subject: ${options.subject}`);

@@ -1,10 +1,12 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserRepository } from './repositories/user.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
 import { CompanyService } from '../company/company.service.js';
 import { RbacService } from '../rbac/rbac.service.js';
+import { AuditLogService } from '../audit/audit-log.service.js';
 import { validatePasswordStrength } from './utils/password-validator.js';
 
 const SALT_ROUNDS = 10;
@@ -13,12 +15,16 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
 @Injectable()
 export class RegistrationService {
+  private readonly logger = new Logger(RegistrationService.name);
+
   constructor(
     private userRepository: UserRepository,
     private jwtService: JwtService,
     private refreshTokenRepository: RefreshTokenRepository,
     private companyService: CompanyService,
     private rbacService: RbacService,
+    private auditLogService: AuditLogService,
+    private dataSource: DataSource,
   ) {}
 
   async register(email: string, passwordPlain: string, name?: string) {
@@ -28,19 +34,50 @@ export class RegistrationService {
       throw new ConflictException('El correo electrónico ya está registrado');
     }
 
+    // Generar tokens: el accessToken se construye más abajo con los claims completos
     const passwordHash = await bcrypt.hash(passwordPlain, SALT_ROUNDS);
-    const newUser = await this.userRepository.create(email, passwordHash, name);
+
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    let newUser: any;
+    let refreshTokenValue = '';
+    try {
+      const result = await runner.query(
+        `INSERT INTO users (email, password_hash, name, must_change_password)
+         VALUES ($1, $2, $3, FALSE)
+         RETURNING id, email, name, must_change_password, email_verified`,
+        [email, passwordHash, name || null],
+      );
+      newUser = result[0];
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+      const refreshPayload = { sub: newUser.id, type: 'refresh' };
+      refreshTokenValue = this.jwtService.sign(refreshPayload, {
+        expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
+      });
+      const { sha256 } = await import('../common/utils/crypto.js');
+      await runner.query(
+        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+        [newUser.id, sha256(refreshTokenValue), expiresAt],
+      );
+      await runner.commitTransaction();
+    } catch (err) {
+      await runner.rollbackTransaction();
+      throw err;
+    } finally {
+      await runner.release();
+    }
 
     const tenants = await this.companyService.getUserCompanies(newUser.id);
     const companyIds = tenants.map((t: any) => t.id);
-
     const { companyRoles, companyPermissions } = await this.buildCompanyRolesAndPermissions(newUser.id, tenants);
-
     const firstCompanyId = companyIds[0];
     const defaultRoles = firstCompanyId ? (companyRoles[firstCompanyId] || []) : [];
     const defaultPermissions = firstCompanyId ? (companyPermissions[firstCompanyId] || []) : [];
 
-    const { accessToken, refreshToken } = await this.generateTokenPair(newUser.id, {
+    const finalAccessToken = this.jwtService.sign({
       id: newUser.id,
       must_change_password: newUser.must_change_password,
       companies: companyIds,
@@ -48,12 +85,17 @@ export class RegistrationService {
       companyPermissions,
       roles: defaultRoles,
       permissions: defaultPermissions,
-    });
+    }, { expiresIn: ACCESS_TOKEN_EXPIRY });
+
+    // Registro de auditoría: sin empresa aún (usuario recién creado) solo
+    // se loguea en el Logger estructurado. Cuando cree su primera empresa
+    // quedará registrado vía el interceptor de auditoría en POST /companies.
+    this.logger.log(`USER_REGISTERED id=${newUser.id} email=${newUser.email}`);
 
     return {
       message: 'Usuario registrado exitosamente',
-      accessToken,
-      refreshToken,
+      accessToken: finalAccessToken,
+      refreshToken: refreshTokenValue,
       user: {
         id: newUser.id,
         email: newUser.email,

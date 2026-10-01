@@ -84,13 +84,9 @@
                     <IconPencil :size="14" stroke-width="1.8" />
                     <span>Editar</span>
                   </UiDropdownItem>
-                  <UiDropdownItem @click="openResetPasswordModal(row)">
+                  <UiDropdownItem @click="openResetPasswordModal(row)" v-permission="Permissions.USERS.UPDATE">
                     <IconKey :size="14" stroke-width="1.8" />
-                    <span>Resetear Contraseña</span>
-                  </UiDropdownItem>
-                  <UiDropdownItem @click="openResetPasswordEmailModal(row)">
-                    <IconMail :size="14" stroke-width="1.8" />
-                    <span>Resetear y enviar al correo</span>
+                    <span>Resetear contraseña</span>
                   </UiDropdownItem>
                   <div class="ui-dropdown-divider" role="separator"></div>
                   <UiDropdownItem danger @click="handleDelete(row.id, row.name)" v-permission="Permissions.USERS.DELETE">
@@ -131,53 +127,35 @@
       <UiFormModal
         v-model="isAddModalOpen"
         title="Invitar Miembro"
-        :description="newMemberCredentials ? undefined : 'Agrega un nuevo miembro a tu equipo.'"
+        description="Agrega un nuevo miembro a tu equipo. La contraseña temporal se enviará a su correo."
         size="large"
         :confirm-on-dirty="true"
         :dirty="isAddDirty"
         @submit="handleAddSubmit"
       >
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
-        <div v-if="newMemberCredentials" class="credentials-box">
-          <p class="credentials-title">Miembro Agregado!</p>
-          <p class="credentials-warning">Copia esta contraseña ahora: no podrás volver a verla.</p>
-          <p><strong>Usuario:</strong> {{ newMemberCredentials.email }}</p>
-          <p class="password-row">
-            <strong>Clave:</strong>
-            <code class="secret-code">{{ newMemberCredentials.password }}</code>
-            <button type="button" class="copy-btn" @click="copyToClipboard(newMemberCredentials.password, 'Contraseña copiada al portapapeles')" title="Copiar contraseña">
-              <IconCopy :size="14" stroke-width="1.8" />
-            </button>
-          </p>
+        <UiInput v-model="addForm.name" label="Nombre Completo" required />
+        <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required />
+        <div class="form-row">
+          <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
+          <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
         </div>
-        <template v-else>
-          <UiInput v-model="addForm.name" label="Nombre Completo" required />
-          <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required />
-          <div class="form-row">
-            <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
-            <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
-          </div>
-          <div class="form-row">
-            <UiInput v-model="addForm.document_type" label="Tipo Doc. (Opcional)" type="text" placeholder="CC" />
-            <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
-          </div>
-          <UiDualListbox
-            v-model="addForm.roleIds"
-            :available="roleItems"
-            :selected="roleItems"
-            label="Roles"
-            available-label="Disponibles"
-            selected-label="Asignados"
-          />
-        </template>
+        <div class="form-row">
+          <UiInput v-model="addForm.document_type" label="Tipo Doc. (Opcional)" type="text" placeholder="CC" />
+          <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
+        </div>
+        <UiDualListbox
+          v-model="addForm.roleIds"
+          :available="roleItems"
+          :selected="roleItems"
+          label="Roles"
+          available-label="Disponibles"
+          selected-label="Asignados"
+        />
         <template #footer="{ requestClose }">
           <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">
-              {{ newMemberCredentials ? 'Cerrar' : 'Cancelar' }}
-            </UiButton>
-            <UiButton v-if="!newMemberCredentials" type="submit" :loading="memberStore.isLoading">
-              Agregar al Equipo
-            </UiButton>
+            <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
+            <UiButton type="submit" :loading="memberStore.isLoading">Agregar al Equipo</UiButton>
           </div>
         </template>
       </UiFormModal>
@@ -241,78 +219,19 @@
       conserva, solo perderá el acceso a esta empresa.
     </UiConfirmDialog>
 
-    <!-- Reset Password Confirmation Modal -->
+    <!-- Reset Password Confirmation Modal (siempre envía por correo) -->
     <UiConfirmDialog
       v-model="isResetModalOpen"
       title="Resetear Contraseña"
       variant="primary"
       :loading="memberStore.isLoading"
       :error="memberStore.error"
-      confirm-label="Resetear Contraseña"
+      confirm-label="Resetear y Enviar"
       @confirm="confirmResetPassword"
     >
-      Se generará una nueva contraseña temporal para <strong>{{ resetTarget?.name }}</strong>.
-      Deberá cambiarla en su próximo inicio de sesión.
+      Se generará una nueva contraseña temporal para <strong>{{ resetTarget?.name }}</strong>
+      y se enviará a <strong>{{ resetTarget?.email }}</strong>.
     </UiConfirmDialog>
-
-    <!-- Reset Password Success Modal -->
-    <UiModal v-model="isResetSuccessModalOpen">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Contraseña Reseteada</h3>
-          <p class="card-description">Comparte esta contraseña temporal con el usuario de forma segura.</p>
-        </template>
-        <div v-if="resetResult" class="credentials-box">
-          <p class="credentials-title">Nueva Contraseña Temporal</p>
-          <p><strong>Usuario:</strong> {{ resetTarget?.email }}</p>
-          <p class="password-row">
-            <strong>Clave:</strong>
-            <code class="secret-code">{{ resetResult.temporary_password }}</code>
-            <button type="button" class="copy-btn" @click="copyToClipboard(resetResult.temporary_password, 'Contraseña copiada al portapapeles')" title="Copiar contraseña">
-              <IconCopy :size="14" stroke-width="1.8" />
-            </button>
-          </p>
-        </div>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton @click="isResetSuccessModalOpen = false">Cerrar</UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </UiModal>
-
-    <!-- Reset Password + Email Confirmation Modal -->
-    <UiConfirmDialog
-      v-model="isResetEmailModalOpen"
-      title="Resetear y Enviar por Correo"
-      variant="primary"
-      :loading="memberStore.isLoading"
-      :error="memberStore.error"
-      confirm-label="Enviar Contraseña"
-      @confirm="confirmResetPasswordEmail"
-    >
-      Se generará una nueva contraseña temporal para <strong>{{ resetEmailTarget?.name }}</strong>
-      y se enviará a su correo electrónico.
-    </UiConfirmDialog>
-
-    <!-- Reset Password + Email Success Modal -->
-    <UiModal v-model="isResetEmailSuccessModalOpen">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Contraseña Enviada</h3>
-          <p class="card-description">La nueva contraseña temporal fue enviada al correo del usuario.</p>
-        </template>
-        <div v-if="resetEmailResult" class="credentials-box">
-          <p class="credentials-title">Correo Enviado</p>
-          <p><strong>Destinatario:</strong> {{ resetEmailResult.email }}</p>
-        </div>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton @click="isResetEmailSuccessModalOpen = false">Cerrar</UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </UiModal>
 
   </AuthenticatedLayout>
 </template>
@@ -478,7 +397,7 @@ const addForm = reactive({
   document_type: '',
   document_number: '',
 });
-const newMemberCredentials = ref<{ email: string; password: string } | null>(null);
+const newMemberCredentials = ref<null>(null); // mantenido por compatibilidad con el store
 
 onMounted(async () => {
   if (authStore.activeTenantId) {
@@ -507,14 +426,12 @@ const openAddModal = () => {
   addForm.position = '';
   addForm.document_type = '';
   addForm.document_number = '';
-  newMemberCredentials.value = null;
   memberStore.error = null;
   captureAddForm();
   isAddModalOpen.value = true;
 };
 
 const handleAddSubmit = async () => {
-  newMemberCredentials.value = null;
   try {
     const payload = {
       name: addForm.name,
@@ -527,10 +444,14 @@ const handleAddSubmit = async () => {
     };
 
     const data = await memberStore.addMember(payload);
-    if (!data?.email || !data?.temporary_password) {
-      throw new Error('Respuesta inválida del servidor al crear el miembro');
-    }
-    newMemberCredentials.value = { email: data.email, password: data.temporary_password };
+
+    // La contraseña temporal ya no se muestra en pantalla: se envía por email.
+    isAddModalOpen.value = false;
+    toast.success(
+      data?.isNewUser
+        ? `Miembro agregado. Contraseña temporal enviada a ${addForm.email}.`
+        : `Miembro existente añadido a la empresa.`,
+    );
 
     addForm.name = '';
     addForm.email = '';
@@ -539,8 +460,8 @@ const handleAddSubmit = async () => {
     addForm.position = '';
     addForm.document_type = '';
     addForm.document_number = '';
-  } catch (error) {
-    console.error('Error al agregar miembro:', error);
+  } catch {
+    // El error queda en memberStore.error y lo muestra el UiAlert del modal.
   }
 };
 
@@ -642,15 +563,12 @@ const confirmDelete = async () => {
   }
 };
 
-// --- RESET PASSWORD ---
+// --- RESET PASSWORD (siempre envía por correo) ---
 const isResetModalOpen = ref(false);
-const isResetSuccessModalOpen = ref(false);
 const resetTarget = ref<{ id: string; name: string; email: string } | null>(null);
-const resetResult = ref<{ temporary_password: string } | null>(null);
 
 const openResetPasswordModal = (member: any) => {
   resetTarget.value = { id: member.id, name: member.name, email: member.email };
-  resetResult.value = null;
   memberStore.error = null;
   isResetModalOpen.value = true;
 };
@@ -658,37 +576,12 @@ const openResetPasswordModal = (member: any) => {
 const confirmResetPassword = async () => {
   if (!resetTarget.value) return;
   try {
-    const result = await memberStore.resetPassword(resetTarget.value.id);
-    resetResult.value = result;
+    await memberStore.resetPassword(resetTarget.value.id);
     isResetModalOpen.value = false;
-    isResetSuccessModalOpen.value = true;
-  } catch (error) {
-    console.error('Error al resetear contraseña:', error);
-  }
-};
-
-// --- RESET PASSWORD + EMAIL ---
-const isResetEmailModalOpen = ref(false);
-const isResetEmailSuccessModalOpen = ref(false);
-const resetEmailTarget = ref<{ id: string; name: string; email: string } | null>(null);
-const resetEmailResult = ref<{ email: string } | null>(null);
-
-const openResetPasswordEmailModal = (member: any) => {
-  resetEmailTarget.value = { id: member.id, name: member.name, email: member.email };
-  resetEmailResult.value = null;
-  memberStore.error = null;
-  isResetEmailModalOpen.value = true;
-};
-
-const confirmResetPasswordEmail = async () => {
-  if (!resetEmailTarget.value) return;
-  try {
-    const result = await memberStore.resetPasswordAndSendEmail(resetEmailTarget.value.id);
-    resetEmailResult.value = result;
-    isResetEmailModalOpen.value = false;
-    isResetEmailSuccessModalOpen.value = true;
-  } catch (error) {
-    console.error('Error al resetear y enviar contraseña:', error);
+    toast.success(`Contraseña reseteada y enviada a ${resetTarget.value.email}`);
+    resetTarget.value = null;
+  } catch {
+    // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
   }
 };
 </script>

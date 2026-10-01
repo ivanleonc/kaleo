@@ -176,6 +176,18 @@ export class SessionService {
       permissions: defaultPermissions,
     });
 
+    // Auditar rotación de tokens si el usuario ya pertenece a alguna empresa.
+    // (usuarios sin empresa aún no tienen companyId para anclar el registro)
+    if (firstCompanyId) {
+      void this.auditLogService.log({
+        userId: user.id,
+        companyId: firstCompanyId,
+        action: 'TOKEN_REFRESHED',
+        entityType: 'Auth',
+        entityId: user.id,
+      });
+    }
+
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

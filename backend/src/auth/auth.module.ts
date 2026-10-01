@@ -14,6 +14,7 @@ import { PasswordHistoryRepository } from './repositories/password-history.repos
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { CompanyModule } from '../company/company.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
+import { AuditLogModule } from '../audit/audit-log.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RbacModule } from '../rbac/rbac.module.js';
     }),
     CompanyModule,
     RbacModule,
+    AuditLogModule,
   ],
   controllers: [AuthController],
   providers: [
