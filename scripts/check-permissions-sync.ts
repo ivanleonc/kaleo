@@ -9,7 +9,8 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = resolve(__dirname);
+// __dirname apunta a scripts/; subimos un nivel para llegar a la raíz del repo.
+const root = resolve(__dirname, '..');
 
 function extractPermissionCodes(filePath: string): Set<string> {
   const content = readFileSync(filePath, 'utf-8');

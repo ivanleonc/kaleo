@@ -54,5 +54,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-      - run: npm install -g tsx
-      - run: tsx scripts/check-permissions-sync.ts
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      # tsx ya está en devDependencies del backend — no hace falta instalarlo globalmente.
+      - run: npm ci
+        working-directory: backend
+      - run: npx tsx ../scripts/check-permissions-sync.ts
+        working-directory: backend
