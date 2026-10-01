@@ -1,7 +1,7 @@
 {
   "name": "saas-app",
   "private": true,
-  "workspaces": ["packages/*", "frontend", "backend"],
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -9,7 +9,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "format": "turbo run format",
-    "check:permissions": "tsx scripts/check-permissions-sync.ts"
+    "check:permissions": "cd backend && npx tsx ../scripts/check-permissions-sync.ts"
   },
   "devDependencies": {
     "turbo": "^2.3.3"
