@@ -1,76 +1,15 @@
 /**
- * Permission constants — mirror of backend/src/common/constants/permissions.ts
+ * Permission constants — re-export de @saas/shared.
  *
- * Naming convention: `module:action`
+ * Este archivo existe para no romper los ~40 imports existentes de
+ * `@/constants/permissions`. La fuente de verdad vive en
+ * `packages/shared/src/permissions.ts`.
  *
- * To add a new permission:
- * 1. Add the constant in backend first
- * 2. Mirror it here
- * 3. Add the row to the SQL seed (004-seed-permissions-roles.sql)
- * 4. Use in Vue: v-permission="Permissions.USERS.CREATE"
+ * Para agregar un permiso nuevo:
+ * 1. Agrégalo en packages/shared/src/permissions.ts (fuente de verdad)
+ * 2. Espeja en backend/src/common/constants/permissions.ts
+ * 3. Agrega el row al seed SQL (004-seed-permissions-roles.sql)
+ * 4. El CI (check-permissions) valida que los tres estén sincronizados
  */
-export const Permissions = {
-  AUTH: {
-    READ: 'auth:read',
-    UPDATE: 'auth:update',
-  },
-
-  USERS: {
-    READ: 'users:read',
-    CREATE: 'users:create',
-    UPDATE: 'users:update',
-    DELETE: 'users:delete',
-  },
-
-  ROLES: {
-    READ: 'roles:read',
-    CREATE: 'roles:create',
-    UPDATE: 'roles:update',
-    DELETE: 'roles:delete',
-  },
-
-  COMPANY: {
-    READ: 'company:read',
-    UPDATE: 'company:update',
-  },
-
-  SETTINGS: {
-    READ: 'settings:read',
-    UPDATE: 'settings:update',
-  },
-
-  PROFILE: {
-    READ: 'profile:read',
-    UPDATE: 'profile:update',
-  },
-
-  DASHBOARD: {
-    READ: 'dashboard:read',
-  },
-
-  BRANCHES: {
-    READ: 'branches:read',
-    CREATE: 'branches:create',
-    UPDATE: 'branches:update',
-    DELETE: 'branches:delete',
-  },
-
-  AUDIT: {
-    READ: 'audit:read',
-  },
-
-  BILLING: {
-    READ: 'billing:read',
-    UPDATE: 'billing:update',
-  },
-
-  NOTIFICATIONS: {
-    READ: 'notifications:read',
-    UPDATE: 'notifications:update',
-  },
-
-  INTEGRATIONS: {
-    READ: 'integrations:read',
-    UPDATE: 'integrations:update',
-  },
-} as const;
+export { Permissions } from '@saas/shared';
+export type { PermissionCode } from '@saas/shared';

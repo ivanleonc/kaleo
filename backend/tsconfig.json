@@ -18,6 +18,10 @@
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "types": ["vitest/globals", "node"]
+    "types": ["vitest/globals", "node"],
+    "paths": {
+      "@saas/shared": ["../packages/shared/src/index.ts"],
+      "@saas/shared/*": ["../packages/shared/src/*"]
+    }
   }
 }

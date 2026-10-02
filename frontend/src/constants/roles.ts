@@ -1,10 +1,11 @@
 /**
- * System role names — mirror of backend/src/common/constants/roles.ts
+ * System role names — re-export de @saas/shared.
+ *
+ * Fuente de verdad: packages/shared/src/roles.ts
+ * El CI (check-permissions) valida que frontend, backend y shared
+ * estén sincronizados.
  *
  * Always import from here instead of hardcoding role names.
  */
-export const SystemRoles = {
-  OWNER: 'Owner',
-  ADMIN: 'Admin',
-  VIEWER: 'Viewer',
-} as const;
+export { SystemRoles } from '@saas/shared';
+export type { SystemRoleName } from '@saas/shared';

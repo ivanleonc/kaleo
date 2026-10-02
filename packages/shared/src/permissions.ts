@@ -74,3 +74,12 @@ export const Permissions = {
     UPDATE: 'integrations:update',
   },
 } as const;
+
+/** Unión de todos los códigos de permiso: 'auth:read' | 'users:create' | ... */
+export type PermissionCode =
+  (typeof Permissions)[keyof typeof Permissions][keyof (typeof Permissions)[keyof typeof Permissions]];
+
+/** Lista plana de todos los códigos — útil para seeds y validaciones. */
+export const ALL_PERMISSION_CODES: PermissionCode[] = Object.values(Permissions).flatMap(
+  (module) => Object.values(module) as PermissionCode[],
+);
