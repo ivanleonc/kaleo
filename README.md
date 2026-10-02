@@ -15,25 +15,39 @@ SaaS de gestión organizacional: empresas, sedes, miembros, roles y permisos, co
 
 | Ambiente | Frontend | Backend | Base de datos | Uso |
 |---|---|---|---|---|
-| **Local** | `npm run dev` (:5173) | `dev:sandbox` / `dev:staging` (:3000) | Sandbox o staging | Desarrollo diario |
+| **Local sandbox** | localhost:5173 | localhost:3000 | `saas-sandbox` | `npm run dev:sandbox` — desarrollo diario |
+| **Local staging** | localhost:5173 | localhost:3000 | `saas-staging` (datos reales) | `npm run dev:staging` — depurar producción |
 | **Staging** | Pages staging | Render Free + UptimeRobot | `saas-staging` | Validar antes de prod |
 | **Prod** | Pages prod + dominio | Render + dominio | Proyecto prod | Clientes reales |
 
 Regla: **local → sandbox** para romper sin miedo; **staging** para validar; **prod** solo con CI verde + humo verde en staging.
 
-## Arranque rápido
+## Arranque en local (una sola terminal)
+
+Desde la raíz del proyecto:
 
 ```powershell
-# 1. Backend (elige BD: dev:sandbox o dev:staging)
-cd backend
-npm install
+# Primera vez: instala dependencias de backend + frontend
+npm run install:all
+
+# Desarrollo diario (BD sandbox: rompe sin miedo)
 npm run dev:sandbox
 
-# 2. Frontend (otra terminal)
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
+# Depurar con datos reales (BD staging = producción actual)
+npm run dev:staging
 ```
+
+Ambos comandos levantan **backend (:3000) + frontend (:5173)** en paralelo en la misma terminal, con logs etiquetados `[backend]` y `[frontend]`.
+
+| Comando | Backend | Frontend | Base de datos | Cuándo usarlo |
+|---|---|---|---|---|
+| `npm run dev:sandbox` | localhost:3000 (`.env.sandbox`) | localhost:5173 | `saas-sandbox` | Desarrollo diario, experimentar, romper cosas |
+| `npm run dev:staging` | localhost:3000 (`.env.staging`) | localhost:5173 | `saas-staging` (datos reales) | Depurar errores de producción, probar con datos de verdad |
+| `npm run dev` | localhost:3000 (`.env`) | localhost:5173 | Según tu `.env` local | Solo si personalizaste tu `.env` |
+
+> ⚠️ `dev:staging` trabaja contra **datos reales**: lo que crees, edites o borres afecta producción. Para experimentar usa `dev:sandbox`.
+>
+> ⚠️ En local los **correos no se envían** (modo stub: solo se loguean). Si invitas un miembro o reseteas una clave en local, busca la contraseña temporal en el log del backend.
 
 Flujo inicial: registro → onboarding (crear empresa) → dashboard. Detalles en `backend/README.md` y `frontend/README.md`.
 

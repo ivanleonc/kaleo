@@ -37,12 +37,14 @@ Variables disponibles:
 
 | Comando | Uso |
 |---|---|
-| `npm run dev` | Desarrollo con hot-reload |
+| `npm run dev` | Desarrollo con hot-reload (`http://localhost:5173`, habla con el backend de `VITE_API_URL`) |
 | `npm run build` | `type-check` + build a `dist/` (lo corre Cloudflare) |
 | `npm run build-only` | Solo Vite sin type-check (más rápido para iterar) |
 | `npm run type-check` | `vue-tsc` — **correr antes de cada push** |
 | `npm run test:run` | Vitest una vez (CI) — 134 tests |
 | `npm run test:unit` | Vitest en modo watch (desarrollo) |
+
+> Tip: desde la raíz del proyecto levanta backend + frontend juntos con `npm run dev:sandbox` (BD sandbox) o `npm run dev:staging` (BD staging con datos reales). Ver README raíz.
 | `npm run format` | Prettier sobre `src/` |
 
 ## Estructura del código

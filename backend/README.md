@@ -47,11 +47,22 @@ Copia `.env.example` como punto de partida. Las variables obligatorias para arra
 
 ## Scripts
 
+### Arranque en local
+
+| Comando | Usa el archivo | Base de datos | Uso |
+|---|---|---|---|
+| `npm run dev` | `.env` | Según tu `.env` local | Solo si personalizaste tu `.env` |
+| `npm run dev:sandbox` | `.env.sandbox` | `saas-sandbox` | Desarrollo diario (recomendado) |
+| `npm run dev:staging` | `.env.staging` | `saas-staging` (datos reales) | Depurar producción en local |
+| `npm run start:prod` | Variables del host | La de producción | Arranque de producción (`node dist/main.js`) |
+
+> Tip: desde la raíz del proyecto puedes levantar backend + frontend juntos con `npm run dev:sandbox` o `npm run dev:staging` (ver README raíz).
+
+### Calidad y utilidades
+
 | Comando | Uso |
 |---|---|
-| `npm run dev` / `dev:sandbox` / `dev:staging` | Desarrollo con watch contra cada BD |
 | `npm run build` | Compila a `dist/` (lo corre Render en producción) |
-| `npm run start:prod` | `node dist/main.js` (arranque de producción) |
 | `npm run typecheck` | `tsc --noEmit` — **correr antes de cada push** |
 | `npm run lint` | `oxlint --type-aware src/ test/` |
 | `npm test` | Vitest (85 tests) |
