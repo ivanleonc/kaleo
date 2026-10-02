@@ -40,7 +40,7 @@ import UiFieldError from '@/components/ui/UiFieldError.vue';
 
 interface Props {
   label?: string;
-  type?: 'text' | 'email' | 'password' | 'number';
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search';
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
@@ -163,5 +163,17 @@ const togglePassword = () => {
 .password-toggle:hover {
   color: var(--text-main);
   background-color: var(--bg-hover);
+}
+
+/* Objetivo táctil mínimo en Android/iPhone (WCAG 2.5.5: 44×44px) */
+@media (pointer: coarse) {
+  .password-toggle {
+    width: 44px;
+    height: 44px;
+    right: 0.125rem;
+  }
+  .ui-input.has-toggle {
+    padding-right: 3rem;
+  }
 }
 </style>

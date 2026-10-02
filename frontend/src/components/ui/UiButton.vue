@@ -19,7 +19,7 @@ interface Props {
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
   loading?: boolean;
-  variant?: 'primary' | 'outline' | 'danger' | 'ghost';
+  variant?: 'primary' | 'outline' | 'danger' | 'ghost' | 'link';
   size?: 'sm' | 'md';
   icon?: boolean;
   width?: 'full' | 'auto';
@@ -69,13 +69,13 @@ withDefaults(defineProps<Props>(), {
   position: absolute;
 }
 
-/* Objetivo táctil mínimo en Android/iPhone */
+/* Objetivo táctil mínimo en Android/iPhone (WCAG 2.5.5: 44×44px) */
 @media (pointer: coarse) {
   .ui-button {
     min-height: 44px;
   }
   .ui-button.btn-sm {
-    min-height: 36px;
+    min-height: 44px;
   }
 }
 
@@ -137,6 +137,21 @@ withDefaults(defineProps<Props>(), {
 .variant-ghost:hover:not(:disabled) {
   background-color: var(--bg-hover);
   color: var(--text-main);
+}
+
+/* Link: texto interactivo sin fondo ni borde (para enlaces inline). */
+.variant-link {
+  background-color: transparent;
+  color: var(--primary);
+  border-color: transparent;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  font-weight: 500;
+}
+.variant-link:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
 }
 
 .ui-button:disabled {

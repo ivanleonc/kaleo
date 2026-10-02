@@ -58,7 +58,7 @@ const errorId = `${id}-error`;
 
 <style scoped>
 .ui-select-wrapper { display: flex; flex-direction: column; gap: var(--space-1); width: 100%; }
-.ui-label { font-size: var(--text-base); font-weight: 500; color: var(--text-main); }
+.ui-label { font-size: 0.875rem; font-weight: 500; color: var(--text-main); }
 .required-mark { color: var(--color-danger); }
 .ui-select-control { position: relative; width: 100%; }
 

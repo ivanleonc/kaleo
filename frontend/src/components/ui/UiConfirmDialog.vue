@@ -10,14 +10,27 @@
 
       <UiAlert v-if="error" type="error">{{ error }}</UiAlert>
 
+      <div v-if="requireTypedConfirmation" class="typed-confirm">
+        <p class="typed-confirm-hint">
+          Para confirmar, escribe <code class="typed-confirm-code">{{ requireTypedConfirmation }}</code>
+        </p>
+        <UiInput
+          v-model="typedValue"
+          :aria-label="`Escribe ${requireTypedConfirmation} para confirmar`"
+          :placeholder="requireTypedConfirmation"
+          autocomplete="off"
+        />
+      </div>
+
       <template #footer>
         <div class="confirm-footer">
-          <UiButton variant="outline" :disabled="loading" @click="isOpen = false">
+          <UiButton variant="outline" :disabled="loading" @click="onCancel">
             {{ cancelLabel }}
           </UiButton>
           <UiButton
             :variant="variant === 'danger' ? 'danger' : 'primary'"
             :loading="loading"
+            :disabled="!canConfirm"
             @click="emit('confirm')"
           >
             {{ confirmLabel }}
@@ -29,10 +42,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import UiModal from './UiModal.vue';
 import UiCard from './UiCard.vue';
 import UiButton from './UiButton.vue';
 import UiAlert from './UiAlert.vue';
+import UiInput from './UiInput.vue';
 
 /**
  * Confirmación de acciones destructivas.
@@ -41,8 +56,13 @@ import UiAlert from './UiAlert.vue';
  * botones en cada vista, y `UiFormModal` no servía porque no es un formulario.
  * Sin `confirmOnDirty` a propósito: una confirmación nunca tiene formulario
  * que pueda quedar sin guardar.
+ *
+ * `requireTypedConfirmation`: para acciones de alto impacto (ej. borrar un
+ * rol con miembros asignados) exige escribir el texto exacto antes de
+ * habilitar el botón de confirmar. Sin esta prop el dialog funciona igual
+ * que antes (un solo click).
  */
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title?: string;
     description?: string;
@@ -51,6 +71,7 @@ withDefaults(
     loading?: boolean;
     variant?: 'danger' | 'primary';
     error?: string | null;
+    requireTypedConfirmation?: string | null;
   }>(),
   {
     title: 'Confirmar acción',
@@ -60,12 +81,29 @@ withDefaults(
     loading: false,
     variant: 'danger',
     error: null,
+    requireTypedConfirmation: null,
   },
 );
 
 const isOpen = defineModel<boolean>({ default: false });
 
 const emit = defineEmits<{ (e: 'confirm'): void }>();
+
+const typedValue = ref('');
+
+watch(isOpen, (open) => {
+  if (open) typedValue.value = '';
+});
+
+const canConfirm = computed(() => {
+  if (!props.requireTypedConfirmation) return true;
+  return typedValue.value.trim() === props.requireTypedConfirmation;
+});
+
+const onCancel = () => {
+  typedValue.value = '';
+  isOpen.value = false;
+};
 </script>
 
 <style scoped>
@@ -90,5 +128,27 @@ const emit = defineEmits<{ (e: 'confirm'): void }>();
   display: flex;
   gap: var(--space-3);
   justify-content: flex-end;
+}
+
+.typed-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.typed-confirm-hint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.typed-confirm-code {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--text-main);
+  background-color: var(--bg-hover);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
 }
 </style>

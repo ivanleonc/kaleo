@@ -229,7 +229,7 @@
       </main>
     </div>
 
-    <UiModal v-model="isCreateModalOpen">
+    <UiModal v-model="isCreateModalOpen" label="Nueva Organización">
       <form @submit.prevent="handleCreateSubmit">
         <UiCard>
           <template #header>

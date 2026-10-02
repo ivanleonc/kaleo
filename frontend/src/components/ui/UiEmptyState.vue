@@ -1,5 +1,5 @@
 <template>
-  <div class="empty-state">
+<div class="empty-state" role="status">
     <slot name="icon">
       <IconInbox :size="48" stroke-width="1.5" />
     </slot>

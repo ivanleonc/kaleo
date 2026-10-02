@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, useId } from 'vue';
 import {
   IconChevronRight,
   IconChevronLeft,
@@ -175,9 +175,13 @@ const emit = defineEmits<{
   'update:modelValue': [value: string[]];
 }>();
 
-const labelId = 'dual-listbox-label';
-const availableTitleId = 'dual-listbox-available-title';
-const selectedTitleId = 'dual-listbox-selected-title';
+// IDs únicos por instancia: con dos listboxes en el DOM (ej. modales de
+// crear + editar abiertos) los aria-labelledby estáticos apuntarían al
+// elemento equivocado. Mismo patrón que UiInput y UiSelect.
+const uid = useId();
+const labelId = `${uid}-label`;
+const availableTitleId = `${uid}-available-title`;
+const selectedTitleId = `${uid}-selected-title`;
 
 const searchAvailable = ref('');
 const searchSelected = ref('');

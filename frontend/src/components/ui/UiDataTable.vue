@@ -68,7 +68,7 @@
           <td
             v-for="cell in row.getVisibleCells()"
             :key="cell.id"
-            :data-label="cell.column.columnDef.meta?.label ?? ''"
+            :data-label="mobileLabel(cell)"
             :style="alignStyle(cell.column.columnDef.meta?.align)"
           >
             <!--
@@ -193,6 +193,19 @@ const headerLabel = (header: Header<AppFeatures, TData, any>): string => {
   return header.column.id;
 };
 
+/**
+ * Etiqueta para la tarjeta móvil (::before con data-label).
+ * Cascada: meta.label explícito → texto del header → id de la columna.
+ * Sin esto las columnas sin meta.label (ej. acciones) quedan sin etiqueta.
+ */
+const mobileLabel = (cell: Cell<AppFeatures, TData, any>): string => {
+  const metaLabel = cell.column.columnDef.meta?.label;
+  if (metaLabel) return metaLabel;
+  const def = cell.column.columnDef.header;
+  if (typeof def === 'string' || typeof def === 'number') return String(def);
+  return cell.column.id;
+};
+
 const ariaSortFor = (
   column: Column<AppFeatures, TData, any>,
 ): 'ascending' | 'descending' | 'none' | undefined => {
@@ -203,8 +216,7 @@ const ariaSortFor = (
   return 'none';
 };
 
-const defaultCellText = (cell: Cell<AppFeatures, TData, any>): string => {
-  const value: unknown = cell.getValue();
+const defaultCellText = (cell: Cell<AppFeatures, TData, any>): string => {  const value: unknown = cell.getValue();
   if (value === null || value === undefined) return '';
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
