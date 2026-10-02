@@ -4,7 +4,7 @@
       <UiCard>
         <template #header>
           <h2 class="auth-title">Crear Cuenta</h2>
-          <p class="auth-description">Ingresa los datos de tu empresa para comenzar.</p>
+          <p class="auth-description">Crea tu cuenta personal para comenzar.</p>
         </template>
 
         <div class="form-body">
@@ -45,9 +45,8 @@
             label="Confirmar contraseña"
             type="password"
             autocomplete="new-password"
-            :error="form.passwordConfirm && form.password !== form.passwordConfirm
-              ? 'Las contraseñas no coinciden.'
-              : null"
+            :error="passwordMismatchError"
+            @blur="confirmTouched = true"
             required
           />
         </div>
@@ -68,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue';
+import { reactive, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -90,6 +89,15 @@ const form = reactive({
   password: '',
   passwordConfirm: ''
 });
+
+// El error de coincidencia solo aparece después de salir del campo:
+// mostrarlo mientras escribe genera ansiedad innecesaria.
+const confirmTouched = ref(false);
+const passwordMismatchError = computed(() =>
+  confirmTouched.value && form.passwordConfirm && form.password !== form.passwordConfirm
+    ? 'Las contraseñas no coinciden.'
+    : null
+);
 
 const handleRegister = async () => {
   if (form.password !== form.passwordConfirm) {

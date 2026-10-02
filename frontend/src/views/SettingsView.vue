@@ -113,6 +113,9 @@
             <p class="slug-preview">
               URL: /companies/{{ form.slug || 'se-genera-automaticamente' }}/settings
             </p>
+            <UiAlert v-if="slugChangedWarning" type="warning" class="slug-warning">
+              {{ slugChangedWarning }}
+            </UiAlert>
           </div>
         </div>
 
@@ -120,7 +123,19 @@
           v-model="form.logo_url"
           label="URL del Logo"
           placeholder="https://..."
+          type="url"
         />
+        <div v-if="form.logo_url.trim()" class="logo-preview">
+          <img
+            :src="form.logo_url.trim()"
+            alt="Vista previa del logo de la empresa"
+            @load="logoBroken = false"
+            @error="logoBroken = true"
+          />
+          <p v-if="logoBroken" class="logo-preview-error">
+            Esta URL no cargó ninguna imagen. Revisa el enlace antes de guardar.
+          </p>
+        </div>
 
         <div class="form-row">
           <UiInput v-model="form.phone" label="Teléfono" autocomplete="tel" />
@@ -139,11 +154,7 @@
           <UiInput v-model="form.postal_code" label="Código Postal" autocomplete="postal-code" />
         </div>
 
-        <UiInput
-          v-model="form.timezone"
-          label="Zona Horaria"
-          placeholder="America/Bogota"
-        />
+        <UiTimezoneSelect v-model="form.timezone" />
 
         <template #footer="{ requestClose }">
           <div class="modal-footer">
@@ -175,6 +186,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
@@ -222,6 +234,7 @@ const fullAddress = computed(() => {
 
 const fillForm = () => {
   if (!company.value) return;
+  logoBroken.value = false;
   form.name = company.value.name || '';
   form.tax_id = company.value.tax_id || '';
   form.logo_url = company.value.logo_url || '';
@@ -246,6 +259,16 @@ const slugError = computed(() => {
   if (!slugPattern.test(value)) return 'Solo minúsculas, números y guiones';
   return null;
 });
+
+// Cambiar el slug rompe bookmarks e integraciones: avisar antes de guardar.
+const slugChangedWarning = computed(() => {
+  const next = form.slug.trim().toLowerCase();
+  const current = (company.value?.slug || '').toLowerCase();
+  if (!next || !current || next === current || slugError.value) return null;
+  return 'Cambiar el identificador actualizará la URL de la empresa. Los enlaces y marcadores anteriores dejarán de funcionar.';
+});
+
+const logoBroken = ref(false);
 
 const loadCompanyData = async () => {
   const activeId = companyId.value;
@@ -359,6 +382,10 @@ const handleSubmit = async () => {
   font-size: var(--text-sm);
   color: var(--text-main);
   font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .company-hero {
@@ -388,5 +415,31 @@ const handleSubmit = async () => {
   color: var(--text-muted);
   font-family: var(--font-mono);
   word-break: break-all;
+}
+
+.slug-warning {
+  margin-top: var(--space-1);
+}
+
+.logo-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.logo-preview img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background-color: var(--bg-app);
+}
+
+.logo-preview-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-danger-text);
+  line-height: 1.4;
 }
 </style>

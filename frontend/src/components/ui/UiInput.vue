@@ -15,6 +15,8 @@
         :aria-describedby="error ? errorId : undefined"
         class="ui-input"
         :class="{ 'has-toggle': type === 'password', 'has-error': !!error }"
+        @blur="emit('blur', $event)"
+        @focus="emit('focus', $event)"
       />
       <UiFieldError :message="error" :id="errorId" />
       <button
@@ -60,6 +62,11 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const model = defineModel<string>({ default: '' });
+
+const emit = defineEmits<{
+  (e: 'blur', event: FocusEvent): void;
+  (e: 'focus', event: FocusEvent): void;
+}>();
 
 const id = useId();
 const errorId = `${id}-error`;

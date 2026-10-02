@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { authService } from '@/services/auth.service';
 import { passwordErrorMessage } from '@/utils/password';
@@ -8,6 +8,7 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
 import { apiErrorMessage } from '@/utils/error';
 
 const route = useRoute();
@@ -17,6 +18,13 @@ const token = ref((route.query.token as string) || '');
 const email = ref((route.query.email as string) || '');
 const password = ref('');
 const passwordConfirm = ref('');
+const confirmTouched = ref(false);
+
+const passwordMismatchError = computed(() =>
+  confirmTouched.value && passwordConfirm.value && password.value !== passwordConfirm.value
+    ? 'Las contraseñas no coinciden.'
+    : null
+);
 
 const isLoading = ref(false);
 const errorMsg = ref('');
@@ -86,11 +94,14 @@ const handleSubmit = async () => {
               autocomplete="new-password"
               required
             />
+            <UiPasswordStrength v-model="password" />
             <UiInput
               v-model="passwordConfirm"
               label="Confirmar Contraseña"
               type="password"
               autocomplete="new-password"
+              :error="passwordMismatchError"
+              @blur="confirmTouched = true"
               required
             />
           </template>

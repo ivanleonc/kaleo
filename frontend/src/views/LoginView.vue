@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -19,6 +19,14 @@ const form = reactive({
 });
 
 const sessionExpired = ref(false);
+const emailTouched = ref(false);
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const loginEmailError = computed(() =>
+  emailTouched.value && form.email && !emailRegex.test(form.email)
+    ? 'Correo electrónico inválido.'
+    : null
+);
 
 onMounted(() => {
   if (sessionStorage.getItem('saas_session_expired') === '1') {
@@ -65,6 +73,8 @@ const handleLogin = async () => {
             placeholder="nombre@empresa.com"
             autocomplete="email"
             name="email"
+            :error="loginEmailError"
+            @blur="emailTouched = true"
             required
           />
 

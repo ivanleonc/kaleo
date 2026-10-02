@@ -8,7 +8,7 @@
     :disabled="disabled"
     :error="error"
     :aria-label="ariaLabel"
-  />
+  ></UiSelect>
 </template>
 
 <script setup lang="ts">
@@ -90,3 +90,4 @@ const timezoneOptions = computed(() => {
 });
 
 defineExpose({ timezoneOptions });
+</script>

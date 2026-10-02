@@ -106,12 +106,15 @@
         <UiInput v-model="form.name" label="Nombre Completo" required />
         <UiInput
           v-model="form.email"
-          label="Correo Electrónico (requiere verificación al cambiarlo)"
+          label="Correo Electrónico"
           type="email"
           autocomplete="email"
           required
         />
-        <UiInput v-model="form.phone" label="Teléfono" type="text" autocomplete="tel" />
+        <UiAlert v-if="emailChangeNotice" type="info">
+          {{ emailChangeNotice }}
+        </UiAlert>
+        <UiInput v-model="form.phone" label="Teléfono" type="tel" autocomplete="tel" />
         <UiInput v-model="form.position" label="Cargo" type="text" />
         <div class="form-row">
           <UiInput v-model="form.document_type" label="Tipo Doc." type="text" placeholder="CC" />
@@ -165,12 +168,10 @@
           v-model="passwordForm.confirmPassword"
           label="Confirmar Nueva Contraseña"
           type="password"
+          :error="passwordMismatchError"
+          @blur="passwordConfirmTouched = true"
           required
         />
-
-        <p v-if="passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword" class="match-error">
-          Las contraseñas no coinciden.
-        </p>
 
         <template #footer="{ requestClose }">
           <div class="modal-footer">
@@ -256,6 +257,15 @@ const profileName = computed(() => authStore.user?.name || '');
 const profileEmail = computed(() => authStore.user?.email || '');
 const profileAvatar = computed(() => authStore.user?.avatar_url || '');
 const profilePosition = computed(() => authStore.user?.position || '');
+
+// Aviso solo cuando el email del form difiere del actual: cambiarlo dispara
+// un flujo de verificación al guardar.
+const emailChangeNotice = computed(() => {
+  const current = (authStore.user?.email || '').trim().toLowerCase();
+  const next = form.email.trim().toLowerCase();
+  if (!next || !current || next === current) return null;
+  return 'Si guardas este cambio, recibirás un enlace de verificación en la nueva dirección antes de que se active.';
+});
 
 onMounted(async () => {
   await loadProfile();
@@ -355,6 +365,13 @@ const passwordForm = reactive({
 
 const passwordSnapshot = ref('');
 
+const passwordConfirmTouched = ref(false);
+const passwordMismatchError = computed(() =>
+  passwordConfirmTouched.value && passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword
+    ? 'Las contraseñas no coinciden.'
+    : null
+);
+
 const snapshotPasswordForm = () => {
   passwordSnapshot.value = JSON.stringify({ ...passwordForm });
 };
@@ -367,6 +384,7 @@ const openPasswordModal = () => {
   passwordForm.currentPassword = '';
   passwordForm.newPassword = '';
   passwordForm.confirmPassword = '';
+  passwordConfirmTouched.value = false;
   passwordError.value = '';
   snapshotPasswordForm();
   isPasswordModalOpen.value = true;
@@ -492,11 +510,5 @@ const handlePasswordChange = async () => {
   font-size: var(--text-sm);
   color: var(--text-main);
   font-weight: 600;
-}
-
-.match-error {
-  font-size: var(--text-xs);
-  color: var(--color-danger);
-  margin: 0;
 }
 </style>

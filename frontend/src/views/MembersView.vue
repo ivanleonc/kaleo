@@ -171,12 +171,13 @@
         @submit="handleEditSubmit"
       >
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
+        <UiInput :model-value="editForm.name" label="Nombre (no editable)" disabled />
         <UiSelect
           v-model="editForm.status"
           label="Estado de la Cuenta"
           :options="statusOptions"
         />
-        <UiInput v-model="editForm.phone" label="Teléfono" type="text" autocomplete="tel" />
+        <UiInput v-model="editForm.phone" label="Teléfono" type="tel" autocomplete="tel" />
         <UiInput v-model="editForm.position" label="Cargo" type="text" />
         <div class="form-row">
           <UiInput v-model="editForm.document_type" label="Tipo Doc." type="text" placeholder="CC" />
@@ -215,8 +216,8 @@
       confirm-label="Eliminar"
       @confirm="confirmDelete"
     >
-      ¿Deseas remover a <strong>{{ deleteTarget?.name }}</strong> del equipo? Su cuenta se
-      conserva, solo perderá el acceso a esta empresa.
+      Esto revocará el acceso de <strong>{{ deleteTarget?.name }}</strong> a esta empresa.
+      Su cuenta se conserva y podrá ser invitado de nuevo.
     </UiConfirmDialog>
 
     <!-- Reset Password Confirmation Modal (siempre envía por correo) -->
@@ -231,6 +232,7 @@
     >
       Se generará una nueva contraseña temporal para <strong>{{ resetTarget?.name }}</strong>
       y se enviará a <strong>{{ resetTarget?.email }}</strong>.
+      Esto invalidará su contraseña actual de forma inmediata.
     </UiConfirmDialog>
 
   </AuthenticatedLayout>

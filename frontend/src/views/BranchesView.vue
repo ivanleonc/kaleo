@@ -144,15 +144,20 @@
           <UiInput v-model="form.postal_code" label="Código Postal" />
         </div>
         <div class="form-row">
-          <UiInput v-model="form.phone" label="Teléfono" />
-          <UiInput v-model="form.email" label="Email" type="email" />
+          <UiInput v-model="form.phone" label="Teléfono" type="tel" />
+          <UiInput
+            v-model="form.email"
+            label="Email"
+            type="email"
+            :error="branchEmailError"
+            @blur="emailTouched = true"
+          />
         </div>
         <div class="form-row">
           <UiSelect v-model="form.manager_user_id" label="Responsable" :options="managerOptions" />
-          <UiInput v-model="form.timezone" label="Zona Horaria" placeholder="America/Bogota" />
+          <UiTimezoneSelect v-model="form.timezone" />
         </div>
         <UiSelect
-          v-if="editingBranch"
           v-model="form.is_main_flag"
           label="Sede principal"
           :options="mainOptions"
@@ -209,6 +214,7 @@ import UiPagination from '@/components/ui/UiPagination.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
 import { useToast } from '@/composables/useToast';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useFilterSync } from '@/composables/useFilterSync';
@@ -335,6 +341,14 @@ const mainOptions = [
   { label: 'Sí, es la sede principal', value: 'yes' },
 ];
 
+const emailTouched = ref(false);
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const branchEmailError = computed(() =>
+  emailTouched.value && form.email && !emailRegex.test(form.email)
+    ? 'Correo electrónico inválido.'
+    : null
+);
+
 const managerOptions = computed(() => [
   { label: 'Sin responsable', value: '' },
   ...memberStore.members.map((m: any) => ({
@@ -355,6 +369,7 @@ const resetForm = () => {
 const openCreateModal = () => {
   editingBranch.value = null;
   resetForm();
+  emailTouched.value = false;
   formError.value = '';
   snapshotForm();
   isFormModalOpen.value = true;
@@ -374,6 +389,7 @@ const openEditModal = (branch: Branch) => {
   form.manager_user_id = branch.manager_user_id || '';
   form.timezone = branch.timezone || '';
   form.is_main_flag = branch.is_main ? 'yes' : 'no';
+  emailTouched.value = false;
   formError.value = '';
   snapshotForm();
   isFormModalOpen.value = true;
