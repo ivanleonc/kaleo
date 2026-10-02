@@ -138,15 +138,17 @@ const handleSubmit = async () => {
     form.newPassword = '';
     form.confirmPassword = '';
 
+    // 2500ms mínimo: el mensaje de éxito debe ser legible antes de redirigir,
+    // incluyendo usuarios con lector de pantalla.
     if (wasTemporary) {
       successMsg.value = 'Contraseña actualizada. Inicia sesión con tu nueva contraseña...';
       setTimeout(async () => {
         await authStore.logout();
         router.push({ name: 'Login' });
-      }, 1500);
+      }, 2500);
     } else {
       successMsg.value = 'Contraseña actualizada correctamente. Redirigiendo...';
-      setTimeout(() => router.push(companyPath('/dashboard')), 1500);
+      setTimeout(() => router.push(companyPath('/dashboard')), 2500);
     }
   } catch (error: any) {
     errorMsg.value = apiErrorMessage(error, 'Error al cambiar contraseña');

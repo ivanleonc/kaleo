@@ -216,6 +216,7 @@ import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
 import { useToast } from '@/composables/useToast';
+import { useCreateAction } from '@/composables/useCreateAction';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useFilterSync } from '@/composables/useFilterSync';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -442,6 +443,7 @@ const isDeleteModalOpen = deleteModal.isOpen;
 const deletingBranch = deleteModal.target;
 
 const openDeleteModal = (branch: Branch) => {
+  branchStore.error = null;
   deleteModal.open(branch);
 };
 
@@ -451,8 +453,8 @@ const confirmDelete = async () => {
     await branchStore.deleteBranch(deletingBranch.value.id);
     deleteModal.reset();
     toast.success('Sede eliminada correctamente');
-  } catch (err: any) {
-    toast.error(apiErrorMessage(err, 'Error al eliminar la sede'));
+  } catch {
+    // El error queda en branchStore.error y lo muestra el UiConfirmDialog.
   }
 };
 
@@ -462,6 +464,9 @@ onMounted(() => {
     memberStore.fetchMembers().catch(() => {});
   }
 });
+
+// Acción rápida de la paleta (Ctrl+K → "Nueva sede").
+useCreateAction(() => openCreateModal());
 </script>
 
 <style scoped>

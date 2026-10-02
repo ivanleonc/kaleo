@@ -28,8 +28,9 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({
     params: { companyId: 'company-1' },
     path: '/companies/company-1/members',
+    query: {},
   }),
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: vi.fn() }),
 }));
 
 const IVAN = {

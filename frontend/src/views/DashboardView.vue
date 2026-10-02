@@ -25,7 +25,7 @@
               title="Miembros Activos"
               :value="activeMembers"
               :trendText="`De un total de ${totalMembers}`"
-              trendType="positive"
+              :trendType="activeMembers > 0 ? 'positive' : 'neutral'"
               color="blue"
             >
               <template #icon>
@@ -75,32 +75,6 @@
             </DashboardMetricCard>
           </router-link>
         </div>
-
-        <div class="quick-actions">
-          <h3 class="section-title">Accesos Rápidos</h3>
-          <div class="actions-grid">
-            <router-link :to="companyPath('/members')" class="action-card" v-permission="Permissions.USERS.READ">
-              <IconUsers :size="18" />
-              <span>Gestionar Miembros</span>
-            </router-link>
-            <router-link :to="companyPath('/branches')" class="action-card" v-permission="Permissions.BRANCHES.READ">
-              <IconBuildingCommunity :size="18" />
-              <span>Gestionar Sedes</span>
-            </router-link>
-            <router-link :to="companyPath('/roles')" class="action-card" v-permission="Permissions.ROLES.READ">
-              <IconShieldLock :size="18" />
-              <span>Configurar Roles</span>
-            </router-link>
-            <router-link :to="companyPath('/settings')" class="action-card" v-permission="Permissions.SETTINGS.READ">
-              <IconSettings :size="18" />
-              <span>Ajustes Empresa</span>
-            </router-link>
-            <router-link :to="companyPath('/profile')" class="action-card" v-permission="Permissions.PROFILE.READ">
-              <IconUserCircle :size="18" />
-              <span>Mi Perfil</span>
-            </router-link>
-          </div>
-        </div>
       </template>
     </div>
   </AuthenticatedLayout>
@@ -123,10 +97,7 @@ import {
   IconUsers,
   IconShieldLock,
   IconBuildingStore,
-  IconBuildingCommunity,
   IconMail,
-  IconSettings,
-  IconUserCircle,
 } from '@tabler/icons-vue';
 
 const authStore = useAuthStore();
@@ -230,31 +201,5 @@ const activeCompanyRole = computed(() => {
 .metric-link .metric-card {
   cursor: pointer;
   height: 100%;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all 0.15s;
-}
-.action-card:hover {
-  border-color: var(--text-light);
-  color: var(--text-main);
-  background-color: var(--bg-hover);
 }
 </style>

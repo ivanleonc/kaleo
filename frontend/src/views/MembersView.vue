@@ -279,6 +279,7 @@ import {
 import type { Member } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
+import { useCreateAction } from '@/composables/useCreateAction';
 import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconUsers } from '@tabler/icons-vue';
 
 const authStore = useAuthStore();
@@ -403,6 +404,11 @@ onMounted(async () => {
   }
 });
 
+// Acción rápida de la paleta (Ctrl+K → "Invitar miembro").
+// Arrow function: openAddModal se declara más abajo y el argumento se
+// evaluaría de inmediato (TDZ) si se pasara la referencia directa.
+useCreateAction(() => openAddModal());
+
 const { isDirty: isAddDirty, capture: captureAddForm } = useDirtyForm(() => ({
   name: addForm.name,
   email: addForm.email,
@@ -479,6 +485,9 @@ const statusOptions = [
   { label: 'Inactivo', value: 'inactive' }
 ];
 
+// Estado previo a la edición: permite ofrecer "Deshacer" si solo cambió el status.
+const prevStatus = ref<'active' | 'inactive'>('active');
+
 const editableContactFields = () => ({
   roleIds: [...editForm.roleIds],
   status: editForm.status,
@@ -498,6 +507,7 @@ const openEditModal = (member: any) => {
   editForm.id = member.id;
   editForm.name = member.name;
   editForm.status = member.status || 'active';
+  prevStatus.value = member.status || 'active';
   editForm.phone = member.phone || '';
   editForm.position = member.position || '';
   editForm.document_type = member.document_type || '';
@@ -517,17 +527,30 @@ const openEditModal = (member: any) => {
 };
 
 const handleEditSubmit = async () => {
+  const memberId = editForm.id;
+  const newStatus = editForm.status;
+  const statusChanged = newStatus !== prevStatus.value;
   try {
-    await memberStore.updateMember(editForm.id, {
+    await memberStore.updateMember(memberId, {
       roleIds: editForm.roleIds,
-      status: editForm.status,
+      status: newStatus,
       phone: emptyToUndefined(editForm.phone),
       position: emptyToUndefined(editForm.position),
       document_type: emptyToUndefined(editForm.document_type),
       document_number: emptyToUndefined(editForm.document_number),
     });
     isEditModalOpen.value = false;
-    toast.success('Miembro actualizado correctamente');
+    if (statusChanged) {
+      // El cambio de estado es reversible: ofrecer deshacerlo sin reabrir el modal.
+      const previous = prevStatus.value;
+      toast.withAction(
+        'success',
+        newStatus === 'active' ? 'Miembro activado' : 'Miembro desactivado',
+        { label: 'Deshacer', onClick: () => memberStore.updateMember(memberId, { status: previous }).catch(() => {}) },
+      );
+    } else {
+      toast.success('Miembro actualizado correctamente');
+    }
   } catch (error) {
     // El error queda en memberStore.error y lo muestra el UiAlert del modal.
   }

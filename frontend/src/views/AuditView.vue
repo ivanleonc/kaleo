@@ -18,7 +18,8 @@
           controles genéricos sueltos.
         -->
         <template #filter-from="{ values, update }">
-          <div class="filter-dates">
+          <span class="filter-dates-label" aria-hidden="true">Período:</span>
+          <div class="filter-dates" role="group" aria-label="Período">
             <input
               :value="values.from"
               type="date"
@@ -77,13 +78,14 @@
           </div>
           <div class="timeline-connector" v-if="idx < auditStore.logs.length - 1" />
 
-          <div class="timeline-card">
+          <div class="timeline-card" :class="getActionDotClass(log.action)">
             <div class="timeline-card-header">
               <div class="timeline-action">
                 <UiBadge size="sm" :variant="getActionVariant(log.action)">
                   {{ getMethodLabel(log.action) }}
                 </UiBadge>
-                <span class="action-path">{{ cleanPath(log.action) }}</span>
+                <span class="action-label">{{ getActionDescription(log.action) }}</span>
+                <span class="action-path" :title="log.action">{{ cleanPath(log.action) }}</span>
                 <UiBadge
                   v-if="log.response_status"
                   size="sm"
@@ -359,6 +361,49 @@ function cleanPath(action: string): string {
   return action.replace(/^(GET|POST|PUT|PATCH|DELETE)\s+/, '').replace(/^\/api/, '');
 }
 
+/**
+ * Descripción legible de la acción para usuarios no técnicos.
+ * La ruta cruda sigue visible como texto secundario (útil para soporte),
+ * pero la información primaria es esta etiqueta.
+ */
+function getActionDescription(action: string): string {
+  const method = action.split(' ')[0] ?? '';
+  const path = action.slice(method.length).trim().toLowerCase();
+
+  // Flujos de autenticación (los más específicos primero)
+  if (path.includes('/login')) return 'Inicio de sesión';
+  if (path.includes('/logout')) return 'Cierre de sesión';
+  if (path.includes('/refresh')) return 'Sesión renovada';
+  if (path.includes('/forgot-password') || path.includes('/request-password-reset')) {
+    return 'Recuperación de contraseña solicitada';
+  }
+  if (path.includes('/reset-password')) return 'Contraseña restablecida';
+  if (path.includes('/change-temporary-password')) return 'Contraseña temporal cambiada';
+  if (path.includes('/change-password')) return 'Contraseña cambiada';
+  if (path.includes('/verify-email') || path.includes('/email/verify')) return 'Correo verificado';
+  if (path.includes('/register')) return 'Cuenta registrada';
+  if (path.includes('/profile')) return method === 'GET' ? 'Perfil consultado' : 'Perfil actualizado';
+
+  const entity =
+    /\/members|\/users/.test(path) ? 'member'
+    : /\/branches/.test(path) ? 'branch'
+    : /\/roles/.test(path) ? 'role'
+    : /\/permissions/.test(path) ? 'permission'
+    : /\/companies/.test(path) ? 'company'
+    : null;
+
+  if (!entity) return getMethodLabel(action);
+
+  const labels: Record<string, Record<string, string>> = {
+    member: { POST: 'Miembro agregado', PUT: 'Miembro actualizado', PATCH: 'Miembro actualizado', DELETE: 'Miembro eliminado', GET: 'Miembros consultados' },
+    branch: { POST: 'Sede creada', PUT: 'Sede actualizada', PATCH: 'Sede actualizada', DELETE: 'Sede eliminada', GET: 'Sedes consultadas' },
+    role: { POST: 'Rol creado', PUT: 'Rol actualizado', PATCH: 'Rol actualizado', DELETE: 'Rol eliminado', GET: 'Roles consultados' },
+    permission: { POST: 'Permiso actualizado', PUT: 'Permiso actualizado', PATCH: 'Permiso actualizado', DELETE: 'Permiso eliminado', GET: 'Permisos consultados' },
+    company: { POST: 'Empresa creada', PUT: 'Empresa actualizada', PATCH: 'Empresa actualizada', DELETE: 'Empresa eliminada', GET: 'Empresa consultada' },
+  };
+  return labels[entity]?.[method] ?? getMethodLabel(action);
+}
+
 function getActionVariant(action: string): BadgeVariant {
   const method = action.split(' ')[0];
   if (method === 'POST') return 'success';
@@ -509,7 +554,7 @@ function arrayUnchanged(oldVal: any[], newVal: any[]): any[] {
 function getChangesLabel(log: any): string {
   const hasOld = log.old_values && Object.keys(log.old_values).length > 0;
   const hasNew = log.new_values && Object.keys(log.new_values).length > 0;
-  if (hasOld && hasNew) return 'Ver cambios (antes/despues)';
+  if (hasOld && hasNew) return 'Ver cambios (antes/después)';
   if (hasNew) return 'Ver datos enviados';
   return 'Ver datos anteriores';
 }
@@ -534,6 +579,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.filter-dates-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .filter-date {
@@ -646,10 +698,16 @@ onMounted(() => {
   min-width: 0;
 }
 
-.action-path {
-  font-family: var(--font-mono);
+.action-label {
+  font-weight: 600;
   font-size: var(--text-sm);
   color: var(--text-main);
+}
+
+.action-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -898,5 +956,13 @@ onMounted(() => {
   .timeline-item { padding-left: 0; }
   .timeline-connector { display: none; }
   .timeline-dot { display: none; }
+  /* Sin dots ni conectores, la tarjeta conserva la jerarquía temporal con
+     un borde lateral del color de la acción. */
+  .timeline-card { border-left-width: 3px; }
+  .timeline-card.action-create { border-left-color: var(--color-success); }
+  .timeline-card.action-update { border-left-color: var(--color-warning); }
+  .timeline-card.action-delete { border-left-color: var(--color-danger); }
+  .timeline-card.action-read { border-left-color: var(--color-info); }
+  .timeline-card.action-default { border-left-color: var(--border); }
 }
 </style>

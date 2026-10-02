@@ -26,10 +26,11 @@
           label="Cambiar de organización"
         >
           <template #trigger="{ toggle, triggerAria }">
-            <button class="org-trigger" v-bind="triggerAria" @click="toggle">
+            <button class="org-trigger" v-bind="triggerAria" :aria-busy="isSwitchingOrg" @click="toggle">
               <IconBuildingCommunity :size="16" stroke-width="1.8" />
               <span class="org-trigger-name">{{ activeOrg?.name || 'Mi Empresa' }}</span>
-              <IconArrowsUpDown :size="14" stroke-width="1.8" class="org-arrows" />
+              <span v-if="isSwitchingOrg" class="org-spinner" aria-hidden="true"></span>
+              <IconArrowsUpDown v-else :size="14" stroke-width="1.8" class="org-arrows" />
             </button>
           </template>
 
@@ -679,6 +680,22 @@ const handleLogout = async () => {
 
 .org-arrows {
   color: var(--text-light);
+}
+
+/* Spinner del cambio de empresa: la navegación + refresh de claims puede
+   tardar en conexiones lentas; sin esto la UI parece congelada. */
+.org-spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-main);
+  border-radius: 50%;
+  animation: org-spin 0.8s linear infinite;
+}
+
+@keyframes org-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ORG DROPDOWN */

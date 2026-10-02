@@ -109,8 +109,25 @@ describe('CommandPalette', () => {
     input()!.dispatchEvent(new Event('input', { bubbles: true }));
     await nextTick();
 
-    expect(options()).toHaveLength(1);
+    // "Sedes" (navegación) + "Nueva sede" (acción rápida): ambas matchean.
+    expect(options()).toHaveLength(2);
     expect(options()[0]?.textContent).toContain('Sedes');
+    expect(options()[1]?.textContent).toContain('Nueva sede');
+  });
+
+  it('las acciones rápidas navegan con query crear=1', async () => {
+    await openPalette();
+    input()!.value = 'nueva sede';
+    input()!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+
+    expect(options()).toHaveLength(1);
+    await press('Enter');
+
+    expect(push).toHaveBeenCalledWith({
+      path: expect.stringContaining('/branches'),
+      query: { crear: '1' },
+    });
   });
 
   it('avisa cuando no hay resultados', async () => {

@@ -7,7 +7,7 @@
       >
         <template #actions>
           <UiButton v-permission="Permissions.ROLES.CREATE" @click="openCreateModal" width="auto">
-            Crear Nuevo Rol
+            <IconPlus :size="16" /> Crear Nuevo Rol
           </UiButton>
         </template>
       </UiPageHeader>
@@ -43,7 +43,7 @@
         </template>
         <template #action>
           <UiButton v-permission="Permissions.ROLES.CREATE" width="auto" @click="openCreateModal">
-            Crear Nuevo Rol
+            <IconPlus :size="16" /> Crear Nuevo Rol
           </UiButton>
         </template>
       </UiEmptyState>
@@ -159,7 +159,19 @@
       <UiAlert v-if="errorMsg" type="error">{{ errorMsg }}</UiAlert>
       <UiInput v-model="form.name" label="Nombre del Rol" placeholder="Ej: Gestor de Finanzas" required />
       <UiInput v-model="form.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
-      <UiInput v-model="form.color" label="Color (Opcional)" placeholder="#8b5cf6" />
+      <div class="color-row">
+        <UiInput
+          v-model="form.color"
+          label="Color (Opcional)"
+          placeholder="#8b5cf6"
+          :error="createColorError"
+        />
+        <span
+          class="color-preview"
+          :style="colorPreviewStyle(form.color)"
+          aria-hidden="true"
+        ></span>
+      </div>
 
       <UiDualListbox
         v-model="form.permissionIds"
@@ -178,8 +190,6 @@
       </template>
     </UiFormModal>
 
-  </AuthenticatedLayout>
-
   <!-- Edit Modal -->
   <UiFormModal
     v-model="isEditModalOpen"
@@ -192,7 +202,19 @@
     <UiAlert v-if="errorMsg" type="error">{{ errorMsg }}</UiAlert>
     <UiInput v-model="editForm.name" label="Nombre del Rol" required />
     <UiInput v-model="editForm.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
-    <UiInput v-model="editForm.color" label="Color (Opcional)" placeholder="#8b5cf6" />
+    <div class="color-row">
+      <UiInput
+        v-model="editForm.color"
+        label="Color (Opcional)"
+        placeholder="#8b5cf6"
+        :error="editColorError"
+      />
+      <span
+        class="color-preview"
+        :style="colorPreviewStyle(editForm.color)"
+        aria-hidden="true"
+      ></span>
+    </div>
     <UiDualListbox
       v-model="editForm.permissionIds"
       :available="allPermissionItems"
@@ -216,11 +238,13 @@
     :loading="isSaving"
     :error="errorMsg"
     confirm-label="Eliminar"
+    :require-typed-confirmation="deleteTarget?.name ?? null"
     @confirm="handleDeleteSubmit"
   >
     ¿Estás seguro de eliminar el rol <strong>{{ deleteTarget?.name }}</strong>? Esta acción
-    no se puede deshacer.
+    no se puede deshacer y quitará el acceso a los miembros que lo tengan asignado.
   </UiConfirmDialog>
+  </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
@@ -229,6 +253,7 @@ import { roleService } from '@/services/role.service';
 import type { Role, Permission } from '@/types/role';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useDirtyForm } from '@/composables/useDirtyForm';
+import { useCreateAction } from '@/composables/useCreateAction';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
@@ -256,6 +281,7 @@ import {
   IconDotsVertical,
   IconPencil,
   IconTrash,
+  IconPlus,
 } from '@tabler/icons-vue';
 
 const toast = useToast();
@@ -275,6 +301,22 @@ const editForm = reactive({ id: '', name: '', description: '', color: '', permis
 
 const isDeleteModalOpen = ref(false);
 const deleteTarget = ref<{ id: string; name: string } | null>(null);
+
+// El color es opcional, pero si se escribe debe ser un hex válido: si no,
+// el icono del rol se renderiza sin color en silencio.
+const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
+const createColorError = computed(() =>
+  form.color.trim() && !hexColorRegex.test(form.color.trim())
+    ? 'Formato inválido. Usa 6 dígitos hexadecimales, ej. #8b5cf6.'
+    : null
+);
+const editColorError = computed(() =>
+  editForm.color.trim() && !hexColorRegex.test(editForm.color.trim())
+    ? 'Formato inválido. Usa 6 dígitos hexadecimales, ej. #8b5cf6.'
+    : null
+);
+const colorPreviewStyle = (value: string) =>
+  hexColorRegex.test(value.trim()) ? { backgroundColor: value.trim() } : undefined;
 
 const expandedModules = ref<Record<string, Set<string>>>({});
 
@@ -362,6 +404,10 @@ function openDeleteModal(role: Role) {
 }
 
 async function handleEditSubmit() {
+  if (editColorError.value) {
+    errorMsg.value = editColorError.value;
+    return;
+  }
   isSaving.value = true;
   errorMsg.value = '';
   try {
@@ -418,6 +464,9 @@ const fetchData = async () => {
 
 onMounted(fetchData);
 
+// Acción rápida de la paleta (Ctrl+K → "Crear rol").
+useCreateAction(() => openCreateModal());
+
 const { isDirty: isCreateDirty, capture: snapshotCreateForm } = useDirtyForm(() => ({
   name: form.name,
   description: form.description,
@@ -434,6 +483,10 @@ const openCreateModal = () => {
 
 const handleCreateSubmit = async () => {
   if (!companyId.value) return;
+  if (createColorError.value) {
+    errorMsg.value = createColorError.value;
+    return;
+  }
   isSaving.value = true;
   errorMsg.value = '';
   try {
@@ -459,6 +512,27 @@ const handleCreateSubmit = async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+}
+
+/* Input de color + muestra en vivo del tono elegido. */
+.color-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.color-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.color-preview {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background-color: var(--bg-app);
 }
 
 .roles-grid {

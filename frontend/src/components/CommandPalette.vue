@@ -71,6 +71,7 @@ import {
   IconSettings,
   IconUserCircle,
   IconLogout,
+  IconPlus,
 } from '@tabler/icons-vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -139,6 +140,23 @@ const items = computed<PaletteItem[]>(() => {
   go('Auditoría', 'Ver registros', IconClipboardList, '/audit', Permissions.AUDIT.READ);
   go('Empresa', 'Ajustes de la empresa', IconSettings, '/settings', Permissions.SETTINGS.READ);
   go('Mi Cuenta', 'Ver mi perfil', IconUserCircle, '/profile');
+
+  // Acciones rápidas: navegan a la sección y abren el modal de creación
+  // (la vista consume el query `crear=1` y lo limpia al abrir).
+  const act = (label: string, hint: string, icon: any, path: string, permission: string) => {
+    if (!can(permission)) return;
+    list.push({
+      id: `act-${path}`,
+      label,
+      hint,
+      icon,
+      run: () => router.push({ path: companyPath(path), query: { crear: '1' } }),
+    });
+  };
+
+  act('Invitar miembro', 'Abrir invitación en Equipo', IconPlus, '/members', Permissions.USERS.CREATE);
+  act('Nueva sede', 'Abrir creación en Sedes', IconPlus, '/branches', Permissions.BRANCHES.CREATE);
+  act('Crear rol', 'Abrir creación en Roles', IconPlus, '/roles', Permissions.ROLES.CREATE);
 
   list.push({
     id: 'action-logout',

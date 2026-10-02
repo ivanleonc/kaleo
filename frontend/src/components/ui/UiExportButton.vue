@@ -31,6 +31,7 @@ const isExporting = ref(false);
 
 const handleExport = async () => {
   isExporting.value = true;
+  toast.info('Preparando exportación…');
   try {
     const { blob, filename } = await props.fetcher();
     const url = window.URL.createObjectURL(blob);
@@ -40,8 +41,8 @@ const handleExport = async () => {
     link.click();
     window.URL.revokeObjectURL(url);
     toast.success('Archivo exportado correctamente');
-  } catch (error) {
-    console.error('Error exportando:', error);
+  } catch {
+    // El detalle ya vive en el store/servicio si aplica; aquí mensaje accionable.
     toast.error('No se pudo exportar el archivo');
   } finally {
     isExporting.value = false;
