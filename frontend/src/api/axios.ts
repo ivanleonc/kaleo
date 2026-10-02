@@ -28,6 +28,30 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+/**
+ * Enriquece un error HTTP con banderas y mensaje en español para la UI.
+ *
+ * Regla para 403: si el servidor explicó el motivo (ej. "No puedes reusar
+ * contraseñas"), ese mensaje específico es el que debe ver el usuario. El
+ * genérico ("No tienes permiso...") solo aplica cuando el 403 viene sin
+ * explicación (ej. guard de permisos).
+ */
+export function enrichAxiosError(error: any): void {
+  const status = error.response?.status;
+  if (status === 403) {
+    error._isForbidden = true;
+    const serverMessage = error.response?.data?.message;
+    error._userMessage =
+      typeof serverMessage === 'string' && serverMessage.trim()
+        ? serverMessage
+        : 'No tienes permiso para realizar esta acción.';
+  }
+  if (!error.response && (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !navigator.onLine)) {
+    error._isOffline = true;
+    error._userMessage = 'Sin conexión. Revisa tu internet e intenta de nuevo.';
+  }
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -125,17 +149,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Enrich 403 and network errors with Spanish messages for better UX
-    const status = error.response?.status;
-    if (status === 403) {
-      error._isForbidden = true;
-      error._userMessage = 'No tienes permiso para realizar esta acción.';
-    }
-    if (!error.response && (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !navigator.onLine)) {
-      error._isOffline = true;
-      error._userMessage = 'Sin conexión. Revisa tu internet e intenta de nuevo.';
-    }
-
+    enrichAxiosError(error);
     return Promise.reject(error);
   }
 );
