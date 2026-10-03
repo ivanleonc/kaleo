@@ -2,7 +2,7 @@
  * Smoke test de la paginación y filtros de miembros contra la base de datos.
  * No requiere servidor HTTP: valida el SQL generado por el repository.
  *
- * Uso: npm run smoke:members -- sandbox
+ * Uso: npm run smoke:members -- development
  */
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const environment = process.argv[2] ?? 'sandbox';
+const environment = process.argv[2] ?? 'development';
 const envPath = resolve(__dirname, `../.env.${environment}`);
 if (!existsSync(envPath)) throw new Error(`No existe ${envPath}`);
 

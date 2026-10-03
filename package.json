@@ -1,13 +1,12 @@
 {
-  "name": "saas-app",
+  "name": "kaleo",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
-    "dev:sandbox": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev:sandbox --prefix backend\" \"npm run dev --prefix frontend\"",
-    "dev:staging": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev:staging --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:prod": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev:prod --prefix backend\" \"npm run dev --prefix frontend\"",
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "build": "turbo run build",
     "test": "turbo run test",

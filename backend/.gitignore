@@ -39,10 +39,9 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 # dotenv environment variable files
+# Solo development/production existen (ver README: 2 ambientes).
 .env
-.env.sandbox
-.env.staging
-.env.prod
+.env.development
 .env.production
 .env.development.local
 .env.test.local

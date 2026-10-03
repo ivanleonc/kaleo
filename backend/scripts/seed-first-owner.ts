@@ -6,8 +6,8 @@
  *
  * Uso:
  *   npm run seed:owner -- <entorno> <email> <nombre> <empresa>
- *   Ejemplo (staging):
- *     npm run seed:owner -- staging admin@miempresa.com "Ana López" "Mi Empresa SAS"
+ *   Ejemplo (production):
+ *     npm run seed:owner -- production admin@miempresa.com "Ana López" "Mi Empresa SAS"
  *
  * El script imprime la contraseña temporal generada. El usuario deberá
  * cambiarla en el primer inicio de sesión.
@@ -22,7 +22,7 @@ import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const [, , environment = 'sandbox', email, name = 'Admin', companyName = 'Mi Empresa'] = process.argv;
+const [, , environment = 'development', email, name = 'Admin', companyName = 'Mi Empresa'] = process.argv;
 
 // Carga el .env del entorno indicado
 dotenvConfig({ path: resolve(__dirname, `../.env.${environment}`) });
@@ -34,7 +34,7 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 if (!email || !email.includes('@')) {
-  console.error('ERROR: Debes pasar un correo válido. Ej: npm run seed:owner -- staging admin@acme.co "Admin" "Acme Corp"');
+  console.error('ERROR: Debes pasar un correo válido. Ej: npm run seed:owner -- production admin@acme.co "Admin" "Acme Corp"');
   process.exit(1);
 }
 

@@ -2,7 +2,7 @@
  * Registra como aplicadas las migraciones que ya estaban en la base de datos
  * antes de existir este runner. Evita que `npm run migrate` las re-ejecute.
  *
- * Uso: npm run migrate:backfill -- sandbox
+ * Uso: npm run migrate:backfill -- development
  */
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
@@ -26,7 +26,7 @@ const ALREADY_APPLIED = [
   '011-extended-profile-fields.sql',
 ];
 
-const environment = process.argv[2] ?? 'sandbox';
+const environment = process.argv[2] ?? 'development';
 const envPath = resolve(__dirname, `../.env.${environment}`);
 if (!existsSync(envPath)) throw new Error(`No existe ${envPath}`);
 

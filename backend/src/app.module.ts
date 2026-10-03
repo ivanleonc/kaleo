@@ -24,7 +24,7 @@ import { envValidationSchema } from './common/config/env.validation.js';
     ConfigModule.forRoot({
       isGlobal: true,
       // .env.[NODE_ENV] manda; .env queda como default local.
-      // Ej: NODE_ENV=sandbox -> .env.sandbox, luego .env
+      // Ej: NODE_ENV=development -> .env.development, luego .env
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
       // Valida TODAS las variables al arrancar: falla rápido con mensaje claro
       // si falta algo crítico o hay un valor incorrecto.

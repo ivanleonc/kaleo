@@ -1,4 +1,4 @@
-# SaaS App — Plataforma multi-tenant
+# Kaleo — Plataforma multi-tenant
 
 SaaS de gestión organizacional: empresas, sedes, miembros, roles y permisos, con **auditoría total** de acciones (quién, qué, antes/después) y autenticación JWT con cambio forzado de temporales.
 
@@ -15,12 +15,12 @@ SaaS de gestión organizacional: empresas, sedes, miembros, roles y permisos, co
 
 | Ambiente | Frontend | Backend | Base de datos | Uso |
 |---|---|---|---|---|
-| **Local sandbox** | localhost:5173 | localhost:3000 | `saas-sandbox` | `npm run dev:sandbox` — desarrollo diario |
-| **Local staging** | localhost:5173 | localhost:3000 | `saas-staging` (datos reales) | `npm run dev:staging` — depurar producción |
-| **Staging** | Pages staging | Render Free + UptimeRobot | `saas-staging` | Validar antes de prod |
-| **Prod** | Pages prod + dominio | Render + dominio | Proyecto prod | Clientes reales |
+| **Local dev** | localhost:5173 | localhost:3000 | `kaleo-dev` | `npm run dev` — desarrollo diario |
+| **Local prod** | localhost:5173 | localhost:3000 | `kaleo-prod` (datos reales) | `npm run dev:prod` — depurar producción |
+| **Staging** | Pages staging | Render Free + UptimeRobot | `kaleo-prod` | Validar antes de prod |
+| **Prod** | Pages prod + dominio | Render + dominio | `kaleo-prod` | Clientes reales |
 
-Regla: **local → sandbox** para romper sin miedo; **staging** para validar; **prod** solo con CI verde + humo verde en staging.
+Regla: **local → dev** para romper sin miedo; **staging** para validar; **prod** solo con CI verde + humo verde en staging.
 
 ## Arranque en local (una sola terminal)
 
@@ -30,22 +30,21 @@ Desde la raíz del proyecto:
 # Primera vez: instala dependencias de backend + frontend
 npm run install:all
 
-# Desarrollo diario (BD sandbox: rompe sin miedo)
-npm run dev:sandbox
+# Desarrollo diario (BD kaleo-dev: rompe sin miedo)
+npm run dev
 
-# Depurar con datos reales (BD staging = producción actual)
-npm run dev:staging
+# Depurar con datos reales (BD kaleo-prod = producción actual)
+npm run dev:prod
 ```
 
 Ambos comandos levantan **backend (:3000) + frontend (:5173)** en paralelo en la misma terminal, con logs etiquetados `[backend]` y `[frontend]`.
 
 | Comando | Backend | Frontend | Base de datos | Cuándo usarlo |
 |---|---|---|---|---|
-| `npm run dev:sandbox` | localhost:3000 (`.env.sandbox`) | localhost:5173 | `saas-sandbox` | Desarrollo diario, experimentar, romper cosas |
-| `npm run dev:staging` | localhost:3000 (`.env.staging`) | localhost:5173 | `saas-staging` (datos reales) | Depurar errores de producción, probar con datos de verdad |
-| `npm run dev` | localhost:3000 (`.env`) | localhost:5173 | Según tu `.env` local | Solo si personalizaste tu `.env` |
+| `npm run dev` | localhost:3000 (`.env.development`) | localhost:5173 | `kaleo-dev` | Desarrollo diario, experimentar, romper cosas |
+| `npm run dev:prod` | localhost:3000 (`.env.production`) | localhost:5173 | `kaleo-prod` (datos reales) | Depurar errores de producción, probar con datos de verdad |
 
-> ⚠️ `dev:staging` trabaja contra **datos reales**: lo que crees, edites o borres afecta producción. Para experimentar usa `dev:sandbox`.
+> ⚠️ `dev:prod` trabaja contra **datos reales**: lo que crees, edites o borres afecta producción. Para experimentar usa `dev`.
 >
 > ⚠️ En local los **correos no se envían** (modo stub: solo se loguean). Si invitas un miembro o reseteas una clave en local, busca la contraseña temporal en el log del backend.
 
@@ -55,7 +54,7 @@ Flujo inicial: registro → onboarding (crear empresa) → dashboard. Detalles e
 
 1. Trabaja en ramas `feat/*`; push a `main` = auto-deploy a staging y activa el CI.
 2. **Antes de cada push**: CI corre typecheck + lint + tests + build automáticamente. El push pasa si todo está verde.
-3. **Migraciones**: ver sección "Migraciones" abajo. Orden: sandbox → staging → prod.
+3. **Migraciones**: ver sección "Migraciones" abajo. Orden: development → production.
 4. **Secretos**: cada ambiente con su `JWT_SECRET` distinto. Rotarlo cierra todas las sesiones activas — avisar a los usuarios. Nada sensible en git.
 
 ## Migraciones de base de datos
@@ -101,7 +100,7 @@ Los archivos viven en `backend/src/migrations/`. Se aplican **a mano** en el SQL
 - [ ] Migraciones pendientes aplicadas en Supabase prod (ver tabla arriba).
 - [ ] Variables de entorno en Render configuradas (ver `backend/.env.example`):
   - `DATABASE_URL` — pooler Supabase `:6543`
-  - `JWT_SECRET` — único para prod, **distinto** al de staging
+  - `JWT_SECRET` — único para prod, **distinto** al de development
   - `CORS_ORIGIN` — URL exacta de la web (ej: `https://app.tuempresa.com`)
   - `FRONTEND_URL` — igual que `CORS_ORIGIN`
   - `NODE_ENV=production`

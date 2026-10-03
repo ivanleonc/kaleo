@@ -5,7 +5,7 @@ API REST con **NestJS 12 + ESM** (`"type": "module"`), **TypeORM + PostgreSQL** 
 ## Requisitos
 
 - Node.js `>=22 <25` (ver `engines` en `package.json`), npm 10+
-- PostgreSQL via Supabase. Un proyecto por ambiente: sandbox, staging, prod.
+- PostgreSQL via Supabase. Un proyecto por ambiente: `kaleo-dev`, `kaleo-prod`.
 
 ## Instalación
 
@@ -20,10 +20,9 @@ Nunca se commitean (`.gitignore` las cubre). Hay un archivo por objetivo:
 
 | Archivo | Cuándo se usa | Comando |
 |---|---|---|
-| `.env` | Default local | `npm run dev` |
-| `.env.sandbox` | Desarrollo con BD limpia | `npm run dev:sandbox` |
-| `.env.staging` | Probar contra staging | `npm run dev:staging` |
-| `.env.prod` | Migraciones a prod (local, nunca en Render) | `npm run migrate -- prod` |
+| `.env` | Default local (override personal) | `npm run dev` (si existe, tiene prioridad) |
+| `.env.development` | Desarrollo con BD limpia (`kaleo-dev`) | `npm run dev` |
+| `.env.production` | Depurar con datos reales (`kaleo-prod`) | `npm run dev:prod` |
 | Render dashboard | Producción en vivo | (sin archivo) |
 
 Copia `.env.example` como punto de partida. Las variables obligatorias para arrancar:
@@ -51,12 +50,11 @@ Copia `.env.example` como punto de partida. Las variables obligatorias para arra
 
 | Comando | Usa el archivo | Base de datos | Uso |
 |---|---|---|---|
-| `npm run dev` | `.env` | Según tu `.env` local | Solo si personalizaste tu `.env` |
-| `npm run dev:sandbox` | `.env.sandbox` | `saas-sandbox` | Desarrollo diario (recomendado) |
-| `npm run dev:staging` | `.env.staging` | `saas-staging` (datos reales) | Depurar producción en local |
+| `npm run dev` | `.env.development` | `kaleo-dev` | Desarrollo diario (recomendado) |
+| `npm run dev:prod` | `.env.production` | `kaleo-prod` (datos reales) | Depurar producción en local |
 | `npm run start:prod` | Variables del host | La de producción | Arranque de producción (`node dist/main.js`) |
 
-> Tip: desde la raíz del proyecto puedes levantar backend + frontend juntos con `npm run dev:sandbox` o `npm run dev:staging` (ver README raíz).
+> Tip: desde la raíz del proyecto puedes levantar backend + frontend juntos con `npm run dev` o `npm run dev:prod` (ver README raíz).
 
 ### Calidad y utilidades
 
@@ -90,18 +88,18 @@ SELECT version FROM schema_migrations ORDER BY version;
 - **Nunca editar** una migración ya aplicada — crear un nuevo archivo numerado.
 - `000` representa el esquema completo; es re-ejecutable sin errores.
 - `audit_logs` es **particionada por rango** (`y2026h2`, `y2027`, `default`): los `ALTER TABLE` van solo a la tabla padre, nunca a las particiones.
-- Probar siempre en sandbox → staging → prod.
+- Probar siempre en development → production.
 
 ### Runner automatizado (opcional)
 ```powershell
 # Listar estado (no aplica nada):
-npm run migrate -- staging --status
+npm run migrate -- development --status
 
 # Aplicar todas las pendientes:
-npm run migrate -- staging
+npm run migrate -- development
 
 # Aplicar solo una:
-npm run migrate -- staging --only 015-add-email-verification-expiry.sql
+npm run migrate -- development --only 015-add-email-verification-expiry.sql
 ```
 Requiere `.env.<entorno>` con `DATABASE_URL`.
 

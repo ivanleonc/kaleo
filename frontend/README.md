@@ -5,7 +5,7 @@ SPA con **Vue 3 + Composition API**, **Vite 8**, **Pinia** (persistido en `local
 ## Requisitos
 
 - Node.js `>=22 <25` (ver `engines`), npm 10+
-- Backend corriendo (local `:3000` o staging) con su BD correspondiente
+- Backend corriendo (local `:3000`) con su BD correspondiente (`kaleo-dev` o `kaleo-prod`)
 
 ## Instalación y arranque
 
@@ -44,7 +44,7 @@ Variables disponibles:
 | `npm run test:run` | Vitest una vez (CI) — 134 tests |
 | `npm run test:unit` | Vitest en modo watch (desarrollo) |
 
-> Tip: desde la raíz del proyecto levanta backend + frontend juntos con `npm run dev:sandbox` (BD sandbox) o `npm run dev:staging` (BD staging con datos reales). Ver README raíz.
+> Tip: desde la raíz del proyecto levanta backend + frontend juntos con `npm run dev` (BD `kaleo-dev`) o `npm run dev:prod` (BD `kaleo-prod` con datos reales). Ver README raíz.
 | `npm run format` | Prettier sobre `src/` |
 
 ## Estructura del código

@@ -1,8 +1,8 @@
 /**
- * Crea miembros temporales en la empresa de sandbox para validar la paginación
+ * Crea miembros temporales en la empresa de desarrollo para validar la paginación
  * y los filtros con un volumen realista. Se puede revertir con --clean.
  *
- * Uso: npm run smoke:seed -- sandbox [--clean]
+ * Uso: npm run smoke:seed -- development [--clean]
  */
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const environment = process.argv[2] ?? 'sandbox';
+const environment = process.argv[2] ?? 'development';
 const clean = process.argv.includes('--clean');
 const MARKER = 'smoke.pagination@';
 

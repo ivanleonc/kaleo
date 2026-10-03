@@ -2,11 +2,11 @@
  * Runner de migraciones SQL.
  *
  * Uso:
- *   npm run migrate -- sandbox              # aplica todas las pendientes
- *   npm run migrate -- sandbox 012          # aplica solo la 012
- *   npm run migrate -- sandbox --status     # solo lista el estado
+ *   npm run migrate -- development              # aplica todas las pendientes
+ *   npm run migrate -- development 012          # aplica solo la 012
+ *   npm run migrate -- development --status     # solo lista el estado
  *
- * Elige el DATABASE_URL de `.env.<entorno>` (sandbox | staging | prod).
+ * Elige el DATABASE_URL de `.env.<entorno>` (development | production).
  * Registra cada migración aplicada en `schema_migrations` para no repetirlas.
  */
 import 'dotenv/config';
@@ -18,11 +18,11 @@ import { Client } from 'pg';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(__dirname, '../src/migrations');
 
-const VALID_ENVIRONMENTS = ['sandbox', 'staging', 'prod'] as const;
+const VALID_ENVIRONMENTS = ['development', 'production'] as const;
 type Environment = (typeof VALID_ENVIRONMENTS)[number];
 
 function parseArgs(): { environment: Environment; only: string | null; status: boolean } {
-  const [rawEnvironment = 'sandbox', prefix, suffix] = process.argv.slice(2);
+  const [rawEnvironment = 'development', prefix, suffix] = process.argv.slice(2);
 
   if (!VALID_ENVIRONMENTS.includes(rawEnvironment as Environment)) {
     throw new Error(

@@ -1,6 +1,6 @@
 /**
  * Verifica que los índices de la migración 012 existan en la base de datos.
- * Uso: npm run migrate:verify -- sandbox
+ * Uso: npm run migrate:verify -- development
  */
 import 'dotenv/config';
 import { readFileSync, existsSync } from 'node:fs';
@@ -19,7 +19,7 @@ const EXPECTED_INDEXES = [
   'idx_roles_name',
 ];
 
-const environment = process.argv[2] ?? 'sandbox';
+const environment = process.argv[2] ?? 'development';
 const envPath = resolve(__dirname, `../.env.${environment}`);
 if (!existsSync(envPath)) throw new Error(`No existe ${envPath}`);
 
