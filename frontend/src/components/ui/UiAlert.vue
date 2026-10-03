@@ -1,10 +1,25 @@
 <template>
   <div :class="['ui-alert', `ui-alert-${type}`]" role="alert">
-    <IconAlertCircle v-if="type === 'error'" class="alert-icon" :size="16" stroke-width="2" />
-    <IconCircleCheck v-else-if="type === 'success'" class="alert-icon" :size="16" stroke-width="2" />
-    <IconAlertTriangle v-else-if="type === 'warning'" class="alert-icon" :size="16" stroke-width="2" />
-    <IconInfoCircle v-else class="alert-icon" :size="16" stroke-width="2" />
+    <!--
+      Slot #icon: permite reemplazar el ícono por defecto (determinado por `type`).
+      Útil cuando el contenido del alert es específico y necesita un ícono de dominio.
+      Ejemplo: <template #icon><IconLock /></template>
+    -->
+    <slot name="icon">
+      <IconAlertCircle v-if="type === 'error'" class="alert-icon" :size="16" stroke-width="2" />
+      <IconCircleCheck v-else-if="type === 'success'" class="alert-icon" :size="16" stroke-width="2" />
+      <IconAlertTriangle v-else-if="type === 'warning'" class="alert-icon" :size="16" stroke-width="2" />
+      <IconInfoCircle v-else class="alert-icon" :size="16" stroke-width="2" />
+    </slot>
     <div class="alert-content">
+      <!--
+        Slot #title: línea de título en negrita sobre el mensaje.
+        Cuando se usa, el contenido por defecto queda como texto secundario.
+        Ejemplo: <template #title>Sesión expirada</template>
+      -->
+      <div v-if="$slots.title" class="alert-title">
+        <slot name="title" />
+      </div>
       <slot></slot>
     </div>
   </div>
@@ -53,6 +68,11 @@ withDefaults(defineProps<{
   background-color: var(--color-warning-bg);
   color: var(--color-warning-text);
   border: 1px solid var(--color-warning-border);
+}
+
+.alert-title {
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 
 .alert-icon {

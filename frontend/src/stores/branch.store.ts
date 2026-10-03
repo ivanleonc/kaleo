@@ -1,139 +1,61 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
 import { branchService } from '@/services/branch.service';
-import { useAsyncOperation } from '@/composables/useAsyncOperation';
-import { useCompanyPath } from '@/composables/useCompanyPath';
-import type { ServerSort } from '@/composables/useAppTable';
+import { usePaginatedSetup } from '@/composables/createPaginatedStore';
 import type { Branch, CreateBranchPayload, UpdateBranchPayload } from '@/types/branch';
 
-export interface BranchFilters {
+export interface BranchFilters extends Record<string, unknown> {
   search?: string;
   status?: string;
 }
 
 export const useBranchStore = defineStore('branch', () => {
-  const { companyId } = useCompanyPath();
+  // ---------------------------------------------------------------------------
+  // Paginación base (paginación, filtros, sort, reset por empresa)
+  // ---------------------------------------------------------------------------
+  const paginated = usePaginatedSetup<Branch, BranchFilters>({
+    fetchFn: branchService.getBranches.bind(branchService),
+    defaultFilters: { search: undefined, status: undefined },
+  });
 
-  const branches = ref<Branch[]>([]);
+  // Alias de compatibilidad: las views usan `branchStore.branches` y
+  // `branchStore.fetchBranches()` — no hay que tocar ningún consumidor.
+  const branches = paginated.items;
+  const fetchBranches = (targetPage?: number) => paginated.fetch(targetPage);
 
-  const {
-    isLoading,
-    error,
-    execute: withLoading,
-  } = useAsyncOperation({ errorMessage: 'Error en la operación' });
-
-  const page = ref(1);
-  const limit = ref(20);
-  const total = ref(0);
-  const filters = ref<BranchFilters>({});
-  const sortBy = ref<string | undefined>(undefined);
-  const sortDir = ref<'asc' | 'desc'>('asc');
-
-  const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
-  const hasPrev = computed(() => page.value > 1);
-  const hasNext = computed(() => page.value < totalPages.value);
-
-  const lastCompanyId = ref<string | undefined>(undefined);
-
-  const resetState = () => {
-    branches.value = [];
-    page.value = 1;
-    total.value = 0;
-    filters.value = {};
-    sortBy.value = undefined;
-    sortDir.value = 'asc';
-  };
-
-  const fetchBranches = async (targetPage = page.value) => {
-    if (companyId.value && companyId.value !== lastCompanyId.value) {
-      resetState();
-      lastCompanyId.value = companyId.value;
-    }
-    await withLoading(async () => {
-      const response = await branchService.getBranches({
-        page: targetPage,
-        limit: limit.value,
-        ...filters.value,
-        ...(sortBy.value ? { sortBy: sortBy.value, sortDir: sortDir.value } : {}),
-      });
-      branches.value = response.data;
-      total.value = response.total;
-      page.value = response.page;
-      limit.value = response.limit;
-    }, 'Error al cargar las sedes');
-  };
-
-  const goToPage = async (targetPage: number) => {
-    const clamped = Math.min(Math.max(1, targetPage), totalPages.value);
-    if (clamped === page.value) return;
-    await fetchBranches(clamped);
-  };
-
-  const setLimit = async (newLimit: number) => {
-    limit.value = newLimit;
-    await fetchBranches(1);
-  };
-
-  /** Aplica filtros en el servidor y vuelve a la primera página. */
-  const applyFilters = async (next: BranchFilters) => {
-    filters.value = next;
-    await fetchBranches(1);
-  };
-
-  /** Orden server-side: cambia el sort y vuelve a la primera página. */
-  const setSort = async (sort: ServerSort) => {
-    sortBy.value = sort.sortBy;
-    sortDir.value = sort.sortDir ?? 'asc';
-    await fetchBranches(1);
-  };
-
-  /** Tras crear/actualizar/eliminar, se queda en la página actual si sigue válida. */
-  const refreshBranches = async () => {
-    await fetchBranches(page.value > totalPages.value ? 1 : page.value);
-  };
+  // ---------------------------------------------------------------------------
+  // CRUD de dominio
+  // ---------------------------------------------------------------------------
 
   const createBranch = async (payload: CreateBranchPayload) => {
-    const result = await withLoading(async () => {
+    const result = await paginated.withLoading(async () => {
       const response = await branchService.createBranch(payload);
-      await refreshBranches();
+      await paginated.refresh();
       return response.data;
     }, 'Error al crear la sede');
     return result;
   };
 
   const updateBranch = async (branchId: string, payload: UpdateBranchPayload) => {
-    await withLoading(async () => {
+    await paginated.withLoading(async () => {
       await branchService.updateBranch(branchId, payload);
-      await refreshBranches();
+      await paginated.refresh();
     }, 'Error al actualizar la sede');
   };
 
   const deleteBranch = async (branchId: string) => {
-    await withLoading(async () => {
+    await paginated.withLoading(async () => {
       await branchService.deleteBranch(branchId);
-      await refreshBranches();
+      await paginated.refresh();
     }, 'Error al eliminar la sede');
   };
 
   return {
+    // --- Paginación base ---
+    ...paginated,
+    // --- Alias de compatibilidad ---
     branches,
-    isLoading,
-    error,
-    page,
-    limit,
-    total,
-    totalPages,
-    hasPrev,
-    hasNext,
-    filters,
-    sortBy,
-    sortDir,
-    resetState,
     fetchBranches,
-    goToPage,
-    setLimit,
-    applyFilters,
-    setSort,
+    // --- CRUD de dominio ---
     createBranch,
     updateBranch,
     deleteBranch,

@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { memberService } from '@/services/member.service';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
-import type { ServerSort } from '@/composables/useAppTable';
+import { usePaginatedSetup } from '@/composables/createPaginatedStore';
 import type { Member, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, MemberCompany, UserSearchResult } from '@/types/member';
 
-export interface MemberFilters {
+export interface MemberFilters extends Record<string, unknown> {
   search?: string;
   status?: string;
   roleId?: string;
@@ -15,121 +15,54 @@ export interface MemberFilters {
 export const useMemberStore = defineStore('member', () => {
   const { companyId } = useCompanyPath();
 
-  const members = ref<Member[]>([]);
+  // ---------------------------------------------------------------------------
+  // Paginación base (paginación, filtros, sort, reset por empresa)
+  // ---------------------------------------------------------------------------
+  const paginated = usePaginatedSetup<Member, MemberFilters>({
+    fetchFn: memberService.getMembers.bind(memberService),
+    defaultFilters: { search: undefined, status: undefined, roleId: undefined },
+  });
 
-  const {
-    isLoading,
-    error,
-    execute: withLoading,
-  } = useAsyncOperation({ errorMessage: 'Error en la operación' });
+  // Alias de compatibilidad: las views usan `memberStore.members` y
+  // `memberStore.fetchMembers()` — no hay que tocar ningún consumidor.
+  // `paginated.items` es un Ref<Member[]>: al incluirlo en el return con
+  // el nombre `members`, Pinia lo desenvuelve igual que cualquier otro ref.
+  const members = paginated.items;
+  const fetchMembers = (targetPage?: number) => paginated.fetch(targetPage);
 
-  const page = ref(1);
-  const limit = ref(20);
-  const total = ref(0);
-  const filters = ref<MemberFilters>({});
-  const sortBy = ref<string | undefined>(undefined);
-  const sortDir = ref<'asc' | 'desc'>('asc');
-
-  const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
-  const hasPrev = computed(() => page.value > 1);
-  const hasNext = computed(() => page.value < totalPages.value);
-
-  const currentCompanyId = computed(() => companyId.value);
-
-  const lastCompanyId = ref<string | undefined>(undefined);
-
-  const resetState = () => {
-    members.value = [];
-    page.value = 1;
-    total.value = 0;
-    filters.value = {};
-    sortBy.value = undefined;
-    sortDir.value = 'asc';
-  };
-
-  const fetchMembers = async (targetPage = page.value) => {
-    if (!currentCompanyId.value) return;
-    if (currentCompanyId.value !== lastCompanyId.value) {
-      resetState();
-      lastCompanyId.value = currentCompanyId.value;
-    }
-    await withLoading(async () => {
-      const response = await memberService.getMembers({
-        page: targetPage,
-        limit: limit.value,
-        ...filters.value,
-        ...(sortBy.value ? { sortBy: sortBy.value, sortDir: sortDir.value } : {}),
-      });
-      members.value = response.data;
-      total.value = response.total;
-      page.value = response.page;
-      limit.value = response.limit;
-    }, 'Error al cargar los miembros');
-  };
-
-  const goToPage = async (targetPage: number) => {
-    const clamped = Math.min(Math.max(1, targetPage), totalPages.value);
-    if (clamped === page.value) return;
-    await fetchMembers(clamped);
-  };
-
-  const setLimit = async (newLimit: number) => {
-    limit.value = newLimit;
-    await fetchMembers(1);
-  };
-
-  /** Aplica filtros en el servidor y vuelve a la primera página. */
-  const applyFilters = async (next: MemberFilters) => {
-    filters.value = next;
-    await fetchMembers(1);
-  };
-
-  const clearFilters = async () => {
-    filters.value = {};
-    await fetchMembers(1);
-  };
-
-  /** Orden server-side: cambia el sort y vuelve a la primera página. */
-  const setSort = async (sort: ServerSort) => {
-    sortBy.value = sort.sortBy;
-    sortDir.value = sort.sortDir ?? 'asc';
-    await fetchMembers(1);
-  };
-
-  /** Tras agregar/eliminar, vuelve a la primera página si la actual quedó vacía. */
-  const refreshMembers = async () => {
-    await fetchMembers(page.value > totalPages.value ? 1 : page.value);
-  };
+  // ---------------------------------------------------------------------------
+  // CRUD de dominio
+  // ---------------------------------------------------------------------------
 
   const addMember = async (payload: CreateMemberPayload) => {
-    if (!currentCompanyId.value) throw new Error('No hay una empresa activa seleccionada');
-    const result = await withLoading(async () => {
+    if (!companyId.value) throw new Error('No hay una empresa activa seleccionada');
+    const result = await paginated.withLoading(async () => {
       const response = await memberService.addMember(payload);
-      await refreshMembers();
+      await paginated.refresh();
       return response.data;
     }, 'Error al agregar el miembro');
     return result;
   };
 
   const updateMember = async (userId: string, payload: UpdateMemberPayload) => {
-    if (!currentCompanyId.value) return;
-    await withLoading(async () => {
+    if (!companyId.value) return;
+    await paginated.withLoading(async () => {
       await memberService.updateMember(userId, payload);
-      await refreshMembers();
+      await paginated.refresh();
     }, 'Error al actualizar el miembro');
   };
 
   const removeMember = async (userId: string) => {
-    if (!currentCompanyId.value) return;
-    await withLoading(async () => {
+    if (!companyId.value) return;
+    await paginated.withLoading(async () => {
       await memberService.removeMember(userId);
-      await refreshMembers();
+      await paginated.refresh();
     }, 'Error al eliminar el miembro');
   };
 
   const resetPassword = async (userId: string) => {
-    if (!currentCompanyId.value) throw new Error('No hay una empresa activa seleccionada');
-    const result = await withLoading(async () => {
+    if (!companyId.value) throw new Error('No hay una empresa activa seleccionada');
+    const result = await paginated.withLoading(async () => {
       const response = await memberService.resetPassword(userId);
       return response.data;
     }, 'Error al resetear la contraseña');
@@ -137,19 +70,23 @@ export const useMemberStore = defineStore('member', () => {
   };
 
   const resetPasswordAndSendEmail = async (userId: string) => {
-    if (!currentCompanyId.value) throw new Error('No hay una empresa activa seleccionada');
-    const result = await withLoading(async () => {
+    if (!companyId.value) throw new Error('No hay una empresa activa seleccionada');
+    const result = await paginated.withLoading(async () => {
       const response = await memberService.resetPasswordAndSendEmail(userId);
       return response.data;
     }, 'Error al resetear y enviar contraseña');
     return result;
   };
 
+  // ---------------------------------------------------------------------------
+  // Operaciones multi-empresa
+  // ---------------------------------------------------------------------------
+
   /** Empresas (con roles) a las que pertenece un miembro. */
   const memberCompanies = ref<MemberCompany[]>([]);
 
   const fetchUserCompanies = async (userId: string) => {
-    const result = await withLoading(async () => {
+    const result = await paginated.withLoading(async () => {
       const response = await memberService.getUserCompanies(userId);
       memberCompanies.value = response.data;
       return response.data;
@@ -162,23 +99,23 @@ export const useMemberStore = defineStore('member', () => {
    * Si es la empresa activa se refresca la tabla; si no, no hay nada local
    * que refrescar.
    */
-  const attachMemberToCompany = async (companyId: string, payload: AttachMemberPayload) => {
-    const result = await withLoading(async () => {
-      const response = await memberService.attachToCompany(companyId, payload);
-      if (companyId === currentCompanyId.value) {
-        await refreshMembers();
+  const attachMemberToCompany = async (targetCompanyId: string, payload: AttachMemberPayload) => {
+    const result = await paginated.withLoading(async () => {
+      const response = await memberService.attachToCompany(targetCompanyId, payload);
+      if (targetCompanyId === companyId.value) {
+        await paginated.refresh();
       }
       return response.data;
     }, 'Error al asignar la empresa');
     return result;
   };
 
-  const detachMemberFromCompany = async (companyId: string, userId: string) => {
-    await withLoading(async () => {
-      await memberService.removeFromCompany(companyId, userId);
-      memberCompanies.value = memberCompanies.value.filter((c) => c.id !== companyId);
-      if (companyId === currentCompanyId.value) {
-        await refreshMembers();
+  const detachMemberFromCompany = async (targetCompanyId: string, userId: string) => {
+    await paginated.withLoading(async () => {
+      await memberService.removeFromCompany(targetCompanyId, userId);
+      memberCompanies.value = memberCompanies.value.filter((c) => c.id !== targetCompanyId);
+      if (targetCompanyId === companyId.value) {
+        await paginated.refresh();
       }
     }, 'Error al quitar la empresa');
   };
@@ -189,30 +126,18 @@ export const useMemberStore = defineStore('member', () => {
   };
 
   return {
+    // --- Paginación base ---
+    ...paginated,
+    // --- Alias de compatibilidad ---
     members,
-    isLoading,
-    error,
-    page,
-    limit,
-    total,
-    totalPages,
-    hasPrev,
-    hasNext,
-    filters,
-    sortBy,
-    sortDir,
-    resetState,
     fetchMembers,
-    goToPage,
-    setLimit,
-    applyFilters,
-    clearFilters,
-    setSort,
+    // --- CRUD de dominio ---
     addMember,
     updateMember,
     removeMember,
     resetPassword,
     resetPasswordAndSendEmail,
+    // --- Multi-empresa ---
     memberCompanies,
     fetchUserCompanies,
     attachMemberToCompany,

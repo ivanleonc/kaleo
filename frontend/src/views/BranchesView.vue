@@ -15,87 +15,20 @@
       <UiTableFilters v-model="branchFilterValues" :filters="branchFilterDefs" />
 
       <div class="table-section">
-        <UiDataTable
+        <BranchTable
           :table="branchTable"
           :loading="isInitialLoading"
           :error="branchStore.error"
           error-title="No pudimos cargar las sedes"
-          @retry="branchStore.fetchBranches()"
           :empty-title="branchStore.branches.length === 0 ? 'No hay sedes todavía' : 'Sin resultados'"
           :empty-description="branchStore.branches.length === 0
             ? 'Agrega tu primera ubicación para empezar.'
             : 'Prueba con otra búsqueda o limpia los filtros.'"
+          @retry="branchStore.fetchBranches()"
+          @edit="openEditModal"
+          @delete="openDeleteModal"
+          @toggle-active="handleToggleActive"
         >
-          <template #cell-name="{ row }">
-            <div class="user-cell">
-              <div class="branch-avatar">
-                <IconBuildingCommunity :size="16" stroke-width="1.8" />
-              </div>
-              <div class="user-cell-text">
-                <span class="font-medium truncate" :title="row.name">
-                  {{ row.name }}
-                  <span v-if="row.code" class="text-muted">· {{ row.code }}</span>
-                </span>
-                <span v-if="row.is_main" class="branch-main-tag">Principal</span>
-              </div>
-            </div>
-          </template>
-          <template #cell-location="{ row }">
-            <span v-if="row.city || row.state || row.country">
-              {{ [row.city, row.state, row.country].filter(Boolean).join(', ') }}
-            </span>
-            <span v-else class="text-muted">Sin ubicación</span>
-          </template>
-          <template #cell-contact="{ row }">
-            <div class="user-cell-text">
-              <span v-if="row.phone || row.email">
-                {{ row.phone || row.email }}
-              </span>
-              <span v-else class="text-muted">Sin contacto</span>
-              <span v-if="row.manager_name" class="user-cell-sub truncate" :title="row.manager_name">
-                Resp: {{ row.manager_name }}
-              </span>
-            </div>
-          </template>
-          <template #cell-status="{ row }">
-            <UiBadge size="sm" :variant="row.is_active ? 'success' : 'danger'">
-              {{ row.is_active ? 'Activa' : 'Inactiva' }}
-            </UiBadge>
-          </template>
-          <template #cell-actions="{ row }">
-            <div class="row-actions" v-permission="Permissions.BRANCHES.UPDATE">
-              <UiDropdown align="end" label="Acciones de la sede">
-                <template #trigger="{ toggle, triggerAria }">
-                  <button
-                    class="dots-btn"
-                    @click.stop="toggle"
-                    v-bind="triggerAria"
-                    :aria-label="`Acciones para ${row.name}`"
-                  >
-                    <IconDotsVertical :size="16" stroke-width="1.8" />
-                  </button>
-                </template>
-                <template #default>
-                  <UiDropdownItem @click="openEditModal(row)">
-                    <IconPencil :size="14" stroke-width="1.8" />
-                    <span>Editar</span>
-                  </UiDropdownItem>
-                  <UiDropdownItem @click="handleToggleActive(row)">
-                    <IconSwitchHorizontal :size="14" stroke-width="1.8" />
-                    <span>{{ row.is_active ? 'Desactivar' : 'Activar' }}</span>
-                  </UiDropdownItem>
-                  <div class="ui-dropdown-divider" role="separator"></div>
-                  <UiDropdownItem danger @click="openDeleteModal(row)" v-permission="Permissions.BRANCHES.DELETE">
-                    <IconTrash :size="14" stroke-width="1.8" />
-                    <span>Eliminar</span>
-                  </UiDropdownItem>
-                </template>
-              </UiDropdown>
-            </div>
-          </template>
-          <template #empty-icon>
-            <IconBuildingCommunity :size="48" stroke-width="1.5" />
-          </template>
           <template #empty-action>
             <UiButton
               v-if="branchStore.branches.length === 0"
@@ -106,7 +39,7 @@
               <IconPlus :size="16" /> Nueva Sede
             </UiButton>
           </template>
-        </UiDataTable>
+        </BranchTable>
       </div>
 
       <!-- Pagination -->
@@ -215,6 +148,7 @@ import UiBadge from '@/components/ui/UiBadge.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
+import BranchTable from '@/components/features/branches/BranchTable.vue';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDirtyForm } from '@/composables/useDirtyForm';

@@ -3,47 +3,46 @@ import { DataSource } from 'typeorm';
 import { PROTECTED_ROLES } from '../../common/constants/roles.js';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
+import { rows, row } from '../../common/utils/db.js';
+import type { RoleRow, PermissionRow } from '../../common/types/db-rows.js';
 
 @Injectable()
 export class RoleRepository {
   constructor(private dataSource: DataSource) {}
 
-  async findAll(companyId?: string) {
+  async findAll(companyId?: string): Promise<RoleRow[]> {
     if (companyId) {
-      return this.dataSource.query(
+      return rows<RoleRow>(await this.dataSource.query(
         `SELECT id, name, description, color, company_id FROM roles
          WHERE (company_id IS NULL OR company_id = $1) AND deleted_at IS NULL
          ORDER BY name`,
         [companyId],
-      );
+      ));
     }
-    return this.dataSource.query(
+    return rows<RoleRow>(await this.dataSource.query(
       `SELECT id, name, description, color, company_id FROM roles WHERE deleted_at IS NULL ORDER BY name`,
-    );
+    ));
   }
 
-  async findById(id: string) {
-    const result = await this.dataSource.query(
+  async findById(id: string): Promise<RoleRow | undefined> {
+    return row<RoleRow>(await this.dataSource.query(
       `SELECT id, name, description, color, company_id FROM roles WHERE id = $1 AND deleted_at IS NULL`,
       [id],
-    );
-    return result[0];
+    ));
   }
 
-  async findByName(name: string, companyId?: string) {
+  async findByName(name: string, companyId?: string): Promise<RoleRow | undefined> {
     if (companyId) {
-      const result = await this.dataSource.query(
+      return row<RoleRow>(await this.dataSource.query(
         `SELECT id, name, description, color, company_id FROM roles
          WHERE name = $1 AND (company_id IS NULL OR company_id = $2) AND deleted_at IS NULL`,
         [name, companyId],
-      );
-      return result[0];
+      ));
     }
-    const result = await this.dataSource.query(
+    return row<RoleRow>(await this.dataSource.query(
       `SELECT id, name, description, color, company_id FROM roles WHERE name = $1 AND deleted_at IS NULL`,
       [name],
-    );
-    return result[0];
+    ));
   }
 
   async create(name: string, companyId?: string, description?: string, color?: string) {

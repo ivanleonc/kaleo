@@ -76,7 +76,7 @@ export class RbacService {
     }
 
     if (data.name && data.name !== role.name) {
-      const existing = await this.roleRepository.findByName(data.name, role.company_id);
+      const existing = await this.roleRepository.findByName(data.name, role.company_id ?? undefined);
       if (existing) throw new ConflictException(`Ya existe un rol con el nombre "${data.name}"`);
     }
 

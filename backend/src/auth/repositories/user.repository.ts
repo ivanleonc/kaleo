@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
+// db.ts disponible para uso tipado: import { row, rows } from '../../common/utils/db.js'
+// Los métodos de este repositorio siguen el patrón legacy result[0]/result[]
+// para no romper los servicios de auth que usan los retornos como `any`.
+// Migración a tipos explícitos: tarea pendiente cuando se defina UserRow en un tipo compartido.
 
 @Injectable()
 export class UserRepository {

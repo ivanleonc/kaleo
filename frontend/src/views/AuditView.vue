@@ -77,151 +77,11 @@
             <component :is="getActionIcon(log.action)" :size="14" />
           </div>
           <div class="timeline-connector" v-if="idx < auditStore.logs.length - 1" />
-
-          <div class="timeline-card" :class="getActionDotClass(log.action)">
-            <div class="timeline-card-header">
-              <div class="timeline-action">
-                <UiBadge size="sm" :variant="getActionVariant(log.action)">
-                  {{ getMethodLabel(log.action) }}
-                </UiBadge>
-                <span class="action-label">{{ getActionDescription(log.action) }}</span>
-                <span class="action-path" :title="log.action">{{ cleanPath(log.action) }}</span>
-                <UiBadge
-                  v-if="log.response_status"
-                  size="sm"
-                  :variant="getStatusVariant(log.response_status)"
-                >
-                  {{ log.response_status }}
-                </UiBadge>
-              </div>
-              <div class="timeline-right">
-                <span v-if="log.duration_ms" class="duration-badge">
-                  {{ log.duration_ms }}ms
-                </span>
-                <span class="timeline-time" :title="formatFullDate(log.created_at)">
-                  {{ formatRelativeTime(log.created_at) }}
-                </span>
-              </div>
-            </div>
-
-            <div class="timeline-card-body">
-              <div class="timeline-meta">
-                <div class="meta-user" v-if="log.user_name || log.user_email" title="Quién realizó la acción">
-                  <UiAvatar :name="log.user_name" size="sm" />
-                  <span>{{ log.user_name || log.user_email }}</span>
-                </div>
-                <div class="meta-user" v-else-if="log.user_id" title="Quién realizó la acción">
-                  <UiAvatar size="sm" />
-                  <span class="text-muted">Usuario eliminado</span>
-                </div>
-                <div class="meta-entity">
-                  <span class="entity-badge">{{ log.entity_type }}</span>
-                </div>
-              </div>
-
-              <div class="meta-subject" v-if="getSubjectName(log)" title="Registro afectado por la acción">
-                <IconArrowRight :size="12" class="subject-arrow" />
-                <span class="subject-label">{{ getSubjectKindLabel(log) }}:</span>
-                <strong class="subject-name">{{ getSubjectName(log) }}</strong>
-                <span v-if="getSubjectDetail(log)" class="subject-detail">{{ getSubjectDetail(log) }}</span>
-              </div>
-
-              <!-- Changes -->
-              <div v-if="hasChanges(log)" class="changes-section">
-                <button class="changes-toggle" @click="toggleChanges(log.id)">
-                  <IconChevronDown
-                    :size="14"
-                    class="toggle-chevron"
-                    :class="{ rotated: !expandedLogs.has(log.id) }"
-                  />
-                  {{ getChangesLabel(log) }}
-                </button>
-                <div v-if="expandedLogs.has(log.id)" class="changes-content">
-                  <div v-for="entry in getChangeEntries(log)" :key="entry.key" class="change-entry">
-                    <div class="change-key">{{ entry.key }}</div>
-                    <template v-if="isArrayPair(entry.oldVal, entry.newVal)">
-                      <div class="array-summary">
-                        <span class="array-count added">+{{ arrayAdded(entry.oldVal, entry.newVal).length }} agregados</span>
-                        <span class="array-count removed">−{{ arrayRemoved(entry.oldVal, entry.newVal).length }} quitados</span>
-                        <span v-if="arrayUnchanged(entry.oldVal, entry.newVal).length" class="array-count same">
-                          {{ arrayUnchanged(entry.oldVal, entry.newVal).length }} sin cambios
-                        </span>
-                      </div>
-                      <div v-for="(item, i) in arrayRemoved(entry.oldVal, entry.newVal)" :key="'rm-' + i" class="array-item removed">
-                        <span class="array-sign">−</span><span>{{ formatValue(item) }}</span>
-                      </div>
-                      <div v-for="(item, i) in arrayAdded(entry.oldVal, entry.newVal)" :key="'add-' + i" class="array-item added">
-                        <span class="array-sign">+</span><span>{{ formatValue(item) }}</span>
-                      </div>
-                      <details v-if="arrayUnchanged(entry.oldVal, entry.newVal).length" class="array-unchanged">
-                        <summary>Ver sin cambios</summary>
-                        <div v-for="(item, i) in arrayUnchanged(entry.oldVal, entry.newVal)" :key="'same-' + i" class="array-item same">
-                          <span>{{ formatValue(item) }}</span>
-                        </div>
-                      </details>
-                    </template>
-                    <template v-else-if="entry.hasOld && Array.isArray(entry.oldVal) && !entry.hasNew">
-                      <div class="array-summary">
-                        <span class="array-count removed">−{{ entry.oldVal.length }} eliminados</span>
-                      </div>
-                      <div v-for="(item, i) in entry.oldVal" :key="'old-arr-' + i" class="array-item removed">
-                        <span class="array-sign">−</span><span>{{ formatValue(item) }}</span>
-                      </div>
-                    </template>
-                    <template v-else-if="entry.hasNew && Array.isArray(entry.newVal) && !entry.hasOld">
-                      <div class="array-summary">
-                        <span class="array-count added">+{{ entry.newVal.length }} agregados</span>
-                      </div>
-                      <div v-for="(item, i) in entry.newVal" :key="'new-arr-' + i" class="array-item added">
-                        <span class="array-sign">+</span><span>{{ formatValue(item) }}</span>
-                      </div>
-                    </template>
-                    <template v-else>
-                      <div v-if="entry.hasOld" class="change-row old">
-                        <span class="mini-badge old">Antes</span>
-                        <span class="change-value old-value">{{ formatValue(entry.oldVal) }}</span>
-                      </div>
-                      <div v-if="entry.hasNew" class="change-row new">
-                        <span class="mini-badge new">Después</span>
-                        <span class="change-value new-value">{{ formatValue(entry.newVal) }}</span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Error display -->
-              <div v-if="log.response_data?.error" class="error-section">
-                <div class="error-badge">
-                  <IconAlertCircle :size="14" />
-                  <span>{{ log.response_data.message }}</span>
-                </div>
-              </div>
-
-              <!-- Response display (non-error) -->
-              <div v-if="log.response_data && !log.response_data.error && hasDataToShow(log.response_data)" class="response-section">
-                <button class="changes-toggle" @click="toggleResponse(log.id)">
-                  <IconChevronDown
-                    :size="14"
-                    class="toggle-chevron"
-                    :class="{ rotated: !expandedResponses.has(log.id) }"
-                  />
-                  Ver respuesta
-                </button>
-                <div v-if="expandedResponses.has(log.id)" class="changes-content">
-                  <div v-for="(value, key) in log.response_data" :key="'resp-' + key" class="change-row new">
-                    <span class="change-key">{{ key }}</span>
-                    <span class="change-value">{{ formatValue(value) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="timeline-card-footer" v-if="log.ip_address">
-              <IconGlobe :size="12" />
-              <span>{{ log.ip_address }}</span>
-            </div>
-          </div>
+          <AuditLogEntry
+            :log="log"
+            :format-relative="formatRelativeTime"
+            :format-full="formatFullDate"
+          />
         </div>
       </div>
 
@@ -248,7 +108,6 @@ import { useCompanyPath } from '@/composables/useCompanyPath';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
-import type { BadgeVariant } from '@/types/ui';
 import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
@@ -256,6 +115,7 @@ import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCursorPagination from '@/components/ui/UiCursorPagination.vue';
 import UiExportButton from '@/components/ui/UiExportButton.vue';
+import AuditLogEntry from '@/components/features/audit/AuditLogEntry.vue';
 import {
   formatDateTime,
   formatRelativeTime as formatRelativeTimeUtil,
@@ -267,13 +127,10 @@ import { useFilterSync } from '@/composables/useFilterSync';
 import {
   IconClipboardList,
   IconChevronDown,
-  IconGlobe,
   IconPlus,
   IconPencil,
   IconTrash,
   IconEye,
-  IconAlertCircle,
-  IconArrowRight,
 } from '@tabler/icons-vue';
 
 const auditStore = useAuditStore();
@@ -329,90 +186,7 @@ function fetchExportBlob() {
   });
 }
 
-function toggleChanges(id: string) {
-  if (expandedLogs.value.has(id)) expandedLogs.value.delete(id);
-  else expandedLogs.value.add(id);
-}
-
-function toggleResponse(id: string) {
-  if (expandedResponses.value.has(id)) expandedResponses.value.delete(id);
-  else expandedResponses.value.add(id);
-}
-
-function getStatusVariant(status: number): BadgeVariant {
-  if (status >= 200 && status < 300) return 'success';
-  if (status >= 300 && status < 400) return 'info';
-  if (status >= 400 && status < 500) return 'warning';
-  if (status >= 500) return 'danger';
-  return 'neutral';
-}
-
-function hasDataToShow(data: any): boolean {
-  if (!data) return false;
-  return Object.keys(data).length > 0;
-}
-
-function getMethodLabel(action: string): string {
-  const method = action.split(' ')[0];
-  return method || 'UNKNOWN';
-}
-
-function cleanPath(action: string): string {
-  return action.replace(/^(GET|POST|PUT|PATCH|DELETE)\s+/, '').replace(/^\/api/, '');
-}
-
-/**
- * Descripción legible de la acción para usuarios no técnicos.
- * La ruta cruda sigue visible como texto secundario (útil para soporte),
- * pero la información primaria es esta etiqueta.
- */
-function getActionDescription(action: string): string {
-  const method = action.split(' ')[0] ?? '';
-  const path = action.slice(method.length).trim().toLowerCase();
-
-  // Flujos de autenticación (los más específicos primero)
-  if (path.includes('/login')) return 'Inicio de sesión';
-  if (path.includes('/logout')) return 'Cierre de sesión';
-  if (path.includes('/refresh')) return 'Sesión renovada';
-  if (path.includes('/forgot-password') || path.includes('/request-password-reset')) {
-    return 'Recuperación de contraseña solicitada';
-  }
-  if (path.includes('/reset-password')) return 'Contraseña restablecida';
-  if (path.includes('/change-temporary-password')) return 'Contraseña temporal cambiada';
-  if (path.includes('/change-password')) return 'Contraseña cambiada';
-  if (path.includes('/verify-email') || path.includes('/email/verify')) return 'Correo verificado';
-  if (path.includes('/register')) return 'Cuenta registrada';
-  if (path.includes('/profile')) return method === 'GET' ? 'Perfil consultado' : 'Perfil actualizado';
-
-  const entity =
-    /\/members|\/users/.test(path) ? 'member'
-    : /\/branches/.test(path) ? 'branch'
-    : /\/roles/.test(path) ? 'role'
-    : /\/permissions/.test(path) ? 'permission'
-    : /\/companies/.test(path) ? 'company'
-    : null;
-
-  if (!entity) return getMethodLabel(action);
-
-  const labels: Record<string, Record<string, string>> = {
-    member: { POST: 'Miembro agregado', PUT: 'Miembro actualizado', PATCH: 'Miembro actualizado', DELETE: 'Miembro eliminado', GET: 'Miembros consultados' },
-    branch: { POST: 'Sede creada', PUT: 'Sede actualizada', PATCH: 'Sede actualizada', DELETE: 'Sede eliminada', GET: 'Sedes consultadas' },
-    role: { POST: 'Rol creado', PUT: 'Rol actualizado', PATCH: 'Rol actualizado', DELETE: 'Rol eliminado', GET: 'Roles consultados' },
-    permission: { POST: 'Permiso actualizado', PUT: 'Permiso actualizado', PATCH: 'Permiso actualizado', DELETE: 'Permiso eliminado', GET: 'Permisos consultados' },
-    company: { POST: 'Empresa creada', PUT: 'Empresa actualizada', PATCH: 'Empresa actualizada', DELETE: 'Empresa eliminada', GET: 'Empresa consultada' },
-  };
-  return labels[entity]?.[method] ?? getMethodLabel(action);
-}
-
-function getActionVariant(action: string): BadgeVariant {
-  const method = action.split(' ')[0];
-  if (method === 'POST') return 'success';
-  if (method === 'PUT' || method === 'PATCH') return 'info';
-  if (method === 'DELETE') return 'danger';
-  return 'neutral';
-}
-
-/** Clases del punto de la línea de tiempo (colorea el icono, no el chip). */
+/** Clases del punto de la línea de tiempo (colorea el ícono, no el chip). */
 function getActionDotClass(action: string): string {
   const method = action.split(' ')[0];
   if (method === 'POST') return 'action-create';
@@ -441,122 +215,6 @@ function formatRelativeTime(dateStr: string): string {
 
 function formatFullDate(dateStr: string): string {
   return formatDateTime(dateStr, userTimeZone());
-}
-
-function formatValue(val: any): string {
-  if (val === null || val === undefined) return '—';
-  if (val === '[REDACTED]') return '••••••••';
-  if (typeof val === 'object') return JSON.stringify(val);
-  return String(val);
-}
-
-function hasChanges(log: any): boolean {
-  const oldVals = getChangedOldValues(log);
-  const newVals = getChangedNewValues(log);
-  return Boolean((oldVals && Object.keys(oldVals).length > 0) || (newVals && Object.keys(newVals).length > 0));
-}
-
-function getChangedOldValues(log: any): Record<string, any> | null {
-  if (!log.old_values || !log.new_values) return log.old_values || null;
-  const changed: Record<string, any> = {};
-  for (const key of Object.keys(log.new_values)) {
-    if (key in log.old_values && JSON.stringify(log.old_values[key]) !== JSON.stringify(log.new_values[key])) {
-      changed[key] = log.old_values[key];
-    }
-  }
-  return Object.keys(changed).length > 0 ? changed : null;
-}
-
-function getChangedNewValues(log: any): Record<string, any> | null {
-  if (!log.old_values || !log.new_values) return log.new_values || null;
-  const changed: Record<string, any> = {};
-  for (const key of Object.keys(log.new_values)) {
-    if (!(key in log.old_values) || JSON.stringify(log.old_values[key]) !== JSON.stringify(log.new_values[key])) {
-      changed[key] = log.new_values[key];
-    }
-  }
-  return Object.keys(changed).length > 0 ? changed : null;
-}
-
-function getSubjectName(log: any): string | null {
-  const old = log.old_values || {};
-  const nw = log.new_values || {};
-  return old.name || nw.name || old.email || nw.email || null;
-}
-
-function getSubjectDetail(log: any): string | null {
-  const old = log.old_values || {};
-  const nw = log.new_values || {};
-  const name = old.name || nw.name;
-  const email = old.email || nw.email;
-  if (name && email) return email;
-  return null;
-}
-
-function getSubjectKindLabel(log: any): string {
-  const kinds: Record<string, string> = {
-    Member: 'Miembro',
-    User: 'Usuario',
-    Role: 'Rol',
-    Branch: 'Sede',
-    Company: 'Empresa',
-    Auth: 'Cuenta',
-    Permission: 'Permiso',
-    Settings: 'Configuración',
-  };
-  return kinds[log.entity_type] || 'Registro';
-}
-
-interface ChangeEntry {
-  key: string;
-  hasOld: boolean;
-  hasNew: boolean;
-  oldVal: any;
-  newVal: any;
-}
-
-function getChangeEntries(log: any): ChangeEntry[] {
-  const newVals = getChangedNewValues(log) || {};
-  const oldVals = getChangedOldValues(log) || {};
-  const keys = new Set([...Object.keys(oldVals), ...Object.keys(newVals)]);
-  return [...keys].map((key) => ({
-    key,
-    hasOld: key in oldVals,
-    hasNew: key in newVals,
-    oldVal: oldVals[key],
-    newVal: newVals[key],
-  }));
-}
-
-function isArrayPair(oldVal: any, newVal: any): boolean {
-  return Array.isArray(oldVal) && Array.isArray(newVal);
-}
-
-function normVal(v: any): string {
-  return JSON.stringify(v);
-}
-
-function arrayAdded(oldVal: any[], newVal: any[]): any[] {
-  const oldSet = new Set(oldVal.map(normVal));
-  return newVal.filter((v) => !oldSet.has(normVal(v)));
-}
-
-function arrayRemoved(oldVal: any[], newVal: any[]): any[] {
-  const newSet = new Set(newVal.map(normVal));
-  return oldVal.filter((v) => !newSet.has(normVal(v)));
-}
-
-function arrayUnchanged(oldVal: any[], newVal: any[]): any[] {
-  const newSet = new Set(newVal.map(normVal));
-  return oldVal.filter((v) => newSet.has(normVal(v)));
-}
-
-function getChangesLabel(log: any): string {
-  const hasOld = log.old_values && Object.keys(log.old_values).length > 0;
-  const hasNew = log.new_values && Object.keys(log.new_values).length > 0;
-  if (hasOld && hasNew) return 'Ver cambios (antes/después)';
-  if (hasNew) return 'Ver datos enviados';
-  return 'Ver datos anteriores';
 }
 
 // Mantiene vivos los tiempos relativos ("Hace 5m") sin recargar.

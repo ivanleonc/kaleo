@@ -49,102 +49,13 @@
       </UiEmptyState>
 
       <div v-else class="roles-grid">
-        <UiCard v-for="role in roles" :key="role.id" class="role-card">
-          <div class="role-card-header">
-            <div class="role-title-row">
-              <div
-                class="role-icon"
-                :class="role.is_system ? 'system' : 'custom'"
-                :style="role.color ? { background: `${role.color}1A`, color: role.color } : undefined"
-              >
-                <IconShield v-if="role.is_system" :size="20" />
-                <IconUserCog v-else :size="20" />
-              </div>
-              <div class="role-title-text">
-                <h3 class="role-name">{{ role.name }}</h3>
-                <UiBadge size="sm" :variant="role.is_system ? 'info' : 'neutral'">
-                  {{ role.is_system ? 'Sistema' : 'Personalizado' }}
-                </UiBadge>
-              </div>
-            </div>
-            <div class="role-actions" v-if="!role.is_system">
-              <UiDropdown align="end" label="Acciones del rol">
-                <template #trigger="{ toggle, triggerAria }">
-                  <button
-                    class="role-menu-btn"
-                    @click.stop="toggle"
-                    v-bind="triggerAria"
-                    :aria-label="`Acciones para ${role.name}`"
-                  >
-                    <IconDotsVertical :size="16" />
-                  </button>
-                </template>
-                <template #default>
-                  <UiDropdownItem @click="openEditModal(role)" v-permission="Permissions.ROLES.UPDATE">
-                    <IconPencil :size="14" />
-                    <span>Editar Rol</span>
-                  </UiDropdownItem>
-                  <div class="ui-dropdown-divider" role="separator"></div>
-                  <UiDropdownItem danger @click="openDeleteModal(role)" v-permission="Permissions.ROLES.DELETE">
-                    <IconTrash :size="14" />
-                    <span>Eliminar Rol</span>
-                  </UiDropdownItem>
-                </template>
-              </UiDropdown>
-            </div>
-          </div>
-
-            <p class="role-description">{{ role.description || getRoleDescription(role.name) }}</p>
-
-          <div class="role-card-body">
-            <div v-if="role.permissions.length === 0" class="role-empty">
-              <IconLock :size="24" />
-              <span>Sin permisos asignados</span>
-            </div>
-
-            <template v-else>
-              <div
-                v-for="(perms, module) in groupPermissionsByModule(role.permissions)"
-                :key="module"
-                class="module-group"
-              >
-                <button class="module-header" @click="toggleModule(role.id, String(module))">
-                  <div class="module-info">
-                    <span
-                      class="module-dot"
-                      :style="{ '--module-color': `var(--module-${module}, var(--text-muted))` }"
-                    />
-                    <span class="module-name">{{ getModuleName(String(module)) }}</span>
-                  </div>
-                  <div class="module-right">
-                    <span class="module-count">{{ perms.length }}</span>
-                    <IconChevronDown
-                      :size="14"
-                      class="module-chevron"
-                      :class="{ rotated: !isModuleExpanded(role.id, String(module)) }"
-                    />
-                  </div>
-                </button>
-                <div
-                  v-show="isModuleExpanded(role.id, String(module))"
-                  class="module-perms"
-                >
-                  <div v-for="perm in perms" :key="perm.id" class="perm-item">
-                    <span class="perm-name">{{ perm.name }}</span>
-                    <span class="perm-code">{{ perm.code }}</span>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </div>
-
-          <div class="role-card-footer">
-            <span class="perm-total">
-              <IconKey :size="14" />
-              {{ role.permissions.length }} permisos
-            </span>
-          </div>
-        </UiCard>
+        <RoleCard
+          v-for="role in roles"
+          :key="role.id"
+          :role="role"
+          @edit="openEditModal"
+          @delete="openDeleteModal"
+        />
       </div>
     </div>
 
@@ -269,6 +180,7 @@ import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
+import RoleCard from '@/components/features/roles/RoleCard.vue';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
 import { apiErrorMessage } from '@/utils/error';
@@ -318,8 +230,6 @@ const editColorError = computed(() =>
 const colorPreviewStyle = (value: string) =>
   hexColorRegex.test(value.trim()) ? { backgroundColor: value.trim() } : undefined;
 
-const expandedModules = ref<Record<string, Set<string>>>({});
-
 const allPermissionItems = computed(() =>
   allPermissions.value.map((p) => ({
     id: p.id,
@@ -327,55 +237,6 @@ const allPermissionItems = computed(() =>
     description: p.code,
   }))
 );
-
-const MODULE_LABELS: Record<string, string> = {
-  auth: 'Autenticación',
-  users: 'Usuarios',
-  roles: 'Roles',
-  company: 'Empresa',
-  settings: 'Configuración',
-  profile: 'Perfil',
-  dashboard: 'Dashboard',
-  branches: 'Sedes',
-  audit: 'Auditoria',
-  billing: 'Facturación',
-  notifications: 'Notificaciones',
-  integrations: 'Integraciones',
-};
-
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  Owner: 'Control total del sistema. Gestión de usuarios, roles, facturación y configuración.',
-  Admin: 'Acceso extendido excepto eliminación de usuarios y gestión de roles.',
-  Viewer: 'Solo lectura. Puede consultar pero no modificar datos.',
-};
-
-function getRoleDescription(name: string): string {
-  return ROLE_DESCRIPTIONS[name] || 'Rol personalizado de la organización.';
-}
-
-function getModuleName(code: string): string {
-  return MODULE_LABELS[code] || code;
-}
-
-function groupPermissionsByModule(perms: Permission[]): Record<string, Permission[]> {
-  const groups: Record<string, Permission[]> = {};
-  for (const p of perms) {
-    if (!groups[p.module]) groups[p.module] = [];
-    groups[p.module]!.push(p);
-  }
-  return groups;
-}
-
-function toggleModule(roleId: string, module: string) {
-  if (!expandedModules.value[roleId]) expandedModules.value[roleId] = new Set();
-  const set = expandedModules.value[roleId]!;
-  if (set.has(module)) set.delete(module);
-  else set.add(module);
-}
-
-function isModuleExpanded(roleId: string, module: string): boolean {
-  return expandedModules.value[roleId]?.has(module) ?? true;
-}
 
 const editableRoleFields = () => ({
   name: editForm.name,

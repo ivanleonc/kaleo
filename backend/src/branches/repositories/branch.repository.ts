@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
 import { assertMember } from '../../common/utils/membership.helper.js';
+import { rows, row } from '../../common/utils/db.js';
 
 /**
  * Orden y búsqueda server-side. `location`/`contact` replican las columnas
@@ -25,7 +26,7 @@ export class BranchRepository {
   constructor(private dataSource: DataSource) {}
 
   async findByCompany(companyId: string) {
-    return this.dataSource.query(
+    return rows(await this.dataSource.query(
       `SELECT b.id, b.company_id, b.name, b.address, b.city, b.state, b.country,
               b.postal_code, b.phone, b.email, b.is_active, b.code, b.is_main,
               b.timezone, b.created_at, b.updated_at,
@@ -35,7 +36,7 @@ export class BranchRepository {
        WHERE b.company_id = $1 AND b.deleted_at IS NULL
        ORDER BY b.name`,
       [companyId],
-    );
+    ));
   }
 
   async findPagedByCompany(

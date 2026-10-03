@@ -15,95 +15,21 @@
       <UiTableFilters v-model="memberFilterValues" :filters="memberFilterDefs" />
 
       <div class="table-section">
-        <UiDataTable
+        <MemberTable
           :table="memberTable"
           :loading="isInitialLoading"
           :error="memberStore.error"
           error-title="No pudimos cargar los miembros"
-          @retry="memberStore.fetchMembers()"
           :empty-title="memberStore.members.length === 0 ? 'No hay miembros todavía' : 'Sin resultados'"
           :empty-description="memberStore.members.length === 0
             ? 'Invita a tu primera persona al equipo para empezar.'
             : 'Prueba con otra búsqueda o limpia los filtros.'"
+          @retry="memberStore.fetchMembers()"
+          @edit="openEditModal"
+          @delete="(row) => handleDelete(row.id, row.name)"
+          @reset-password="openResetPasswordModal"
+          @manage-companies="openCompaniesModal"
         >
-          <template #cell-name="{ row }">
-            <div class="user-cell">
-              <UiAvatar :src="row.avatar_url" :name="row.name" size="sm" />
-              <div class="user-cell-text">
-                <span class="font-medium truncate" :title="row.name">{{ row.name }}</span>
-                <span v-if="row.position" class="user-cell-sub truncate" :title="row.position">{{ row.position }}</span>
-              </div>
-            </div>
-          </template>
-          <template #cell-email="{ row }">
-            <span class="truncate" :title="row.email">{{ row.email }}</span>
-          </template>
-          <template #cell-roles="{ row }">
-            <div class="roles-cell">
-              <UiBadge
-                v-for="role in row.roles"
-                :key="role"
-                :variant="isOwnerRole(role) ? 'warning' : 'neutral'"
-                size="sm"
-              >
-                <IconCrown v-if="isOwnerRole(role)" :size="12" stroke-width="2" />
-                {{ role }}
-              </UiBadge>
-            </div>
-          </template>
-          <template #cell-status="{ row }">
-            <div class="status-cell">
-              <UiBadge :variant="statusVariant(row.status)" size="sm">
-                {{ statusLabel(row.status) }}
-              </UiBadge>
-              <UiBadge
-                v-if="row.must_change_password"
-                variant="warning"
-                size="sm"
-                title="Aún usa contraseña temporal: no ha completado el cambio"
-              >
-                Temporal
-              </UiBadge>
-            </div>
-          </template>
-          <template #cell-actions="{ row }">
-            <div class="row-actions" v-permission="Permissions.USERS.UPDATE">
-              <UiDropdown align="end" label="Acciones del miembro">
-                <template #trigger="{ toggle, triggerAria }">
-                  <button
-                    class="dots-btn"
-                    @click.stop="toggle"
-                    v-bind="triggerAria"
-                    :aria-label="`Acciones para ${row.name}`"
-                  >
-                    <IconDotsVertical :size="16" stroke-width="1.8" />
-                  </button>
-                </template>
-                <template #default>
-                  <UiDropdownItem @click="openEditModal(row)">
-                    <IconPencil :size="14" stroke-width="1.8" />
-                    <span>Editar</span>
-                  </UiDropdownItem>
-                  <UiDropdownItem @click="openResetPasswordModal(row)" v-permission="Permissions.USERS.UPDATE">
-                    <IconKey :size="14" stroke-width="1.8" />
-                    <span>Resetear contraseña</span>
-                  </UiDropdownItem>
-                  <UiDropdownItem @click="openCompaniesModal(row)" v-permission="Permissions.USERS.UPDATE">
-                    <IconBuildingCommunity :size="14" stroke-width="1.8" />
-                    <span>Gestionar empresas</span>
-                  </UiDropdownItem>
-                  <div class="ui-dropdown-divider" role="separator"></div>
-                  <UiDropdownItem danger @click="handleDelete(row.id, row.name)" v-permission="Permissions.USERS.DELETE">
-                    <IconTrash :size="14" stroke-width="1.8" />
-                    <span>Eliminar</span>
-                  </UiDropdownItem>
-                </template>
-              </UiDropdown>
-            </div>
-          </template>
-          <template #empty-icon>
-            <IconUsers :size="48" stroke-width="1.5" />
-          </template>
           <template #empty-action>
             <UiButton
               v-if="memberStore.members.length === 0"
@@ -114,7 +40,7 @@
               <IconPlus :size="16" /> Nuevo Miembro
             </UiButton>
           </template>
-        </UiDataTable>
+        </MemberTable>
       </div>
 
       <!-- Pagination -->
@@ -331,6 +257,7 @@ import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
+import MemberTable from '@/components/features/members/MemberTable.vue';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
 import { useClipboard } from '@/composables/useClipboard';

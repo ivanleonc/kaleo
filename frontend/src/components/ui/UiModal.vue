@@ -32,7 +32,28 @@
         :aria-label="label"
         tabindex="-1"
       >
-        <slot></slot>
+        <!--
+          Slots opcionales de estructura. Si ninguno se usa, el slot default
+          ocupa todo el espacio (comportamiento original, sin cambios).
+          Cuando se usan #header o #footer, el contenido queda dividido en
+          secciones con estilos coherentes del design system.
+
+          Ejemplo de uso standalone (sin UiFormModal):
+          <UiModal v-model="open">
+            <template #header>Título del modal</template>
+            Contenido aquí...
+            <template #footer><UiButton @click="open=false">Cerrar</UiButton></template>
+          </UiModal>
+        -->
+        <div v-if="$slots.header" class="modal-slot-header">
+          <slot name="header" />
+        </div>
+        <div :class="$slots.header || $slots.footer ? 'modal-slot-body' : ''">
+          <slot></slot>
+        </div>
+        <div v-if="$slots.footer" class="modal-slot-footer">
+          <slot name="footer" />
+        </div>
       </div>
     </div>
   </Teleport>
@@ -225,5 +246,28 @@ defineExpose({ close, attemptClose });
 @keyframes modal-in {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* --- Slots estructurales opcionales (#header, #footer) --- */
+.modal-slot-header {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-main);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-slot-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.modal-slot-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
 }
 </style>

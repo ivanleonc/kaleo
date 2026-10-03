@@ -5,16 +5,24 @@
     </slot>
     <p>{{ title }}</p>
     <span v-if="description">{{ description }}</span>
-    <UiButton
-      v-if="retryable"
-      variant="outline"
-      size="sm"
-      width="auto"
-      :loading="loading"
-      @click="emit('retry')"
-    >
-      {{ retryLabel }}
-    </UiButton>
+    <!--
+      Slot #action: permite inyectar acciones personalizadas (ej: "Volver",
+      múltiples botones, o un enlace) en lugar del botón de reintentar fijo.
+      Cuando se provee el slot, el botón de reintentar se oculta para evitar
+      duplicados. Mantiene simetría con UiEmptyState, que ya tiene este slot.
+    -->
+    <slot name="action">
+      <UiButton
+        v-if="retryable"
+        variant="outline"
+        size="sm"
+        width="auto"
+        :loading="loading"
+        @click="emit('retry')"
+      >
+        {{ retryLabel }}
+      </UiButton>
+    </slot>
   </div>
 </template>
 
