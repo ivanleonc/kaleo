@@ -66,6 +66,30 @@
               />
             </button>
             <div class="dropdown-divider"></div>
+            <template v-if="authStore.isSuperAdmin && filteredAllCompanies.length > 0">
+              <p class="dropdown-section-label">Todas las empresas</p>
+              <button
+                v-for="company in filteredAllCompanies"
+                :key="`all-${company.id}`"
+                type="button"
+                class="dropdown-item"
+                :class="{
+                  active: authStore.activeTenantId === company.id,
+                  disabled: isSwitchingOrg,
+                }"
+                role="menuitem"
+                :disabled="isSwitchingOrg"
+                @click="handleOrgChange(company.id); close()"
+              >
+                <span>{{ company.name }}</span>
+                <IconCheck
+                  v-if="authStore.activeTenantId === company.id"
+                  class="check-icon"
+                  :size="14"
+                />
+              </button>
+              <div class="dropdown-divider"></div>
+            </template>
             <button
               type="button"
               class="dropdown-item create-action"
@@ -377,6 +401,11 @@ watch(() => route.path, () => {
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown);
+  // Super-admin: precargar todas las empresas para la sección "Todas"
+  // del switcher y la resolución de rutas a compañías ajenas.
+  if (authStore.isSuperAdmin) {
+    companyStore.fetchAllCompanies().catch(() => {});
+  }
 });
 
 onUnmounted(() => {
@@ -402,14 +431,30 @@ const handleMouseLeave = () => {
   }, 150);
 };
 
-const activeOrg = computed(() =>
-  authStore.user?.tenants?.find((t: any) => t.id === authStore.activeTenantId) || null
+const activeOrg = computed(
+  () =>
+    authStore.user?.tenants?.find((t: any) => t.id === authStore.activeTenantId) ??
+    companyStore.allCompanies.find((c) => c.id === authStore.activeTenantId) ??
+    null,
 );
 
 const filteredTenants = computed(() => {
   if (!orgSearchQuery.value) return authStore.user?.tenants || [];
   const q = orgSearchQuery.value.toLowerCase();
   return (authStore.user?.tenants || []).filter((t: any) => t.name.toLowerCase().includes(q));
+});
+
+/**
+ * Todas las empresas (solo super-admin), excluyendo las propias para no
+ * duplicarlas. Se carga una vez al montar el layout.
+ */
+const filteredAllCompanies = computed(() => {
+  if (!authStore.isSuperAdmin) return [];
+  const mine = new Set((authStore.user?.tenants ?? []).map((t: any) => t.id));
+  const all = companyStore.allCompanies.filter((c) => !mine.has(c.id));
+  if (!orgSearchQuery.value) return all;
+  const q = orgSearchQuery.value.toLowerCase();
+  return all.filter((c) => c.name.toLowerCase().includes(q));
 });
 
 const SECTION_LABELS: Record<string, string> = {
@@ -447,7 +492,9 @@ const isSwitchingOrg = ref(false);
 
 /** Ruta canónica (slug cuando existe) al panel de una empresa. */
 const dashboardPathFor = (tenantId: string): string => {
-  const tenant = authStore.user?.tenants?.find((t) => t.id === tenantId);
+  const tenant =
+    authStore.user?.tenants?.find((t) => t.id === tenantId) ??
+    companyStore.allCompanies.find((c) => c.id === tenantId);
   return companyPathFor(tenant, '/dashboard') || `/companies/${tenantId}/dashboard`;
 };
 
@@ -461,7 +508,9 @@ const handleOrgChange = async (tenantId: string) => {
     // Refrescar claims (roles/permisos son por empresa y viven en el JWT)
     await authStore.refreshTokens();
     await authStore.fetchProfile();
-    const tenant = authStore.user?.tenants?.find((t) => t.id === tenantId);
+    const tenant =
+      authStore.user?.tenants?.find((t) => t.id === tenantId) ??
+      companyStore.allCompanies.find((c) => c.id === tenantId);
     // Quedarse en la sección actual: el guard de rutas (con los claims ya
     // frescos) solo redirige al Panel si la nueva empresa no tiene permiso.
     const section = preservableSection(route.path, route.name);
@@ -846,6 +895,10 @@ button.search-box:hover {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+p.dropdown-section-label {
+  margin: 0;
 }
 
 /* USER MENU */

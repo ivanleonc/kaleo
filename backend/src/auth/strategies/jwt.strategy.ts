@@ -36,6 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       companyPermissions,
       roles: payload.roles || [],
       permissions: payload.permissions || [],
+      isSuperAdmin: payload.isSuperAdmin === true,
     };
   }
 }

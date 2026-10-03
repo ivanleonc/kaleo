@@ -25,4 +25,10 @@ export interface JwtPayload {
   roles: string[];
   /** Permisos del tenant por defecto (primer tenant) — para compatibilidad */
   permissions: string[];
+  /**
+   * Super-administrador global (columna users.is_super_admin).
+   * Otorga acceso virtual a TODAS las empresas sin filas en user_contexts.
+   * Solo se otorga por SQL directo; ningún endpoint escribe esta columna.
+   */
+  isSuperAdmin: boolean;
 }

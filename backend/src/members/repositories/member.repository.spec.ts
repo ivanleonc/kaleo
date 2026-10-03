@@ -147,3 +147,95 @@ describe('MemberRepository.getMembersByCompany', () => {
     expect(sql).toContain('ORDER BY u.name DESC');
   });
 });
+
+describe('MemberRepository cross-company (super-admin)', () => {
+  function createRunnerStub(rowsByMatcher: Array<{ match: RegExp; rows: any[] }>) {
+    const queries: Array<{ sql: string; params: any[] }> = [];
+    const query = vi.fn(async (sql: string, params: any[] = []) => {
+      queries.push({ sql, params });
+      const hit = rowsByMatcher.find((r) => r.match.test(sql));
+      return hit ? hit.rows : [];
+    });
+    const runner = {
+      connect: vi.fn(async () => {}),
+      startTransaction: vi.fn(async () => {}),
+      query,
+      commitTransaction: vi.fn(async () => {}),
+      rollbackTransaction: vi.fn(async () => {}),
+      release: vi.fn(async () => {}),
+    };
+    const dataSource = {
+      query,
+      createQueryRunner: () => runner,
+    };
+    return { dataSource, queries, runner };
+  }
+
+  it('findInvalidRoleIds acepta globales y de la empresa, rechaza ajenos', async () => {
+    const { dataSource, queries } = createRunnerStub([
+      { match: /FROM roles/, rows: [{ id: 'r-global' }, { id: 'r-mine' }] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    const invalid = await repo.findInvalidRoleIds(['r-global', 'r-mine', 'r-foreign'], 'company-1');
+
+    expect(invalid).toEqual(['r-foreign']);
+    const sql = queries[0].sql;
+    expect(sql).toContain('company_id IS NULL OR company_id = $4');
+    expect(queries[0].params).toEqual(['r-global', 'r-mine', 'r-foreign', 'company-1']);
+  });
+
+  it('attachExistingUser vincula sin tocar contraseña y rechaza duplicados', async () => {
+    const { dataSource, queries, runner } = createRunnerStub([
+      { match: /FROM user_contexts WHERE user_id/, rows: [] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    const result = await repo.attachExistingUser('company-9', 'user-7', ['r-1']);
+
+    expect(result).toEqual({ id: 'user-7', roleIds: ['r-1'], isNewUser: false });
+    expect(runner.commitTransaction).toHaveBeenCalled();
+    expect(runner.rollbackTransaction).not.toHaveBeenCalled();
+    const insert = queries.find((q) => q.sql.includes('INSERT INTO user_contexts'));
+    expect(insert?.params.slice(0, 2)).toEqual(['user-7', 'company-9']);
+  });
+
+  it('attachExistingUser hace rollback y lanza 409 si ya es miembro', async () => {
+    const { dataSource, runner } = createRunnerStub([
+      { match: /FROM user_contexts WHERE user_id/, rows: [{ '1': 1 }] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    await expect(repo.attachExistingUser('company-9', 'user-7', ['r-1'])).rejects.toThrow(
+      'El usuario ya es miembro de esta empresa',
+    );
+    expect(runner.rollbackTransaction).toHaveBeenCalled();
+    expect(runner.commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('getMemberCompanies agrupa roles por empresa del usuario', async () => {
+    const { dataSource, queries } = createRunnerStub([
+      { match: /FROM companies c/, rows: [{ id: 'c-1', name: 'Acme', slug: 'acme', roles: ['Owner'] }] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    const result = await repo.getMemberCompanies('user-7');
+
+    expect(result).toEqual([{ id: 'c-1', name: 'Acme', slug: 'acme', roles: ['Owner'] }]);
+    expect(queries[0].params).toEqual(['user-7']);
+    expect(queries[0].sql).toContain('uc.user_id = $1');
+  });
+
+  it('searchUsers limita y pagina con ILIKE en nombre/email', async () => {
+    const { dataSource, queries } = createRunnerStub([
+      { match: /FROM users/, rows: [{ id: 'u-1', name: 'Juan', email: 'juan@x.co' }] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    const result = await repo.searchUsers('ju', 99);
+
+    expect(result).toHaveLength(1);
+    expect(queries[0].params).toEqual(['%ju%', 20]);
+    expect(queries[0].sql).toContain('name ILIKE $1 OR email ILIKE $1');
+  });
+});

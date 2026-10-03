@@ -82,6 +82,7 @@ Los archivos viven en `backend/src/migrations/`. Se aplican **a mano** en el SQL
 | `014-backfill-company-slugs.sql` | Rellena slugs de empresas existentes |
 | `015-add-email-verification-expiry.sql` | Expiración de enlaces de verificación (24h) |
 | `016-cleanup-orphan-user-contexts.sql` | Limpia contextos huérfanos de roles borrados |
+| `017-add-super-admin-flag.sql` | Flag `users.is_super_admin` (super-admin global) |
 
 ### Reglas de oro
 

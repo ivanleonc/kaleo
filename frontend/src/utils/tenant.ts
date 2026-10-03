@@ -9,10 +9,10 @@ import type { Tenant } from '@/types/auth';
  */
 
 /** Resuelve el tenant de la URL: primero por slug, luego por id (legacy). */
-export function resolveTenantByParam(
-  tenants: Tenant[] | undefined,
+export function resolveTenantByParam<T extends Pick<Tenant, 'id' | 'slug'>>(
+  tenants: T[] | undefined,
   param: string | undefined,
-): Tenant | undefined {
+): T | undefined {
   if (!param || !tenants?.length) return undefined;
   return (
     tenants.find((t) => t.slug && t.slug === param) ?? tenants.find((t) => t.id === param)

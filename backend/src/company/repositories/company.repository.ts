@@ -119,4 +119,21 @@ export class CompanyRepository {
     );
     return result[0] || null;
   }
+
+  /**
+   * Todas las empresas del sistema (solo super-admin).
+   * Sin filtro por usuario: incluye conteo de miembros para el switcher admin.
+   */
+  async getAllCompanies() {
+    const result = await this.dataSource.query(
+      `SELECT c.id, c.name, c.tax_id, c.slug, c.is_active,
+              COUNT(DISTINCT uc.user_id)::int AS member_count
+       FROM companies c
+       LEFT JOIN user_contexts uc ON uc.company_id = c.id
+       WHERE c.deleted_at IS NULL
+       GROUP BY c.id, c.name, c.tax_id, c.slug, c.is_active
+       ORDER BY c.name`,
+    );
+    return result;
+  }
 }

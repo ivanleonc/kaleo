@@ -20,6 +20,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value?.tenants?.find((t) => t.id === activeTenantId.value)
   );
 
+  /** Super-admin global: acceso virtual a todas las empresas. */
+  const isSuperAdmin = computed(() => user.value?.isSuperAdmin === true);
+
   const setSession = (access: string, refresh: string, userData: AuthUser) => {
     accessToken.value = access;
     refreshToken.value = refresh;
@@ -63,6 +66,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   const hasPermission = (permission: string): boolean => {
     if (!user.value) return false;
+    // Super-admin global: pasa todo (el backend revalida de todas formas).
+    if (user.value.isSuperAdmin === true) return true;
     const activeId = activeTenantId.value;
     // Roles del tenant activo (para Owner bypass)
     const activeRoles = activeId
@@ -78,6 +83,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const hasRole = (role: string): boolean => {
     if (!user.value) return false;
+    if (user.value.isSuperAdmin === true) return true;
     const activeId = activeTenantId.value;
     const activeRoles = activeId
       ? (user.value.companyRoles?.[activeId] ?? user.value.roles ?? [])
@@ -137,7 +143,12 @@ export const useAuthStore = defineStore('auth', () => {
 
       const tenants = response.data?.tenants ?? [];
       const current = activeTenantId.value;
-      const stillValid = !!current && tenants.some((t) => t.id === current);
+      // El super-admin puede estar en una empresa ajena a sus membresías:
+      // no rebotarlo a tenants[0] (el backend es la fuente de verdad).
+      const stillValid = !!current && (
+        tenants.some((t) => t.id === current) ||
+        response.data?.isSuperAdmin === true
+      );
       if (!stillValid) {
         const firstTenant = tenants[0];
         if (firstTenant) {
@@ -200,6 +211,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     error,
     isAuthenticated,
+    isSuperAdmin,
     currentTenant,
     login,
     logout,

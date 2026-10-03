@@ -31,6 +31,12 @@ export class RolesGuard implements CanActivate {
       ? (user.companyRoles?.[companyId] ?? [])
       : (user.roles ?? []);
 
+    // Super-admin bypass (global): ver comentario en PermissionsGuard.
+    if (user.isSuperAdmin === true) {
+      request.isSuperAdmin = true;
+      return true;
+    }
+
     const hasRole = requiredRoles.some((role) => userRoles.includes(role));
 
     if (!hasRole) {

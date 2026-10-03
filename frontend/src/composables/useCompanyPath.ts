@@ -1,6 +1,7 @@
 import { useRoute } from 'vue-router';
 import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyStore } from '@/stores/company.store';
 import { resolveTenantByParam, tenantUrlParam } from '@/utils/tenant';
 
 /**
@@ -14,6 +15,7 @@ import { resolveTenantByParam, tenantUrlParam } from '@/utils/tenant';
 export function useCompanyPath() {
   const route = useRoute();
   const authStore = useAuthStore();
+  const companyStore = useCompanyStore();
 
   /** Valor crudo del parámetro de ruta (slug o UUID). */
   const routeCompanyParam = computed<string | undefined>(() => {
@@ -21,8 +23,16 @@ export function useCompanyPath() {
     return typeof value === 'string' ? value : undefined;
   });
 
-  /** Tenant resuelto desde la URL (slug → id). */
-  const routeTenant = computed(() => resolveTenantByParam(authStore.user?.tenants, routeCompanyParam.value));
+  /**
+   * Tenant resuelto desde la URL (slug → id). Para super-admin también se
+   * busca en todas las empresas: pueden navegar a compañías ajenas a sus
+   * membresías (acceso virtual).
+   */
+  const routeTenant = computed(
+    () =>
+      resolveTenantByParam(authStore.user?.tenants, routeCompanyParam.value) ??
+      resolveTenantByParam(companyStore.allCompanies, routeCompanyParam.value),
+  );
 
   /** UUID de la empresa activa: ruta → store → primer tenant del usuario. */
   const companyId = computed<string | undefined>(

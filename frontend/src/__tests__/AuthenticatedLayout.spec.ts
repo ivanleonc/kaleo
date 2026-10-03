@@ -29,6 +29,30 @@ vi.mock('vue-router', () => ({
   }),
 }));
 
+const { mockGetAllCompanies, mockGetProfile } = vi.hoisted(() => ({
+  mockGetAllCompanies: vi.fn(),
+  mockGetProfile: vi.fn(),
+}));
+
+vi.mock('@/services/company.service', () => ({
+  companyService: {
+    getAllCompanies: mockGetAllCompanies,
+    getCompanies: vi.fn(),
+    getCompany: vi.fn(),
+    createCompany: vi.fn(),
+    updateCompany: vi.fn(),
+  },
+}));
+
+vi.mock('@/services/auth.service', () => ({
+  authService: {
+    getProfile: mockGetProfile,
+    login: vi.fn(),
+    logout: vi.fn(),
+    refresh: vi.fn(),
+  },
+}));
+
 // El dropdown teletransporta su menú: en el test basta con el contenido inline.
 const UiDropdownStub = {
   template: `<div><slot name="trigger" :open="false" :toggle="noop" :close="noop" :trigger-aria="{}" /><slot :close="noop" /></div>`,
@@ -90,6 +114,9 @@ const seedAuth = () => {
 beforeEach(() => {
   setActivePinia(createPinia());
   mockPush.mockReset();
+  mockGetAllCompanies.mockReset();
+  mockGetProfile.mockReset();
+  mockGetAllCompanies.mockResolvedValue({ success: true, data: [] });
   seedAuth();
   setRoute('/companies/acme/members', 'Members');
 });
@@ -145,5 +172,71 @@ describe('AuthenticatedLayout — cambio de empresa conserva la sección', () =>
     await clickTenant('Acme');
 
     expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthenticatedLayout — super-admin en empresa ajena', () => {
+  const seedSuperAdmin = () => {
+    const authStore = useAuthStore();
+    authStore.user = {
+      id: 'user-1',
+      name: 'Iván',
+      email: 'ivan@acme.co',
+      isSuperAdmin: true,
+      tenants: [{ id: 'uuid-a', name: 'Acme', slug: 'acme' }],
+    } as any;
+    // Empresa ajena: no está en `tenants`, solo en "Todas".
+    authStore.activeTenantId = 'uuid-ext';
+    vi.spyOn(authStore, 'refreshTokens').mockResolvedValue(true);
+    vi.spyOn(authStore, 'fetchProfile').mockResolvedValue(undefined as never);
+
+    mockGetAllCompanies.mockResolvedValue({
+      success: true,
+      data: [
+        { id: 'uuid-a', name: 'Acme', slug: 'acme', tax_id: null, is_active: true, member_count: 2 },
+        { id: 'uuid-ext', name: 'Externa', slug: 'externa', tax_id: null, is_active: true, member_count: 5 },
+      ],
+    });
+  };
+
+  it('el trigger muestra el nombre de la empresa ajena (no "Mi Empresa")', async () => {
+    seedSuperAdmin();
+    await mountLayout();
+
+    const triggerName = wrapper!.find('.org-trigger-name');
+    expect(triggerName.text()).toBe('Externa');
+  });
+
+  it('la sección "Todas las empresas" lista la ajena sin duplicar las propias', async () => {
+    seedSuperAdmin();
+    await mountLayout();
+
+    expect(document.body.textContent).toContain('Todas las empresas');
+    // Acme sale una sola vez (en "mis empresas", no duplicada en "Todas").
+    const acmeButtons = wrapper!
+      .findAll('button.dropdown-item')
+      .filter((b) => b.text().trim() === 'Acme');
+    expect(acmeButtons).toHaveLength(1);
+    const extButtons = wrapper!
+      .findAll('button.dropdown-item')
+      .filter((b) => b.text().trim() === 'Externa');
+    expect(extButtons).toHaveLength(1);
+  });
+
+  it('fetchProfile conserva el tenant ajeno al recargar (no rebota)', async () => {
+    seedSuperAdmin();
+    // fetchProfile real (sin spy): el perfil no incluye la empresa ajena.
+    const authStore = useAuthStore();
+    (authStore.fetchProfile as any).mockRestore?.();
+    mockGetProfile.mockResolvedValue({
+      data: {
+        tenants: [{ id: 'uuid-a', name: 'Acme', slug: 'acme' }],
+        isSuperAdmin: true,
+      },
+    });
+
+    await authStore.fetchProfile();
+
+    expect(authStore.activeTenantId).toBe('uuid-ext');
   });
 });

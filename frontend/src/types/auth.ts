@@ -29,6 +29,8 @@ export interface AuthUser {
   permissions: string[];
   companyRoles?: Record<string, string[]>;       // { [tenantId]: ['Owner', ...] }
   companyPermissions?: Record<string, string[]>; // { [tenantId]: ['users:read', ...] }
+  /** Super-admin global: acceso virtual a todas las empresas. Solo por SQL. */
+  isSuperAdmin?: boolean;
 }
 
 export interface Tenant {

@@ -67,6 +67,10 @@ apiClient.interceptors.request.use(
     }
 
     try {
+      // Un header explícito por request (ej. operar sobre otra empresa como
+      // super-admin) tiene prioridad: no se sobrescribe con el tenant activo.
+      const explicitHeader = config.headers?.['x-company-id'];
+      if (explicitHeader) return config;
       const explicitTenant = localStorage.getItem('saas_active_tenant');
       if (explicitTenant && config.headers) {
         config.headers['x-company-id'] = explicitTenant;

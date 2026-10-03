@@ -145,15 +145,16 @@ src/
 1. `ThrottlerGuard` — 30 req/min global; endpoints de auth tienen límites propios más estrictos
 2. `JwtAuthGuard` — verifica Bearer token **y blacklist** en cada request autenticado; `@Public()` exime
 3. `PasswordChangedGuard` — bloquea todo si `must_change_password = true`; `@SkipPasswordChanged()` exime
-4. `CompanyAccessGuard` — verifica que el usuario pertenezca a la empresa del `x-company-id` header
+4. `CompanyAccessGuard` — verifica que el usuario pertenezca a la empresa del `x-company-id` header (o sea super-admin: acceso virtual sin membresía)
 
 ### Sistema RBAC
 
 | Rol | Qué puede hacer |
 |---|---|
-| `Owner` | Todo — inmutable, no se pueden cambiar sus permisos |
-| `Admin` | Todo excepto gestión de roles y borrado de usuarios |
+| `Owner` | Todo **dentro de su empresa** — inmutable, no se pueden cambiar sus permisos |
+| `Admin` | Todo excepto gestión de roles y borrado de usuarios (en su empresa) |
 | `Viewer` | Solo lectura en todas las secciones que tiene acceso |
+| `is_super_admin` | **Global**: acceso virtual a TODAS las empresas sin membresía. Solo por SQL, sin UI |
 
 Permisos por módulo: `auth`, `users`, `roles`, `company`, `settings`, `profile`, `dashboard`, `branches`, `audit`. Cada uno tiene `read`, `create`, `update`, `delete` según aplique.
 
@@ -162,6 +163,15 @@ Para agregar un permiso nuevo:
 2. Espejarlo en `frontend/src/constants/permissions.ts`
 3. Agregar el `INSERT` en `src/migrations/004-seed-permissions-roles.sql` (nueva migración si ya está aplicada)
 4. Usar `@RequirePermissions(Permissions.MODULE.ACTION)` en el controlador
+
+### Super-administrador global
+
+- Columna `users.is_super_admin` (migración `017`). **No existe ningún endpoint que la escriba**: solo se otorga/revoca por SQL directo. Así es imposible la escalada de privilegios desde la app.
+- Otorgar: `UPDATE users SET is_super_admin = TRUE WHERE email = 'admin@ejemplo.com';`
+- Revocar: `UPDATE users SET is_super_admin = FALSE WHERE email = '...';` + `DELETE FROM refresh_tokens WHERE user_id = '...';` (fuerza re-login; el access token vigente expira en ≤15 min).
+- Endpoints exclusivos: `GET /api/companies/all` (guard `SuperAdminGuard`).
+- Endpoints con empresa explícita (`POST/DELETE /api/companies/:id/members`): el super-admin opera sobre cualquier `:id`; el resto debe enviar `x-company-id` igual al `:id`.
+- Auditoría: sus acciones quedan registradas como cualquier miembro (con la empresa destino explícita).
 
 ### Seguridad implementada
 

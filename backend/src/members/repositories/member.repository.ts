@@ -245,6 +245,116 @@ export class MemberRepository {
     return result[0];
   }
 
+  async findUserByEmail(email: string) {
+    const result = await this.dataSource.query(
+      `SELECT id, email, name FROM users WHERE email = $1 AND deleted_at IS NULL`,
+      [email],
+    );
+    return result[0];
+  }
+
+  /**
+   * Valida que todos los roleIds existan y pertenezcan a la empresa destino
+   * (o sean globales con company_id IS NULL). Devuelve los inválidos.
+   */
+  async findInvalidRoleIds(roleIds: string[], companyId: string): Promise<string[]> {
+    if (!roleIds || roleIds.length === 0) return [];
+    const placeholders = roleIds.map((_, i) => `$${i + 1}`).join(', ');
+    const rows = await this.dataSource.query(
+      `SELECT id FROM roles
+       WHERE id IN (${placeholders})
+         AND (company_id IS NULL OR company_id = $${roleIds.length + 1})
+         AND deleted_at IS NULL`,
+      [...roleIds, companyId],
+    );
+    const valid = new Set(rows.map((r: any) => r.id));
+    return roleIds.filter((id) => !valid.has(id));
+  }
+
+  /**
+   * Resuelve nombres de rol a IDs dentro de una empresa (globales incluidos).
+   * Devuelve los nombres que NO se pudieron resolver.
+   */
+  async resolveRoleIdsByName(names: string[], companyId: string): Promise<{ ids: string[]; missing: string[] }> {
+    const unique: string[] = [...new Set(names.filter((n): n is string => !!n))];
+    if (unique.length === 0) return { ids: [], missing: [] };
+    const placeholders = unique.map((_, i) => `$${i + 1}`).join(', ');
+    const rows = await this.dataSource.query(
+      `SELECT id, name FROM roles
+       WHERE name IN (${placeholders})
+         AND (company_id IS NULL OR company_id = $${unique.length + 1})
+         AND deleted_at IS NULL`,
+      [...unique, companyId],
+    );
+    const found = new Map<string, string>(rows.map((r: any) => [r.name, r.id] as [string, string]));
+    return {
+      ids: unique.filter((n) => found.has(n)).map((n) => found.get(n) as string),
+      missing: unique.filter((n) => !found.has(n)),
+    };
+  }
+  /**
+   * Vincula un usuario EXISTENTE a una empresa (sin tocar su contraseña
+   * ni enviarle correos: su acceso actual no cambia).
+   */
+  async attachExistingUser(companyId: string, userId: string, roleIds: string[]) {
+    let result: any;
+    try {
+      await runInTransaction(this.dataSource, async (queryRunner) => {
+        const memberCheck = await queryRunner.query(
+          `SELECT 1 FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
+          [userId, companyId],
+        );
+        if (memberCheck.length > 0) {
+          throw new ConflictException('El usuario ya es miembro de esta empresa');
+        }
+        await insertUserContexts(queryRunner, userId, companyId, roleIds);
+        result = { id: userId, roleIds, isNewUser: false };
+      });
+      return result;
+    } catch (error) {
+      if (error instanceof ConflictException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Error al asignar la empresa al miembro');
+    }
+  }
+
+  /**
+   * Empresas (con roles) a las que pertenece un usuario.
+   * A diferencia de getUserCompanies —que filtra por miembro activo— esta
+   * versión es para administración (detalle del miembro).
+   */
+  async getMemberCompanies(userId: string) {
+    const result = await this.dataSource.query(
+      `SELECT c.id, c.name, c.slug,
+              COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+       FROM companies c
+       INNER JOIN user_contexts uc ON uc.company_id = c.id
+       LEFT JOIN roles r ON r.id = uc.role_id
+       WHERE uc.user_id = $1 AND c.deleted_at IS NULL
+       GROUP BY c.id, c.name, c.slug
+       ORDER BY c.name`,
+      [userId],
+    );
+    return result;
+  }
+
+  /**
+   * Búsqueda de usuarios para autocompletar (flujo de asignación).
+   * Solo id/nombre/email: nunca hashes, roles ni tokens.
+   */
+  async searchUsers(query: string, limit = 10) {
+    const result = await this.dataSource.query(
+      `SELECT id, name, email FROM users
+       WHERE deleted_at IS NULL
+         AND (name ILIKE $1 OR email ILIKE $1)
+       ORDER BY name
+       LIMIT $2`,
+      [`%${query}%`, Math.min(Math.max(limit, 1), 20)],
+    );
+    return result;
+  }
+
   async removeMember(companyId: string, userId: string) {
     // Impedir dejar la empresa sin ningún Owner: si este usuario es el
     // único Owner activo el borrado se rechaza.

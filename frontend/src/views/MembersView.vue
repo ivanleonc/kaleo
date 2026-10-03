@@ -88,6 +88,10 @@
                     <IconKey :size="14" stroke-width="1.8" />
                     <span>Resetear contraseña</span>
                   </UiDropdownItem>
+                  <UiDropdownItem @click="openCompaniesModal(row)" v-permission="Permissions.USERS.UPDATE">
+                    <IconBuildingCommunity :size="14" stroke-width="1.8" />
+                    <span>Gestionar empresas</span>
+                  </UiDropdownItem>
                   <div class="ui-dropdown-divider" role="separator"></div>
                   <UiDropdownItem danger @click="handleDelete(row.id, row.name)" v-permission="Permissions.USERS.DELETE">
                     <IconTrash :size="14" stroke-width="1.8" />
@@ -136,6 +140,48 @@
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
         <UiInput v-model="addForm.name" label="Nombre Completo" required />
         <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required :error="addEmailError" />
+
+        <!-- Buscar usuario existente: si se elige uno, solo se vincula (sin
+             tocar su contraseña). Si no, se crea con temporal por correo. -->
+        <div class="assign-search">
+          <UiSearchInput
+            v-model="userSearchQuery"
+            placeholder="¿Ya existe? Busca por nombre o email..."
+            @input="onUserSearchInput"
+          />
+          <ul v-if="userSearchResults.length > 0 && !selectedUser" class="user-results" role="listbox" aria-label="Usuarios encontrados">
+            <li v-for="u in userSearchResults" :key="u.id" role="option">
+              <button type="button" class="user-result" @click="pickExistingUser(u)">
+                <span class="user-result-name">{{ u.name }}</span>
+                <span class="user-result-email">{{ u.email }}</span>
+              </button>
+            </li>
+          </ul>
+          <p v-if="isSearching" class="assign-hint" role="status">Buscando…</p>
+          <p v-if="selectedUser" class="assign-picked">
+            Usuario existente: <strong>{{ selectedUser.name }} ({{ selectedUser.email }})</strong>
+            <button type="button" class="link-btn" @click="clearSelectedUser">Quitar</button>
+          </p>
+        </div>
+
+        <!-- Asignación multi-empresa (solo si administra más de una). -->
+        <div v-if="assignableCompanies.length > 1" class="assign-companies">
+          <p class="assign-label" id="assign-companies-label">Empresas donde asignar</p>
+          <div class="assign-checks" role="group" aria-labelledby="assign-companies-label">
+            <label v-for="c in assignableCompanies" :key="c.id" class="assign-check">
+              <input type="checkbox" :value="c.id" v-model="assignCompanyIds" />
+              <span>{{ c.name }}</span>
+              <span v-if="c.id === companyId" class="assign-current">(actual)</span>
+            </label>
+          </div>
+        </div>
+
+        <UiSelect
+          v-if="isMultiAssign"
+          v-model="assignRoleName"
+          label="Rol (se aplica en todas las empresas elegidas)"
+          :options="assignRoleOptions"
+        />
         <div class="form-row">
           <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
           <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
@@ -145,6 +191,7 @@
           <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
         </div>
         <UiDualListbox
+          v-if="!isMultiAssign"
           v-model="addForm.roleIds"
           :available="roleItems"
           :selected="roleItems"
@@ -152,6 +199,15 @@
           available-label="Disponibles"
           selected-label="Asignados"
         />
+        <div v-if="attachResults.length > 0" class="attach-results" role="status">
+          <p
+            v-for="r in attachResults"
+            :key="r.companyId"
+            :class="r.ok ? 'attach-ok' : 'attach-fail'"
+          >
+            {{ r.ok ? '✓' : '✗' }} {{ r.companyName }}: {{ r.message }}
+          </p>
+        </div>
         <template #footer="{ requestClose }">
           <div class="modal-footer">
             <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
@@ -235,6 +291,14 @@
       Esto invalidará su contraseña actual de forma inmediata.
     </UiConfirmDialog>
 
+    <!-- Empresas del miembro (asignar / quitar multi-empresa) -->
+    <MemberCompaniesModal
+      v-model="isCompaniesModalOpen"
+      :user-id="companiesTarget?.id ?? null"
+      :user-name="companiesTarget?.name"
+      :user-email="companiesTarget?.email"
+    />
+
   </AuthenticatedLayout>
 </template>
 
@@ -257,6 +321,7 @@ import UiModal from '@/components/ui/UiModal.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
+import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
@@ -267,6 +332,7 @@ import UiPagination from '@/components/ui/UiPagination.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import { emptyToUndefined } from '@/utils/text';
+import { apiErrorMessage } from '@/utils/error';
 import { useClipboard } from '@/composables/useClipboard';
 import { useFilterSync } from '@/composables/useFilterSync';
 import { useDirtyForm } from '@/composables/useDirtyForm';
@@ -277,13 +343,18 @@ import {
   sortingStateToServer,
 } from '@/composables/useAppTable';
 import type { Member } from '@/types/member';
+import type { UserSearchResult } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
-import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconUsers } from '@tabler/icons-vue';
+import { useDebounceFn } from '@/composables/useDebounceFn';
+import { useCompanyStore } from '@/stores/company.store';
+import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconUsers, IconBuildingCommunity } from '@tabler/icons-vue';
+import MemberCompaniesModal from '@/components/MemberCompaniesModal.vue';
 
 const authStore = useAuthStore();
 const memberStore = useMemberStore();
+const companyStore = useCompanyStore();
 const toast = useToast();
 const availableRoles = ref<Role[]>([]);
 const { companyId } = useCompanyPath();
@@ -297,6 +368,94 @@ const roleItems = computed(() =>
 );
 
 const { copyToClipboard } = useClipboard();
+
+// --- ASIGNACIÓN MULTI-EMPRESA (Owner de varias / super-admin) ---
+// El flujo legacy (una empresa = la activa) sigue intacto abajo. Este bloque
+// solo se activa cuando hay >1 empresa administrable o se elige un usuario
+// existente: entonces se asigna por nombre de rol en cada empresa destino.
+const userSearchQuery = ref('');
+const userSearchResults = ref<UserSearchResult[]>([]);
+const isSearching = ref(false);
+const selectedUser = ref<UserSearchResult | null>(null);
+const assignCompanyIds = ref<string[]>([]);
+const assignRoleName = ref('');
+const companyRolesCache = ref<Record<string, Role[]>>({});
+const attachResults = ref<Array<{ companyId: string; companyName: string; ok: boolean; message: string }>>([]);
+
+/** Empresas donde puedo asignar: Owner/Admin en mis tenants + todas si super-admin. */
+const assignableCompanies = computed(() => {
+  const mine = (authStore.user?.tenants ?? [])
+    .filter((t) => (t.roles ?? []).some((r) => r === 'Owner' || r === 'Admin'))
+    .map((t) => ({ id: t.id, name: t.name }));
+  if (!authStore.isSuperAdmin) return mine;
+  const seen = new Set(mine.map((m) => m.id));
+  const extra = companyStore.allCompanies
+    .filter((c) => !seen.has(c.id))
+    .map((c) => ({ id: c.id, name: c.name }));
+  return [...mine, ...extra];
+});
+
+const isMultiAssign = computed(() => assignCompanyIds.value.length > 1);
+
+/** Nombres de rol disponibles en las empresas elegidas (unión ordenada). */
+const assignRoleOptions = computed(() => {
+  const names = new Set<string>();
+  for (const cid of assignCompanyIds.value) {
+    for (const r of companyRolesCache.value[cid] ?? []) names.add(r.name);
+  }
+  return [...names].sort().map((n) => ({ label: n, value: n }));
+});
+
+async function ensureCompanyRoles(cid: string) {
+  if (companyRolesCache.value[cid]) return;
+  try {
+    companyRolesCache.value[cid] = await roleService.getRoles(cid);
+  } catch {
+    companyRolesCache.value[cid] = [];
+  }
+}
+
+watch(assignCompanyIds, async (ids) => {
+  for (const id of ids) await ensureCompanyRoles(id);
+  const options = assignRoleOptions.value;
+  if (assignRoleName.value && !options.some((o) => o.value === assignRoleName.value)) {
+    assignRoleName.value = '';
+  }
+  if (!assignRoleName.value && options.length > 0) {
+    assignRoleName.value = (options[0]?.value as string) ?? '';
+  }
+});
+
+const runUserSearch = async () => {
+  const q = userSearchQuery.value.trim();
+  if (q.length < 2 || selectedUser.value) {
+    if (q.length < 2) userSearchResults.value = [];
+    return;
+  }
+  isSearching.value = true;
+  try {
+    userSearchResults.value = await memberStore.searchUsers(q);
+  } catch {
+    userSearchResults.value = [];
+  } finally {
+    isSearching.value = false;
+  }
+};
+const debouncedUserSearch = useDebounceFn(runUserSearch, 350);
+const onUserSearchInput = () => {
+  debouncedUserSearch();
+};
+
+function pickExistingUser(u: UserSearchResult) {
+  selectedUser.value = u;
+  addForm.name = u.name;
+  addForm.email = u.email;
+  userSearchResults.value = [];
+}
+
+function clearSelectedUser() {
+  selectedUser.value = null;
+}
 
 // El filtrado ocurre en el servidor para que page/total sigan siendo
 // coherentes. Un solo watcher profundo (useFilterSync) cubre todas las
@@ -427,42 +586,104 @@ const openAddModal = () => {
   addForm.position = '';
   addForm.document_type = '';
   addForm.document_number = '';
+  userSearchQuery.value = '';
+  userSearchResults.value = [];
+  selectedUser.value = null;
+  assignRoleName.value = '';
+  attachResults.value = [];
+  assignCompanyIds.value = companyId.value ? [companyId.value] : [];
+  if (authStore.isSuperAdmin) {
+    companyStore.fetchAllCompanies().catch(() => {});
+  }
+  if (companyId.value) {
+    ensureCompanyRoles(companyId.value).catch(() => {});
+  }
   memberStore.error = null;
   captureAddForm();
   addModal.open();
 };
 
 const handleAddSubmit = async () => {
-  try {
-    const payload = {
-      name: addForm.name,
-      email: addForm.email,
-      roleIds: addForm.roleIds,
-      phone: emptyToUndefined(addForm.phone),
-      position: emptyToUndefined(addForm.position),
-      document_type: emptyToUndefined(addForm.document_type),
-      document_number: emptyToUndefined(addForm.document_number),
-    };
+  const targets = assignCompanyIds.value.length > 0
+    ? [...assignCompanyIds.value]
+    : (companyId.value ? [companyId.value] : []);
+  const useLegacy =
+    !selectedUser.value && targets.length === 1 && targets[0] === companyId.value;
 
-    const data = await memberStore.addMember(payload);
+  // Flujo original intacto: una empresa (la activa), usuario nuevo por email.
+  if (useLegacy) {
+    try {
+      const payload = {
+        name: addForm.name,
+        email: addForm.email,
+        roleIds: addForm.roleIds,
+        phone: emptyToUndefined(addForm.phone),
+        position: emptyToUndefined(addForm.position),
+        document_type: emptyToUndefined(addForm.document_type),
+        document_number: emptyToUndefined(addForm.document_number),
+      };
 
-    // La contraseña temporal ya no se muestra en pantalla: se envía por email.
-    addModal.close();
+      const data = await memberStore.addMember(payload);
+
+      // La contraseña temporal ya no se muestra en pantalla: se envía por email.
+      addModal.close();
+      toast.success(
+        data?.isNewUser
+          ? `Miembro agregado. Contraseña temporal enviada a ${addForm.email}.`
+          : `Miembro existente añadido a la empresa.`,
+      );
+
+      addForm.name = '';
+      addForm.email = '';
+      addForm.roleIds = [];
+      addForm.phone = '';
+      addForm.position = '';
+      addForm.document_type = '';
+      addForm.document_number = '';
+    } catch {
+      // El error queda en memberStore.error y lo muestra el UiAlert del modal.
+    }
+    return;
+  }
+
+  // Flujo multi-empresa / usuario existente: un attach por empresa con el
+  // mismo rol (resuelto por nombre en cada destino). Se reporta por empresa.
+  if (!assignRoleName.value) {
+    memberStore.error = 'Elige un rol para asignar en las empresas elegidas.';
+    return;
+  }
+  if (!addForm.email.trim() && !selectedUser.value) {
+    memberStore.error = 'Indica el correo del miembro o elige un usuario existente.';
+    return;
+  }
+  memberStore.error = null;
+  attachResults.value = [];
+  let okCount = 0;
+  for (const cid of targets) {
+    const cname = assignableCompanies.value.find((c) => c.id === cid)?.name ?? cid;
+    try {
+      await memberStore.attachMemberToCompany(cid, {
+        userId: selectedUser.value?.id,
+        email: addForm.email.trim() || undefined,
+        name: addForm.name.trim() || undefined,
+        roleNames: [assignRoleName.value],
+        phone: emptyToUndefined(addForm.phone),
+        position: emptyToUndefined(addForm.position),
+      });
+      okCount++;
+      attachResults.value.push({ companyId: cid, companyName: cname, ok: true, message: 'Asignado correctamente' });
+    } catch (err) {
+      attachResults.value.push({ companyId: cid, companyName: cname, ok: false, message: apiErrorMessage(err, 'Error al asignar') });
+    }
+  }
+  if (okCount === targets.length) {
     toast.success(
-      data?.isNewUser
-        ? `Miembro agregado. Contraseña temporal enviada a ${addForm.email}.`
-        : `Miembro existente añadido a la empresa.`,
+      okCount === 1 ? 'Miembro asignado a la empresa.' : `Miembro asignado a ${okCount} empresas.`,
     );
-
-    addForm.name = '';
-    addForm.email = '';
-    addForm.roleIds = [];
-    addForm.phone = '';
-    addForm.position = '';
-    addForm.document_type = '';
-    addForm.document_number = '';
-  } catch {
-    // El error queda en memberStore.error y lo muestra el UiAlert del modal.
+  } else if (okCount > 0) {
+    toast.warning(`Asignado en ${okCount} de ${targets.length} empresas. Revisa los errores.`);
+  } else {
+    toast.error('No se pudo asignar en ninguna empresa.');
   }
 };
 
@@ -581,6 +802,15 @@ const confirmDelete = async () => {
   }
 };
 
+// --- EMPRESAS DEL MIEMBRO (detalle multi-empresa) ---
+const companiesModal = useModal<{ id: string; name: string; email: string }>();
+const isCompaniesModalOpen = companiesModal.isOpen;
+const companiesTarget = companiesModal.target;
+
+const openCompaniesModal = (member: any) => {
+  companiesModal.open({ id: member.id, name: member.name, email: member.email });
+};
+
 // --- RESET PASSWORD (siempre envía por correo) ---
 const resetModal = useModal<{ id: string; name: string; email: string }>();
 const isResetModalOpen = resetModal.isOpen;
@@ -648,6 +878,139 @@ const confirmResetPassword = async () => {
   font-size: var(--text-sm);
   color: var(--accent-amber, var(--text-muted));
   margin-bottom: var(--space-2);
+}
+
+/* Asignación multi-empresa (modal Invitar) */
+.assign-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.user-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.user-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-main);
+}
+.user-results li:last-child .user-result {
+  border-bottom: none;
+}
+.user-result:hover {
+  background-color: var(--bg-hover);
+}
+.user-result-name {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.user-result-email {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.assign-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.assign-picked {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-danger, #e5484d);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.assign-companies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.assign-label {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.assign-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+}
+
+.assign-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-main);
+  cursor: pointer;
+  padding: var(--space-1) 0;
+}
+.assign-check input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+
+.assign-current {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.attach-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+.attach-results p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.attach-ok {
+  color: var(--color-success, #30a46c);
+}
+.attach-fail {
+  color: var(--color-danger, #e5484d);
 }
 
 

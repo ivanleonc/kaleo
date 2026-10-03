@@ -83,6 +83,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyStore } from '@/stores/company.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { memberService } from '@/services/member.service';
 import { roleService } from '@/services/role.service';
@@ -101,6 +102,7 @@ import {
 } from '@tabler/icons-vue';
 
 const authStore = useAuthStore();
+const companyStore = useCompanyStore();
 const { companyId, companyPath } = useCompanyPath();
 
 const isLoading = ref(true);
@@ -153,10 +155,13 @@ watch(companyId, loadData);
 
 const activeCompany = computed(() =>
   authStore.user?.tenants?.find((tenant) => tenant.id === authStore.activeTenantId)
+  // Super-admin en empresa ajena: cae a la lista global de "Todas".
+  ?? companyStore.allCompanies.find((c) => c.id === authStore.activeTenantId)
 );
 const activeCompanyName = computed(() => activeCompany.value?.name || '---');
 const activeCompanyRole = computed(() => {
   if (activeCompany.value?.roles?.includes('Owner')) return 'Administrador Principal';
+  if (authStore.isSuperAdmin) return 'Super Admin';
   return 'Miembro del Equipo';
 });
 </script>

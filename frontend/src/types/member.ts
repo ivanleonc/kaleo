@@ -51,3 +51,30 @@ export interface UpdateMemberPayload {
   document_type?: string;
   document_number?: string;
 }
+
+/** Payload para asignar un usuario a una empresa explícita. */
+export interface AttachMemberPayload {
+  userId?: string;
+  email?: string;
+  name?: string;
+  roleIds?: string[];
+  /** Alternativa a roleIds: se resuelven por nombre dentro de cada destino. */
+  roleNames?: string[];
+  phone?: string;
+  position?: string;
+}
+
+/** Resultado de búsqueda de usuarios (sin datos sensibles). */
+export interface UserSearchResult {
+  id: string;
+  name: string;
+  email: string;
+}
+
+/** Empresa (con roles) a la que pertenece un miembro. */
+export interface MemberCompany {
+  id: string;
+  name: string;
+  slug: string | null;
+  roles: string[];
+}

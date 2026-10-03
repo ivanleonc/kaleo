@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { MemberRepository } from './repositories/member.repository.js';
 import type { SortSpec } from '../common/dto/pagination-query.dto.js';
@@ -90,6 +90,83 @@ export class MemberService {
     const result = await this.memberRepository.removeMember(companyId, userId);
     await this.refreshTokenRepository.revokeAllForUser(userId);
     return result;
+  }
+
+  /**
+   * Asigna un usuario a una empresa explícita (`:id` del path, no del header).
+   *
+   * - Si se pasa `userId`: el usuario debe existir; solo se vincula (sin
+   *   tocar su contraseña ni enviarle correos: su acceso actual no cambia).
+   * - Si solo se pasa `email` y no existe: se crea como en addMember
+   *   (contraseña temporal por correo).
+   * - Si solo se pasa `email` y existe: se vincula sin efectos colaterales.
+   * - Roles: se aceptan `roleIds` (validados contra la empresa destino) o
+   *   `roleNames` (resueltos dentro de la empresa destino; útil para asignar
+   *   el mismo rol en varias empresas con IDs distintos).
+   */
+  async attachMember(
+    targetCompanyId: string,
+    input: { userId?: string; email?: string; name?: string; roleIds?: string[]; roleNames?: string[]; phone?: string; position?: string },
+  ) {
+    let roleIds = input.roleIds ?? [];
+    if (roleIds.length === 0 && input.roleNames?.length) {
+      const resolved = await this.memberRepository.resolveRoleIdsByName(input.roleNames, targetCompanyId);
+      if (resolved.missing.length > 0) {
+        throw new BadRequestException(
+          `Roles no encontrados en esta empresa: ${resolved.missing.join(', ')}`,
+        );
+      }
+      roleIds = resolved.ids;
+    }
+    if (roleIds.length === 0) {
+      throw new BadRequestException('Debes asignar al menos un rol');
+    }
+    const invalid = await this.memberRepository.findInvalidRoleIds(roleIds, targetCompanyId);
+    if (invalid.length > 0) {
+      throw new BadRequestException('Uno o más roles no pertenecen a esta empresa');
+    }
+
+    if (input.userId) {
+      const user = await this.memberRepository.findUserById(input.userId);
+      if (!user) throw new NotFoundException('Usuario no encontrado');
+      const attached = await this.memberRepository.attachExistingUser(targetCompanyId, user.id, roleIds);
+      return { ...attached, name: user.name, email: user.email };
+    }
+
+    if (!input.email) {
+      throw new BadRequestException('Debes indicar userId o email');
+    }
+    const email: string = input.email;
+    const existing = await this.memberRepository.findUserByEmail(email);
+    if (existing) {
+      const attached = await this.memberRepository.attachExistingUser(targetCompanyId, existing.id, roleIds);
+      return { ...attached, name: existing.name, email: existing.email };
+    }
+
+    if (!input.name?.trim()) {
+      throw new BadRequestException('El nombre es requerido para crear un usuario nuevo');
+    }
+    // Usuario nuevo: mismo flujo que addMember (temporal por correo).
+    return this.addMember(targetCompanyId, email, input.name.trim(), roleIds, {
+      phone: input.phone,
+      position: input.position,
+    });
+  }
+
+  /** Empresas (con roles) a las que pertenece un miembro. */
+  async getUserCompanies(targetUserId: string) {
+    const user = await this.memberRepository.findUserById(targetUserId);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return this.memberRepository.getMemberCompanies(targetUserId);
+  }
+
+  /** Búsqueda de usuarios para autocompletar (solo id/nombre/email). */
+  async searchUsers(query: string) {
+    const q = (query ?? '').trim();
+    if (q.length < 2) {
+      throw new BadRequestException('La búsqueda requiere al menos 2 caracteres');
+    }
+    return this.memberRepository.searchUsers(q);
   }
 
   private generateTempPassword(): string {

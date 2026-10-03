@@ -1,4 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { COMPANY_ID_HEADER } from '../constants/headers.js';
 
 /**
@@ -18,10 +19,17 @@ import { COMPANY_ID_HEADER } from '../constants/headers.js';
  *
  * Cuando no viene el header los repositorios filtran por `company_id = NULL`,
  * que no devuelve filas, así que ese caso falla cerrado por sí solo.
+ *
+ * Excepción super-admin: si la empresa del header no está en el JWT pero el
+ * usuario es super-admin global, se permite el acceso virtual (sin filas en
+ * user_contexts). La verificación es solo en el miss-path: el caso común
+ * (miembro real) no agrega ninguna query.
  */
 @Injectable()
 export class CompanyAccessGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private dataSource: DataSource) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
 
     const request = context.switchToHttp().getRequest();
@@ -32,11 +40,30 @@ export class CompanyAccessGuard implements CanActivate {
     if (!companyId) return true;
 
     const companies: string[] = Array.isArray(user.companies) ? user.companies : [];
-    if (!companies.includes(companyId)) {
-      throw new ForbiddenException('No tienes acceso a esta empresa');
+    if (companies.includes(companyId)) {
+      request.companyId = companyId;
+      return true;
     }
 
-    request.companyId = companyId;
-    return true;
+    // Miss-path: ¿super-admin global? Claim primero (rápido), DB como
+    // fuente de verdad (cubre tokens emitidos antes de otorgar el flag).
+    if (user.isSuperAdmin === true) {
+      request.companyId = companyId;
+      request.isSuperAdmin = true;
+      return true;
+    }
+    if (user.id) {
+      const rows = await this.dataSource.query(
+        `SELECT is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        [user.id],
+      );
+      if (rows[0]?.is_super_admin === true) {
+        request.companyId = companyId;
+        request.isSuperAdmin = true;
+        return true;
+      }
+    }
+
+    throw new ForbiddenException('No tienes acceso a esta empresa');
   }
 }

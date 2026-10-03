@@ -4,7 +4,7 @@ import { memberService } from '@/services/member.service';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import type { ServerSort } from '@/composables/useAppTable';
-import type { Member, CreateMemberPayload, UpdateMemberPayload } from '@/types/member';
+import type { Member, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, MemberCompany, UserSearchResult } from '@/types/member';
 
 export interface MemberFilters {
   search?: string;
@@ -145,6 +145,49 @@ export const useMemberStore = defineStore('member', () => {
     return result;
   };
 
+  /** Empresas (con roles) a las que pertenece un miembro. */
+  const memberCompanies = ref<MemberCompany[]>([]);
+
+  const fetchUserCompanies = async (userId: string) => {
+    const result = await withLoading(async () => {
+      const response = await memberService.getUserCompanies(userId);
+      memberCompanies.value = response.data;
+      return response.data;
+    }, 'Error al cargar las empresas del miembro');
+    return result ?? [];
+  };
+
+  /**
+   * Asigna un usuario a una empresa explícita (puede diferir de la activa).
+   * Si es la empresa activa se refresca la tabla; si no, no hay nada local
+   * que refrescar.
+   */
+  const attachMemberToCompany = async (companyId: string, payload: AttachMemberPayload) => {
+    const result = await withLoading(async () => {
+      const response = await memberService.attachToCompany(companyId, payload);
+      if (companyId === currentCompanyId.value) {
+        await refreshMembers();
+      }
+      return response.data;
+    }, 'Error al asignar la empresa');
+    return result;
+  };
+
+  const detachMemberFromCompany = async (companyId: string, userId: string) => {
+    await withLoading(async () => {
+      await memberService.removeFromCompany(companyId, userId);
+      memberCompanies.value = memberCompanies.value.filter((c) => c.id !== companyId);
+      if (companyId === currentCompanyId.value) {
+        await refreshMembers();
+      }
+    }, 'Error al quitar la empresa');
+  };
+
+  const searchUsers = async (query: string): Promise<UserSearchResult[]> => {
+    const response = await memberService.searchUsers(query);
+    return response.data;
+  };
+
   return {
     members,
     isLoading,
@@ -170,5 +213,10 @@ export const useMemberStore = defineStore('member', () => {
     removeMember,
     resetPassword,
     resetPasswordAndSendEmail,
+    memberCompanies,
+    fetchUserCompanies,
+    attachMemberToCompany,
+    detachMemberFromCompany,
+    searchUsers,
   };
 });

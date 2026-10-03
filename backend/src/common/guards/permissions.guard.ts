@@ -42,6 +42,14 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
+    // Super-admin bypass (global): acceso virtual a todas las empresas sin
+    // filas en user_contexts. El claim puede tener hasta 15 min de atraso;
+    // la revocación del flag invalida sesiones vía blacklist + refresh.
+    if (user.isSuperAdmin === true) {
+      request.isSuperAdmin = true;
+      return true;
+    }
+
     const hasPermission = requiredPermissions.every((perm) => userPermissions.includes(perm));
 
     if (!hasPermission) {

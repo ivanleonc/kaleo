@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, ParseUUIDPipe, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { CompanyService } from './company.service.js';
 import { CreateCompanyDto } from './dto/create-company.dto.js';
@@ -8,6 +8,7 @@ import { Ok } from '../common/dto/api-response.dto.js';
 import { Audit } from '../common/decorators/audit-context.decorator.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { SuperAdminGuard } from '../common/guards/super-admin.guard.js';
 
 @ApiTags('Companies')
 @ApiBearerAuth()
@@ -46,6 +47,17 @@ export class CompanyController {
     return Ok(companies);
   }
 
+  @Get('all')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({ summary: 'Listar TODAS las empresas del sistema', description: 'Solo super-administradores. Incluye conteo de miembros. Sin filtro por usuario.' })
+  @ApiResponse({ status: 200, description: 'Lista completa de empresas' })
+  @ApiResponse({ status: 401, description: 'Token JWT inválido o expirado' })
+  @ApiResponse({ status: 403, description: 'Se requiere acceso de super-administrador' })
+  async getAllCompanies() {
+    const companies = await this.companyService.getAllCompanies();
+    return Ok(companies);
+  }
+
   // NOTA: no usar '@Get(":id")' aquí: colisiona con las rutas exactas
   // /companies/users y /companies/branches (Express registra first-match-wins
   // según dependencias de módulos y ParseUUIDPipe devolvería 400).
@@ -60,8 +72,11 @@ export class CompanyController {
   async getCompany(
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) companyId: string,
+    @Req() req: any,
   ) {
-    const company = await this.companyService.getCompanyDetail(userId, companyId);
+    const company = await this.companyService.getCompanyDetail(userId, companyId, {
+      isSuperAdmin: req?.isSuperAdmin === true,
+    });
     return Ok(company);
   }
 
@@ -128,8 +143,11 @@ export class CompanyController {
     @CurrentUser('id') userId: string,
     @Param('id', ParseUUIDPipe) companyId: string,
     @Body() updateCompanyDto: UpdateCompanyDto,
+    @Req() req: any,
   ) {
-    const updatedCompany = await this.companyService.updateCompanyInfo(userId, companyId, updateCompanyDto);
+    const updatedCompany = await this.companyService.updateCompanyInfo(userId, companyId, updateCompanyDto, {
+      isSuperAdmin: req?.isSuperAdmin === true,
+    });
     return Ok({ company: updatedCompany }, 'Empresa actualizada exitosamente');
   }
 }

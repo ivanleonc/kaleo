@@ -39,10 +39,17 @@ export class CompanyService {
     return await this.companyRepository.getUserCompanies(userId); //[cite: 12]
   }
 
-  async getCompanyDetail(userId: string, companyId: string) {
-    const operatorData = await this.companyRepository.verifyUserBelongsToCompany(userId, companyId);
-    if (!operatorData) {
-      throw new ForbiddenException('No tienes acceso a esta empresa');
+  async getAllCompanies() {
+    return await this.companyRepository.getAllCompanies();
+  }
+
+  async getCompanyDetail(userId: string, companyId: string, opts?: { isSuperAdmin?: boolean }) {
+    // El super-admin accede virtualmente sin fila en user_contexts.
+    if (!opts?.isSuperAdmin) {
+      const operatorData = await this.companyRepository.verifyUserBelongsToCompany(userId, companyId);
+      if (!operatorData) {
+        throw new ForbiddenException('No tienes acceso a esta empresa');
+      }
     }
     const company = await this.companyRepository.findById(companyId);
     if (!company) {
@@ -76,16 +83,18 @@ export class CompanyService {
     name?: string; tax_id?: string; logo_url?: string; phone?: string; email?: string;
     address?: string; city?: string; state?: string; country?: string;
     postal_code?: string; timezone?: string; slug?: string;
-  }) {
-    const operatorData = await this.companyRepository.verifyUserBelongsToCompany(userId, companyId); //[cite: 12]
+  }, opts?: { isSuperAdmin?: boolean }) {
+    if (!opts?.isSuperAdmin) {
+      const operatorData = await this.companyRepository.verifyUserBelongsToCompany(userId, companyId); //[cite: 12]
 
-    if (!operatorData) {
-      throw new ForbiddenException('No tienes acceso a esta empresa'); //[cite: 12]
-    }
+      if (!operatorData) {
+        throw new ForbiddenException('No tienes acceso a esta empresa'); //[cite: 12]
+      }
 
-    // Verificamos por nombre de rol en lugar de ID estático (más seguro para UUIDs)[cite: 12]
-    if (!operatorData.roles.includes('Owner')) {
-      throw new ForbiddenException('Operación denegada. Solo el Owner puede modificar la configuración.'); //[cite: 12]
+      // Verificamos por nombre de rol en lugar de ID estático (más seguro para UUIDs)[cite: 12]
+      if (!operatorData.roles.includes('Owner')) {
+        throw new ForbiddenException('Operación denegada. Solo el Owner puede modificar la configuración.'); //[cite: 12]
+      }
     }
 
     if (data.slug !== undefined) {

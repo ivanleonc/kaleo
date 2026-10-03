@@ -11,7 +11,7 @@ export class UserRepository {
       `SELECT id, email, name, password_hash, must_change_password, email_verified,
               failed_login_attempts, locked_until, password_changed_at,
               phone, avatar_url, position, document_type, document_number,
-              timezone, locale, pending_email
+              timezone, locale, pending_email, is_super_admin
        FROM users WHERE email = $1 AND deleted_at IS NULL`,
       [email],
     );
@@ -22,11 +22,24 @@ export class UserRepository {
     const result = await this.dataSource.query(
       `SELECT id, email, name, must_change_password, email_verified, password_changed_at,
               phone, avatar_url, position, document_type, document_number,
-              timezone, locale, pending_email, locked_until
+              timezone, locale, pending_email, locked_until, is_super_admin
        FROM users WHERE id = $1 AND deleted_at IS NULL`,
       [userId],
     );
     return result[0] || null;
+  }
+
+  /**
+   * Fuente de verdad del flag super-admin (una sola query indexada por PK).
+   * Se usa en el miss-path de CompanyAccessGuard y en SuperAdminGuard para
+   * no depender del claim del JWT (que puede tener hasta 15 min de atraso).
+   */
+  async isSuperAdmin(userId: string): Promise<boolean> {
+    const result = await this.dataSource.query(
+      `SELECT is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      [userId],
+    );
+    return result[0]?.is_super_admin === true;
   }
 
 

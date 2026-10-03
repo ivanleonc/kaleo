@@ -252,6 +252,13 @@ await withLoading(() => apiCall(), 'Error al cargar');
 - **JWT claims**: se congelan al emitir. Se refrescan en `refresh`, en cada cambio de empresa y al crear empresa.
 - **must_change_password**: el guard redirige a `/change-password` en cada navegación hasta que el usuario cambie la contraseña temporal.
 
+### Multi-empresa y super-admin
+
+- **Asignar empresas a un miembro** (Owner/Admin o super-admin): modal *Invitar Miembro* con buscador de usuarios existentes + selector multi-empresa (mismo rol por nombre en todas), o modal *Gestionar empresas* desde la fila del miembro (detalle por empresa con agregar/quitar).
+- **Header por request**: `memberService.attachToCompany` / `roleService.getRoles(companyId)` envían `x-company-id` explícito sin mutar el tenant activo (el interceptor de axios respeta un header ya presente).
+- **Super-admin** (`authStore.isSuperAdmin`): pasa todos los `hasPermission`/`hasRole`; el switcher muestra la sección *Todas las empresas* (`companyStore.allCompanies`, precargadas al montar el layout); el router y `useCompanyPath` resuelven slugs/UUIDs también contra esa lista.
+- **Roles por nombre**: al asignar a varias empresas se envían `roleNames` (se resuelven por empresa en el backend); en una sola empresa se usan `roleIds` como siempre.
+
 ## Observabilidad
 
 ### Sentry (opt-in)

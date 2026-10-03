@@ -9,8 +9,11 @@ export const roleService = {
     return response.data.data;
   },
 
-  async getRoles(): Promise<Role[]> {
-    const response = await apiClient.get('/roles');
+  async getRoles(companyId?: string): Promise<Role[]> {
+    // Header explícito para listar roles de otra empresa (ej. asignar un
+    // miembro a varias empresas sin cambiar el tenant activo).
+    const config = companyId ? { headers: { 'x-company-id': companyId } } : undefined;
+    const response = await apiClient.get('/roles', config);
     return response.data.data;
   },
 

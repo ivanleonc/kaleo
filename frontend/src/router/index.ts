@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCompanyStore } from '@/stores/company.store';
 import { Permissions } from '@/constants/permissions';
 import { resolveTenantByParam, companyPathFor, tenantUrlParam } from '@/utils/tenant';
 
@@ -120,12 +121,40 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore();
   authStore.healActiveTenant();
   const isAuthenticated = authStore.isAuthenticated;
   const tenants = authStore.user?.tenants;
   const param = typeof to.params.companyId === 'string' ? to.params.companyId : undefined;
+
+  // Super-admin: resuelve también contra todas las empresas (acceso virtual
+  // a compañías ajenas a sus membresías). Sin esto el guard rebotaría al Panel.
+  let allCompanies: { id: string; slug: string | null; name: string; tax_id: string | null; roles: string[] }[] = [];
+  let companyStore: { allCompanies: typeof allCompanies; allCompaniesLoaded: boolean; fetchAllCompanies: () => Promise<unknown> } | null = null;
+  try {
+    const store = useCompanyStore();
+    companyStore = store;
+    allCompanies = store.allCompanies;
+  } catch {
+    allCompanies = [];
+  }
+  const resolveKnown = (p: string | undefined) =>
+    resolveTenantByParam(tenants, p) ?? resolveTenantByParam(allCompanies, p);
+
+  // Al recargar sobre una empresa ajena, `allCompanies` aún está vacía (se
+  // carga al montar el layout, DESPUÉS del guard). Cargarla aquí una sola vez
+  // evita el rebote al Panel en el refresh.
+  if (param && isAuthenticated && authStore.isSuperAdmin && !resolveKnown(param)) {
+    if (companyStore && !companyStore.allCompaniesLoaded) {
+      try {
+        await companyStore.fetchAllCompanies();
+        allCompanies = companyStore.allCompanies;
+      } catch {
+        allCompanies = [];
+      }
+    }
+  }
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     return { name: 'Login' };
@@ -143,11 +172,11 @@ router.beforeEach((to) => {
   // Resuelve el tenant de la URL y canoniza el parámetro: el slug reemplaza al
   // UUID en la barra de direcciones sin romper enlaces viejos.
   if (param && isAuthenticated) {
-    const tenant = resolveTenantByParam(tenants, param);
+    const tenant = resolveKnown(param);
 
     if (!tenant) {
       const fallback =
-        resolveTenantByParam(tenants, authStore.activeTenantId ?? undefined) ?? tenants?.[0];
+        resolveKnown(authStore.activeTenantId ?? undefined) ?? tenants?.[0];
       const fallbackPath = companyPathFor(fallback, '/dashboard');
       if (fallbackPath && fallbackPath !== to.path) {
         return { path: fallbackPath, query: to.query, hash: to.hash, replace: true };
@@ -170,14 +199,16 @@ router.beforeEach((to) => {
   }
 
   const activeTenant =
-    resolveTenantByParam(tenants, param) ??
-    resolveTenantByParam(tenants, authStore.activeTenantId ?? undefined) ??
+    resolveKnown(param) ??
+    resolveKnown(authStore.activeTenantId ?? undefined) ??
     tenants?.[0];
 
-  // Users without any organization go to onboarding first
+  // Users without any organization go to onboarding first.
+  // Un super-admin puro (sin membresías) no está obligado: administra global.
   if (
     isAuthenticated &&
     (tenants?.length || 0) === 0 &&
+    !authStore.isSuperAdmin &&
     to.name !== 'Onboarding' &&
     to.meta.requiresAuth
   ) {
@@ -202,7 +233,15 @@ router.afterEach((to) => {
   const authStore = useAuthStore();
   const section = typeof to.meta.title === 'string' ? to.meta.title : undefined;
   const param = typeof to.params.companyId === 'string' ? to.params.companyId : undefined;
-  const tenant = resolveTenantByParam(authStore.user?.tenants, param);
+  let allCompaniesAfter: { id: string; slug: string | null; name: string; tax_id: string | null; roles: string[] }[] = [];
+  try {
+    allCompaniesAfter = useCompanyStore().allCompanies;
+  } catch {
+    allCompaniesAfter = [];
+  }
+  const tenant =
+    resolveTenantByParam(authStore.user?.tenants, param) ??
+    resolveTenantByParam(allCompaniesAfter, param);
 
   if (section && tenant?.name) {
     document.title = `${section} · ${tenant.name} · ${APP_NAME}`;

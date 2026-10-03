@@ -93,6 +93,7 @@ export class SessionService {
       companyPermissions,
       roles: defaultRoles,
       permissions: defaultPermissions,
+      isSuperAdmin: user.is_super_admin === true,
     });
 
     const passwordExpired = await this.checkPasswordExpiry(user);
@@ -127,6 +128,7 @@ export class SessionService {
         timezone: user.timezone || null,
         locale: user.locale || 'es',
         pending_email: user.pending_email || null,
+        isSuperAdmin: user.is_super_admin === true,
         tenants,
         roles: defaultRoles,
         permissions: defaultPermissions,
@@ -178,6 +180,7 @@ export class SessionService {
       companyPermissions,
       roles: defaultRoles,
       permissions: defaultPermissions,
+      isSuperAdmin: user.is_super_admin === true,
     }, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
     const newRefreshPayload = { sub: user.id, type: 'refresh' };
@@ -278,6 +281,7 @@ export class SessionService {
       timezone: user.timezone || null,
       locale: user.locale || 'es',
       pending_email: user.pending_email || null,
+      isSuperAdmin: user.is_super_admin === true,
       tenants,
       roles,
       permissions,

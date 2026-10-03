@@ -7,6 +7,12 @@ export const companyService = {
     return response.data;
   },
 
+  /** Todas las empresas del sistema (solo super-admin). */
+  async getAllCompanies(): Promise<{ success: boolean; data: Array<{ id: string; name: string; slug: string | null; tax_id: string | null; is_active: boolean; member_count: number }> }> {
+    const response = await apiClient.get('/companies/all');
+    return response.data;
+  },
+
   async getCompany(companyId: string): Promise<{ success: boolean; data: CompanyDetail }> {
     const response = await apiClient.get(`/companies/${companyId}/detail`);
     return response.data;

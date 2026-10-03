@@ -77,6 +77,8 @@ export class RegistrationService {
       companyPermissions,
       roles: defaultRoles,
       permissions: defaultPermissions,
+      // Un usuario recién registrado nunca es super-admin.
+      isSuperAdmin: false,
     }, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
     // Registro de auditoría: sin empresa aún (usuario recién creado) solo
@@ -101,6 +103,7 @@ export class RegistrationService {
         timezone: null,
         locale: 'es',
         pending_email: null,
+        isSuperAdmin: false,
         tenants,
         roles: defaultRoles,
         permissions: defaultPermissions,
