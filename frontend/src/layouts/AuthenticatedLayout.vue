@@ -291,7 +291,7 @@ import { ref } from 'vue';
 const isSidebarExpanded = ref(false);
 let sidebarHoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const SIDEBAR_PIN_KEY = 'saasapp:sidebar-pinned';
+const SIDEBAR_PIN_KEY = STORAGE_KEYS.sidebarPinned;
 
 function readSidebarPinned(): boolean {
   try {
@@ -321,6 +321,7 @@ import { useCompanyStore } from '@/stores/company.store';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { companyPathFor, tenantUrlParam, preservableSection } from '@/utils/tenant';
+import { STORAGE_KEYS } from '@/utils/storage-keys';
 import { Permissions } from '@/constants/permissions';
 import UiModal from '@/components/ui/UiModal.vue';
 import UiCard from '@/components/ui/UiCard.vue';

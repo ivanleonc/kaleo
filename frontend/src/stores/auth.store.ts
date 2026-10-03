@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { authService } from '@/services/auth.service';
 import { TokenService } from '@/utils/token.service';
+import { STORAGE_KEYS } from '@/utils/storage-keys';
 import type { LoginPayload, RegisterPayload, AuthUser, Tenant } from '@/types/auth';
 import { SystemRoles } from '@/constants/roles';
 import { apiErrorMessage } from '@/utils/error';
@@ -38,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       activeTenantId.value = null;
       try {
-        localStorage.removeItem('saas_active_tenant');
+        localStorage.removeItem(STORAGE_KEYS.activeTenant);
       } catch {}
     }
   };
@@ -49,14 +50,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
     activeTenantId.value = tenantId;
     try {
-      localStorage.setItem('saas_active_tenant', tenantId);
+      localStorage.setItem(STORAGE_KEYS.activeTenant, tenantId);
     } catch {}
   };
 
   const healActiveTenant = (): void => {
     if (activeTenantId.value) return;
     try {
-      const stored = localStorage.getItem('saas_active_tenant');
+      const stored = localStorage.getItem(STORAGE_KEYS.activeTenant);
       if (import.meta.env.DEV) {
         console.log('[tenant] healActiveTenant', { stored });
       }
@@ -156,7 +157,7 @@ export const useAuthStore = defineStore('auth', () => {
         } else {
           activeTenantId.value = null;
           try {
-            localStorage.removeItem('saas_active_tenant');
+            localStorage.removeItem(STORAGE_KEYS.activeTenant);
           } catch {}
         }
       }
@@ -182,8 +183,8 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken.value = null;
     activeTenantId.value = null;
     TokenService.destroyTokens();
-    localStorage.removeItem('saas_user');
-    localStorage.removeItem('saas_active_tenant');
+    localStorage.removeItem(STORAGE_KEYS.user);
+    localStorage.removeItem(STORAGE_KEYS.activeTenant);
   };
 
   const updateProfileData = (updatedUserData: {
@@ -232,7 +233,7 @@ export const useAuthStore = defineStore('auth', () => {
   // TODO: migrar a pinia-plugin-persistedstate v5 (compatible con pinia v3)
   // y retirar este cast.
   persist: {
-    key: 'saas_auth_storage',
+    key: STORAGE_KEYS.authStorage,
     pick: ['user', 'activeTenantId', 'refreshToken'],
   },
 } as any);

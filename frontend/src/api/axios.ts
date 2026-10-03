@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { TokenService } from '@/utils/token.service';
+import { STORAGE_KEYS } from '@/utils/storage-keys';
 
 /**
  * URL base de la API. En desarrollo cae a localhost; en producción es
@@ -71,11 +72,11 @@ apiClient.interceptors.request.use(
       // super-admin) tiene prioridad: no se sobrescribe con el tenant activo.
       const explicitHeader = config.headers?.['x-company-id'];
       if (explicitHeader) return config;
-      const explicitTenant = localStorage.getItem('saas_active_tenant');
+      const explicitTenant = localStorage.getItem(STORAGE_KEYS.activeTenant);
       if (explicitTenant && config.headers) {
         config.headers['x-company-id'] = explicitTenant;
       } else {
-        const storageData = localStorage.getItem('saas_auth_storage');
+        const storageData = localStorage.getItem(STORAGE_KEYS.authStorage);
         if (storageData) {
           const parsed = JSON.parse(storageData);
           const tenantId = parsed.activeTenantId ?? parsed.state?.activeTenantId;
@@ -115,11 +116,11 @@ apiClient.interceptors.response.use(
       if (!currentRefreshToken) {
         isRefreshing = false;
         TokenService.destroyTokens();
-        localStorage.removeItem('saas_user');
-        localStorage.removeItem('saas_active_tenant');
-        localStorage.removeItem('saas_auth_storage');
+        localStorage.removeItem(STORAGE_KEYS.user);
+        localStorage.removeItem(STORAGE_KEYS.activeTenant);
+        localStorage.removeItem(STORAGE_KEYS.authStorage);
         if (window.location.pathname !== '/login') {
-          sessionStorage.setItem('saas_session_expired', '1');
+          sessionStorage.setItem(STORAGE_KEYS.sessionExpired, '1');
           window.location.href = '/login';
         }
         return Promise.reject(error);
@@ -140,11 +141,11 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         TokenService.destroyTokens();
-        localStorage.removeItem('saas_user');
-        localStorage.removeItem('saas_active_tenant');
-        localStorage.removeItem('saas_auth_storage');
+        localStorage.removeItem(STORAGE_KEYS.user);
+        localStorage.removeItem(STORAGE_KEYS.activeTenant);
+        localStorage.removeItem(STORAGE_KEYS.authStorage);
         if (window.location.pathname !== '/login') {
-          sessionStorage.setItem('saas_session_expired', '1');
+          sessionStorage.setItem(STORAGE_KEYS.sessionExpired, '1');
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);

@@ -18,12 +18,13 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import pino from 'pino';
+import { BRAND_SLUG } from '../constants/brand.js';
 
 const logger = pino({
   level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
   // Excluir los campos internos de pino del output — mantener solo los
   // que aporten valor en el dashboard de Render/Sentry.
-  base: { service: 'saas-api', env: process.env.NODE_ENV || 'development' },
+  base: { service: `${BRAND_SLUG}-api`, env: process.env.NODE_ENV || 'development' },
   // En producción el output es JSON puro (para Render / Datadog / Loki).
   // En dev se puede pasar por `| pino-pretty` para legibilidad.
   timestamp: pino.stdTimeFunctions.isoTime,

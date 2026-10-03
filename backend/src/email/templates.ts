@@ -3,6 +3,7 @@
  * Funciones puras (sin dependencias) para poder testearlas.
  * El layout compartido mantiene marca y pie consistentes.
  */
+import { BRAND_NAME } from '../common/constants/brand.js';
 
 export function emailLayout(title: string, body: string): string {
   return `
@@ -29,7 +30,7 @@ function codeBlock(value: string): string {
 
 export function passwordResetTemplate(resetToken: string, url: string): { subject: string; html: string } {
   return {
-    subject: 'Recuperación de contraseña - SaaS',
+    subject: `Recuperación de contraseña - ${BRAND_NAME}`,
     html: emailLayout(
       'Recuperación de contraseña',
       `<h2>Recuperación de contraseña</h2>
@@ -45,10 +46,10 @@ export function passwordResetTemplate(resetToken: string, url: string): { subjec
 
 export function emailVerificationTemplate(url: string, verificationToken: string): { subject: string; html: string } {
   return {
-    subject: 'Verifica tu email - SaaS',
+    subject: `Verifica tu email - ${BRAND_NAME}`,
     html: emailLayout(
       'Verifica tu email',
-      `<h2>Bienvenido al SaaS</h2>
+      `<h2>Bienvenido a ${BRAND_NAME}</h2>
        <p>Gracias por registrarte. Para activar tu cuenta, verifica tu email.</p>
        ${primaryButton(url, 'Verificar email')}
        <p>O usa este código: ${codeBlock(verificationToken)}</p>`,
@@ -58,7 +59,7 @@ export function emailVerificationTemplate(url: string, verificationToken: string
 
 export function temporaryPasswordTemplate(tempPassword: string, loginUrl: string): { subject: string; html: string } {
   return {
-    subject: 'Tu contraseña temporal - SaaS',
+    subject: `Tu contraseña temporal - ${BRAND_NAME}`,
     html: emailLayout(
       'Contraseña temporal',
       `<h2>Tu contraseña temporal ha sido generada</h2>

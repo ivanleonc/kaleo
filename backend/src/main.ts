@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 // Carga temprana para que process.env esté listo antes del bootstrap.
-// .env.[NODE_ENV] manda (ej: .env.sandbox); .env queda como default local.
+// .env.[NODE_ENV] manda (ej: .env.development); .env queda como default local.
 // Los archivos son opcionales: en Render/hosting todo viene por dashboard,
 // así que un .env ausente NO debe tumbar el arranque.
 for (const path of [`.env.${process.env.NODE_ENV}`, '.env']) {
@@ -39,6 +39,7 @@ import { timingSafeEqual } from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module.js';
 import { SentryExceptionFilter } from './common/filters/sentry-exception.filter.js';
+import { BRAND_NAME } from './common/constants/brand.js';
 
 function swaggerBasicAuth(req: Request, res: Response, next: NextFunction) {
   const user = process.env.SWAGGER_USER || '';
@@ -131,8 +132,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const config = new DocumentBuilder()
-    .setTitle('SaaS API')
-    .setDescription('API para el sistema SaaS multi-tenant. Endpoints públicos: register, login, refresh, forgot-password, reset-password. Todos los demás requieren Bearer token. Header obligatorio: x-company-id (UUID de la empresa activa).')
+    .setTitle(`${BRAND_NAME} API`)
+    .setDescription(`API para ${BRAND_NAME}, sistema multi-tenant. Endpoints públicos: register, login, refresh, forgot-password, reset-password. Todos los demás requieren Bearer token. Header obligatorio: x-company-id (UUID de la empresa activa).`)
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
     .build();

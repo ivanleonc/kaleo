@@ -3,8 +3,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
 import { Permissions } from '@/constants/permissions';
 import { resolveTenantByParam, companyPathFor, tenantUrlParam } from '@/utils/tenant';
-
-const APP_NAME = 'SAAS App';
+import { APP_NAME } from '@/constants/brand';
 
 const routes: Array<RouteRecordRaw> = [
   {

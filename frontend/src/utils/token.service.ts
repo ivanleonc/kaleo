@@ -1,5 +1,7 @@
-const ACCESS_TOKEN_KEY = 'saas_access_token';
-const REFRESH_TOKEN_KEY = 'saas_refresh_token';
+import { STORAGE_KEYS } from './storage-keys.js';
+
+const ACCESS_TOKEN_KEY = STORAGE_KEYS.accessToken;
+const REFRESH_TOKEN_KEY = STORAGE_KEYS.refreshToken;
 
 export const TokenService = {
   getToken(): string | null {

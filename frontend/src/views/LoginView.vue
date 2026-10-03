@@ -2,6 +2,7 @@
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
+import { STORAGE_KEYS } from '@/utils/storage-keys';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import UiCard from '@/components/ui/UiCard.vue';
@@ -29,8 +30,8 @@ const loginEmailError = computed(() =>
 );
 
 onMounted(() => {
-  if (sessionStorage.getItem('saas_session_expired') === '1') {
-    sessionStorage.removeItem('saas_session_expired');
+  if (sessionStorage.getItem(STORAGE_KEYS.sessionExpired) === '1') {
+    sessionStorage.removeItem(STORAGE_KEYS.sessionExpired);
     sessionExpired.value = true;
   }
 });

@@ -5,9 +5,15 @@ import App from './App.vue';
 import router from './router';
 import { permissionDirective } from './directives/permission';
 import { initSentry } from './lib/sentry';
+import { migrateStorageKeys } from './utils/storage-keys';
 
 // Estilos globales (si usas Tailwind o CSS normal)
 import './assets/main.css';
+
+// 0. Migrar claves legacy `saas_*` → `kaleo_*` ANTES de que Pinia lea el
+// storage persistido. Sin esto, los usuarios existentes perderían su sesión
+// con el rebrand.
+migrateStorageKeys();
 
 const app = createApp(App);
 
