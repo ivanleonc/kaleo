@@ -1,4 +1,4 @@
-# 06 — Módulo relacionado (dependencias entre módulos)
+﻿# Módulo relacionado (dependencias entre módulos)
 
 > **Cuándo usar este patrón:** Un módulo nuevo necesita datos de otro módulo existente.
 > **Ejemplo:** `Invoices` depende de `Members` (para el responsable) y de `Branches` (para la sede de entrega).
@@ -134,3 +134,4 @@ const debouncedSearch = useDebounceFn(async () => {
 - [ ] Los joins están en el backend cuando el dato relacionado es parte del listado principal
 - [ ] El autocompletado usa `memberService.searchUsers` (endpoint existente)
 - [ ] Los módulos no se modifican entre sí a través de sus stores
+

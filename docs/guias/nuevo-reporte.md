@@ -1,4 +1,4 @@
-# 03 — Crear un Reporte exportable
+﻿# Crear un Reporte exportable
 
 > **Cuándo usar este patrón:** Lista de datos de solo lectura con filtros (incluidos rangos de fecha), paginación por cursor o por offset, y exportación a CSV/Excel.
 > **Referencia viva:** `AuditView.vue`, `audit.store.ts`
@@ -181,3 +181,4 @@ async exportCsv(@Query() query: ReportFiltersDto, @Headers('x-company-id') compa
 - [ ] El store NO tiene métodos create/update/delete
 - [ ] Los filtros de fecha se validan en el DTO (`@IsISO8601`, `@IsOptional`)
 - [ ] `UiExportButton` recibe el fetcher sin llamarlo directamente
+

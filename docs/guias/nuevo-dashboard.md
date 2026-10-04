@@ -1,4 +1,4 @@
-# 04 — Crear un Dashboard
+﻿# Crear un Dashboard
 
 > **Cuándo usar este patrón:** Vista con métricas, KPIs, y/o gráficas que resumen el estado de la empresa.
 > **Referencia viva:** `DashboardView.vue`, `UiMetricCard.vue`
@@ -151,3 +151,4 @@ const { data: summary, isLoading: summaryLoading } = useAsyncData(
 - [ ] El `watch: companyId` está conectado para recargar al cambiar de empresa
 - [ ] El loading state se pasa a `UiMetricCard` con `:loading="isLoading"`
 - [ ] Los errores tienen un `UiErrorState` con `@retry="reload"`
+

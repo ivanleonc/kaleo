@@ -1,4 +1,4 @@
-# 02 — Crear un CRUD tabular
+﻿# Crear un CRUD tabular
 
 > **Cuándo usar este patrón:** Lista paginada con filtros, sort server-side, y operaciones crear/editar/eliminar en modales.
 > **Referencias vivas:** `MembersView.vue`, `BranchesView.vue`, `branch.store.ts`
@@ -585,3 +585,4 @@ useCreateAction(() => openCreateModal());
 - [ ] View usa `useTableView` + `useFilterSync` + `useModal`
 - [ ] Feature component separado de la view
 - [ ] Test del feature component y del repository
+

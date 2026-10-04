@@ -1,24 +1,24 @@
 # Guía: Crear un nuevo módulo
 
-> **Este archivo es una referencia rápida.** El manual completo con ejemplos reales del proyecto está en [`docs/manual/`](./manual/).
+> **Este archivo es una referencia rápida.** El manual completo con ejemplos reales del proyecto está en [Guías de desarrollo](/guias/).
 
 ## ¿Qué tipo de módulo vas a crear?
 
 | Tipo | Guía |
 |---|---|
-| Lista paginada con crear/editar/eliminar | [`02-crud.md`](./manual/02-crud.md) |
-| Lista de solo lectura con exportación | [`03-reporte.md`](./manual/03-reporte.md) |
-| Vista con métricas y/o gráficas | [`04-dashboard.md`](./manual/04-dashboard.md) |
-| Pantalla de detalle de un registro | [`05-detalle.md`](./manual/05-detalle.md) |
-| Módulo que depende de otros módulos | [`06-modulo-relacionado.md`](./manual/06-modulo-relacionado.md) |
+| Lista paginada con crear/editar/eliminar | [Nuevo CRUD tabular](/guias/nuevo-crud) |
+| Lista de solo lectura con exportación | [Nuevo reporte](/guias/nuevo-reporte) |
+| Vista con métricas y/o gráficas | [Nuevo dashboard](/guias/nuevo-dashboard) |
+| Pantalla de detalle de un registro | [Vista de detalle](/guias/nueva-vista-detalle) |
+| Módulo que depende de otros módulos | [Módulos relacionados](/guias/modulos-relacionados) |
 
 ## Checklist pre-PR
 
-Siempre terminar con → [`07-checklist.md`](./manual/07-checklist.md)
+Siempre terminar con → [Checklist pre-PR](/guias/checklist)
 
 ## Arquitectura general
 
-Para entender dónde vive cada pieza → [`01-arquitectura.md`](./manual/01-arquitectura.md)
+Para entender dónde vive cada pieza → [Visión general](/arquitectura/vision-general)
 
 ---
 

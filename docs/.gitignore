@@ -1,0 +1,7 @@
+# Archivos generados por VitePress — no deben ir al repo.
+# Cloudflare Pages los regenera en cada deploy con el build command.
+.vitepress/cache
+.vitepress/dist
+
+# Dependencias del workspace docs
+node_modules

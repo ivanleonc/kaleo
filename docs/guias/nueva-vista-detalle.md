@@ -1,4 +1,4 @@
-# 05 — Vista de detalle
+﻿# Vista de detalle
 
 > **Cuándo usar este patrón:** Pantalla que muestra toda la información de un único registro con posibilidad de editar y ver sub-entidades relacionadas.
 > **Ejemplo:** `InvoiceDetailView.vue` — muestra una factura con sus líneas, notas e historial.
@@ -187,3 +187,4 @@ function openDetail(invoice: Invoice) {
 - [ ] `UiErrorState` con `@retry="reload"`
 - [ ] Los datos de la vista de detalle no polutan el store paginado del listado
 - [ ] La sub-entidad tiene su propio componente feature (no inline en la view)
+

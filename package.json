@@ -2,7 +2,8 @@
   "name": "kaleo",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "docs"
   ],
   "scripts": {
     "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
@@ -13,7 +14,10 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "format": "turbo run format",
-    "check:permissions": "cd backend && npx tsx ../scripts/check-permissions-sync.ts"
+    "check:permissions": "cd backend && npx tsx ../scripts/check-permissions-sync.ts",
+    "docs:dev": "npm run dev --prefix docs",
+    "docs:build": "npm run build --prefix docs",
+    "docs:preview": "npm run preview --prefix docs"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",
