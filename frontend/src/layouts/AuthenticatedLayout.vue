@@ -149,6 +149,16 @@
               <IconUserCircle :size="16" />
               <span>Mi Cuenta</span>
             </button>
+            <a
+              href="https://kaleo-docs.pages.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="dropdown-item"
+              role="menuitem"
+            >
+              <IconBook :size="16" />
+              <span>Documentación</span>
+            </a>
             <div class="dropdown-divider"></div>
             <div class="dropdown-section-label">Tema</div>
             <div class="theme-options">
@@ -224,6 +234,17 @@
         </nav>
 
         <div class="sidebar-bottom">
+          <!-- Enlace a la documentación — se abre en pestaña nueva -->
+          <a
+            href="https://kaleo-docs.pages.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="nav-link docs-link"
+            :title="'Documentación'"
+          >
+            <IconBook :size="22" stroke-width="1.8" />
+            <span class="nav-label">Documentación</span>
+          </a>
           <button class="nav-link" @click="toggleTheme">
             <IconSun v-if="!isDarkMode" :size="22" stroke-width="1.8" />
             <IconMoon v-else :size="22" stroke-width="1.8" />
@@ -353,6 +374,7 @@ import {
   IconArrowsUpDown,
   IconMenu2,
   IconX,
+  IconBook,
 } from '@tabler/icons-vue';
 
 const route = useRoute();
@@ -1058,6 +1080,16 @@ p.dropdown-section-label {
 .sidebar-bottom {
   padding: 6px;
   border-top: 1px solid var(--border);
+}
+
+/* El link de docs es un <a> que usa la misma clase nav-link
+   pero necesita reset de text-decoration heredada del browser */
+.sidebar-bottom .docs-link {
+  text-decoration: none;
+}
+.sidebar-bottom .docs-link:hover {
+  color: var(--primary);
+  background-color: var(--primary-active);
 }
 
 /* MAIN CONTENT */
