@@ -202,29 +202,6 @@ export default defineConfig({
 
     search: {
       provider: 'local',
-      options: {
-        locales: {
-          root: {
-            translations: {
-              button: {
-                buttonText: 'Buscar',
-                buttonAriaLabel: 'Buscar en la documentación',
-              },
-              modal: {
-                displayDetails: 'Ver detalles',
-                resetButtonTitle: 'Limpiar búsqueda',
-                backButtonTitle: 'Volver',
-                noResultsText: 'No se encontraron resultados para',
-                footer: {
-                  selectText: 'seleccionar',
-                  navigateText: 'navegar',
-                  closeText: 'cerrar',
-                },
-              },
-            },
-          },
-        },
-      },
     },
 
     editLink: {
