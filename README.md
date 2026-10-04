@@ -2,20 +2,23 @@
 
 SaaS de gestión organizacional: empresas, sedes, miembros, roles y permisos, con **auditoría total** de acciones (quién, qué, antes/después) y autenticación JWT con cambio forzado de temporales.
 
-## Documentación
+## 📖 Documentación
 
-📖 **[Ver documentación completa →](./docs/)** (VitePress)
+**[https://kaleo-docs.pages.dev](https://kaleo-docs.pages.dev)**
+
+La documentación está disponible públicamente y cubre:
+
+| Audiencia | Contenido |
+|---|---|
+| **Desarrolladores** | Arquitectura, composables, 32 componentes UI, API REST, guías para crear módulos |
+| **Integradores** | Referencia completa de la API REST con ejemplos de request/response |
+| **Usuarios** | Manual de uso: miembros, sedes, roles, auditoría, perfil |
+
+Para ver la documentación en local:
 
 ```bash
-# Ver la documentación en local
-npm run docs:dev
-# → http://localhost:5173
+npm run docs:dev   # → http://localhost:5173
 ```
-
-La documentación cubre:
-- **Desarrolladores**: arquitectura, composables, componentes UI, API REST, guías para crear módulos
-- **Integradores**: referencia completa de la API REST con ejemplos
-- **Usuarios**: manual de uso de la plataforma
 
 ```
 ┌──────────────┐      HTTPS      ┌──────────────┐     SQL      ┌────────────────┐

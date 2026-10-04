@@ -228,7 +228,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/anomalyco/kaleo/edit/main/docs/:path',
+      pattern: 'https://github.com/ivanleonc/kaleo/edit/main/docs/:path',
       text: 'Editar esta página',
     },
 
@@ -247,7 +247,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/anomalyco/kaleo' },
+      { icon: 'github', link: 'https://github.com/ivanleonc/kaleo' },
     ],
 
     footer: {
