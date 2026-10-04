@@ -174,9 +174,6 @@ useFilterSync(auditFilterValues, (v) =>
   }),
 );
 
-const expandedLogs = ref(new Set<string>());
-const expandedResponses = ref(new Set<string>());
-
 function fetchExportBlob() {
   return auditService.fetchCsvBlob({
     entityType: auditFilterValues.value.entityType || undefined,

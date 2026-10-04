@@ -1,10 +1,28 @@
 # Guía: Crear un nuevo módulo
 
-Este documento define el proceso estándar para agregar un módulo completo al proyecto (ej: `invoices`, `payments`, `contracts`). Seguirlo garantiza que cada módulo nuevo tenga la misma calidad, estructura y cobertura que los módulos existentes.
+> **Este archivo es una referencia rápida.** El manual completo con ejemplos reales del proyecto está en [`docs/manual/`](./manual/).
+
+## ¿Qué tipo de módulo vas a crear?
+
+| Tipo | Guía |
+|---|---|
+| Lista paginada con crear/editar/eliminar | [`02-crud.md`](./manual/02-crud.md) |
+| Lista de solo lectura con exportación | [`03-reporte.md`](./manual/03-reporte.md) |
+| Vista con métricas y/o gráficas | [`04-dashboard.md`](./manual/04-dashboard.md) |
+| Pantalla de detalle de un registro | [`05-detalle.md`](./manual/05-detalle.md) |
+| Módulo que depende de otros módulos | [`06-modulo-relacionado.md`](./manual/06-modulo-relacionado.md) |
+
+## Checklist pre-PR
+
+Siempre terminar con → [`07-checklist.md`](./manual/07-checklist.md)
+
+## Arquitectura general
+
+Para entender dónde vive cada pieza → [`01-arquitectura.md`](./manual/01-arquitectura.md)
 
 ---
 
-## Resumen de pasos
+## Resumen ultra-rápido (CRUD estándar)
 
 | # | Capa | Tarea |
 |---|---|---|

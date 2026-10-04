@@ -5,94 +5,85 @@
         title="Dashboard"
         :subtitle="welcomeSubtitle"
       />
-      
-      <div v-if="isLoading" class="metrics-grid" aria-hidden="true">
-        <div v-for="n in 4" :key="n" class="metric-skeleton">
-          <UiSkeleton variant="avatar" />
-          <div class="metric-skeleton-text">
-            <UiSkeleton variant="text" width="55%" />
-            <UiSkeleton variant="title" width="35%" />
-          </div>
-        </div>
+
+      <UiErrorState v-if="error" :description="error" @retry="reload" />
+
+      <div v-else class="metrics-grid">
+        <router-link :to="companyPath('/members')" class="metric-link" v-permission="Permissions.USERS.READ">
+          <UiMetricCard
+            title="Miembros Activos"
+            :value="activeMembers ?? 0"
+            :trend-text="`De un total de ${totalMembers ?? 0}`"
+            :trend-type="(activeMembers ?? 0) > 0 ? 'positive' : 'neutral'"
+            color="blue"
+            :loading="isLoading"
+          >
+            <template #icon>
+              <IconUsers :size="20" stroke-width="2" />
+            </template>
+          </UiMetricCard>
+        </router-link>
+
+        <router-link :to="companyPath('/roles')" class="metric-link" v-permission="Permissions.ROLES.READ">
+          <UiMetricCard
+            title="Roles de Acceso"
+            :value="totalRoles ?? 0"
+            trend-text="Niveles de permisos"
+            color="purple"
+            :loading="isLoading"
+          >
+            <template #icon>
+              <IconShieldLock :size="20" stroke-width="2" />
+            </template>
+          </UiMetricCard>
+        </router-link>
+
+        <router-link :to="companyPath('/settings')" class="metric-link" v-permission="Permissions.SETTINGS.READ">
+          <UiMetricCard
+            title="Empresa Actual"
+            :value="activeCompanyName"
+            :trend-text="activeCompanyRole"
+            color="green"
+            is-text
+            :loading="isLoading"
+          >
+            <template #icon>
+              <IconBuildingStore :size="20" stroke-width="2" />
+            </template>
+          </UiMetricCard>
+        </router-link>
+
+        <router-link :to="companyPath('/profile')" class="metric-link">
+          <UiMetricCard
+            title="Estado"
+            :value="authStore.user?.email_verified ? 'Verificada' : 'Pendiente'"
+            trend-text="Cuenta de email"
+            :color="authStore.user?.email_verified ? 'green' : 'orange'"
+            is-text
+            :loading="isLoading"
+          >
+            <template #icon>
+              <IconMail :size="20" stroke-width="2" />
+            </template>
+          </UiMetricCard>
+        </router-link>
       </div>
-
-      <UiErrorState v-else-if="loadError" :description="loadError" @retry="loadData" />
-
-      <template v-else>
-        <div class="metrics-grid">
-          <router-link :to="companyPath('/members')" class="metric-link" v-permission="Permissions.USERS.READ">
-            <DashboardMetricCard
-              title="Miembros Activos"
-              :value="activeMembers"
-              :trendText="`De un total de ${totalMembers}`"
-              :trendType="activeMembers > 0 ? 'positive' : 'neutral'"
-              color="blue"
-            >
-              <template #icon>
-                <IconUsers :size="20" stroke-width="2" />
-              </template>
-            </DashboardMetricCard>
-          </router-link>
-
-          <router-link :to="companyPath('/roles')" class="metric-link" v-permission="Permissions.ROLES.READ">
-            <DashboardMetricCard
-              title="Roles de Acceso"
-              :value="totalRoles"
-              trendText="Niveles de permisos"
-              color="purple"
-            >
-              <template #icon>
-                <IconShieldLock :size="20" stroke-width="2" />
-              </template>
-            </DashboardMetricCard>
-          </router-link>
-
-          <router-link :to="companyPath('/settings')" class="metric-link" v-permission="Permissions.SETTINGS.READ">
-            <DashboardMetricCard
-              title="Empresa Actual"
-              :value="activeCompanyName"
-              :trendText="activeCompanyRole"
-              color="green"
-              isText
-            >
-              <template #icon>
-                <IconBuildingStore :size="20" stroke-width="2" />
-              </template>
-            </DashboardMetricCard>
-          </router-link>
-
-          <router-link :to="companyPath('/profile')" class="metric-link">
-            <DashboardMetricCard
-              title="Estado"
-              :value="authStore.user?.email_verified ? 'Verificada' : 'Pendiente'"
-              trendText="Cuenta de email"
-              :color="authStore.user?.email_verified ? 'green' : 'orange'"
-              isText
-            >
-              <template #icon>
-                <IconMail :size="20" stroke-width="2" />
-              </template>
-            </DashboardMetricCard>
-          </router-link>
-        </div>
-      </template>
     </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
+import { useDashboardData } from '@/composables/useDashboardData';
 import { memberService } from '@/services/member.service';
 import { roleService } from '@/services/role.service';
-import { apiErrorMessage } from '@/utils/error';
 import { Permissions } from '@/constants/permissions';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import DashboardMetricCard from '@/components/dashboard/DashboardMetricCard.vue';
+import UiMetricCard from '@/components/ui/UiMetricCard.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
-import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 import {
   IconUsers,
@@ -105,12 +96,6 @@ const authStore = useAuthStore();
 const companyStore = useCompanyStore();
 const { companyId, companyPath } = useCompanyPath();
 
-const isLoading = ref(true);
-const totalRoles = ref(0);
-const totalMembers = ref(0);
-const activeMembers = ref(0);
-const loadError = ref<string | null>(null);
-
 /**
  * Los conteos salen de `total` del servidor (limit: 1), no de `members.length`:
  * tras la paginación server-side esa longitud es el tamaño de la página, así
@@ -118,6 +103,19 @@ const loadError = ref<string | null>(null);
  * Se consulta el servicio en vez de `memberStore` para no pisar la página ni los
  * filtros que el usuario dejó en MembersView.
  */
+const { results, isLoading, error, reload } = useDashboardData(
+  {
+    allMembers:    () => memberService.getMembers({ page: 1, limit: 1 }),
+    activeMembers: () => memberService.getMembers({ page: 1, limit: 1, status: 'active' }),
+    roles:         () => roleService.getRoles(),
+  },
+  { watch: companyId },
+);
+
+const totalMembers  = computed(() => results.value.allMembers?.total ?? 0);
+const activeMembers = computed(() => results.value.activeMembers?.total ?? 0);
+const totalRoles    = computed(() => results.value.roles?.length ?? 0);
+
 const welcomeSubtitle = computed(() => {
   const name = authStore.user?.name?.trim();
   return name
@@ -125,37 +123,8 @@ const welcomeSubtitle = computed(() => {
     : 'Aquí tienes el resumen de tu workspace.';
 });
 
-const loadData = async () => {
-  if (!companyId.value) {
-    isLoading.value = false;
-    return;
-  }
-  isLoading.value = true;
-  loadError.value = null;
-  try {
-    const [allMembers, activeOnly, roles] = await Promise.all([
-      memberService.getMembers({ page: 1, limit: 1 }),
-      memberService.getMembers({ page: 1, limit: 1, status: 'active' }),
-      roleService.getRoles(),
-    ]);
-    totalMembers.value = allMembers.total;
-    activeMembers.value = activeOnly.total;
-    totalRoles.value = roles.length;
-  } catch (error) {
-    loadError.value = apiErrorMessage(error, 'No pudimos cargar las métricas');
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-onMounted(loadData);
-
-// Cambiar de empresa debe recargar los contadores.
-watch(companyId, loadData);
-
 const activeCompany = computed(() =>
-  authStore.user?.tenants?.find((tenant) => tenant.id === authStore.activeTenantId)
-  // Super-admin en empresa ajena: cae a la lista global de "Todas".
+  authStore.user?.tenants?.find((t) => t.id === authStore.activeTenantId)
   ?? companyStore.allCompanies.find((c) => c.id === authStore.activeTenantId)
 );
 const activeCompanyName = computed(() => activeCompany.value?.name || '---');
@@ -171,24 +140,6 @@ const activeCompanyRole = computed(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-}
-
-.metric-skeleton {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-5) var(--space-6);
-  background-color: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
-.metric-skeleton-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1;
-  min-width: 0;
 }
 
 .metrics-grid {

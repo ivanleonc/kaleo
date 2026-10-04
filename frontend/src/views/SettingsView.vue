@@ -13,22 +13,22 @@
       </UiPageHeader>
 
       <UiCard v-if="isLoadingDetail" aria-hidden="true">
-        <template #header>
-          <div class="company-hero">
-            <UiSkeleton variant="avatar" width="48px" height="48px" radius="var(--radius-lg)" />
-            <div class="skeleton-hero-text">
-              <UiSkeleton variant="title" width="180px" />
-              <UiSkeleton variant="text" width="120px" />
+          <template #header>
+            <div class="company-hero">
+              <UiSkeleton variant="avatar" width="48px" height="48px" radius="var(--radius-lg)" />
+              <div class="skeleton-hero-text">
+                <UiSkeleton variant="title" width="180px" />
+                <UiSkeleton variant="text" width="120px" />
+              </div>
             </div>
-          </div>
-        </template>
-        <div class="info-grid">
-          <div v-for="n in 5" :key="n" class="info-row">
-            <UiSkeleton variant="text" width="120px" />
-            <UiSkeleton variant="text" width="160px" />
-          </div>
-        </div>
-      </UiCard>
+          </template>
+          <UiDetailGrid>
+            <div v-for="n in 5" :key="n" class="info-row-skeleton">
+              <UiSkeleton variant="text" width="120px" />
+              <UiSkeleton variant="text" width="160px" />
+            </div>
+          </UiDetailGrid>
+        </UiCard>
 
       <UiErrorState
         v-else-if="detailError"
@@ -55,38 +55,25 @@
             </div>
           </template>
 
-          <div class="info-grid">
-            <div class="info-row">
-              <span class="info-label">Tax ID / NIT / RFC</span>
-              <span class="info-value">{{ company.tax_id || 'No configurado' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Teléfono</span>
-              <span class="info-value">{{ company.phone || 'No configurado' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Email</span>
-              <span class="info-value">{{ company.email || 'No configurado' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Dirección</span>
-              <span class="info-value">{{ fullAddress || 'No configurada' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Zona Horaria</span>
-              <span class="info-value">{{ company.timezone || 'No configurada' }}</span>
-            </div>
-          </div>
+          <UiDetailGrid>
+              <UiInfoRow label="Tax ID / NIT / RFC">{{ company.tax_id || 'No configurado' }}</UiInfoRow>
+              <UiInfoRow label="Teléfono">{{ company.phone || 'No configurado' }}</UiInfoRow>
+              <UiInfoRow label="Email">{{ company.email || 'No configurado' }}</UiInfoRow>
+              <UiInfoRow label="Dirección">{{ fullAddress || 'No configurada' }}</UiInfoRow>
+              <UiInfoRow label="Zona Horaria">{{ company.timezone || 'No configurada' }}</UiInfoRow>
+            </UiDetailGrid>
         </UiCard>
       </template>
 
-      <!-- Edit Modal -->
+      <!-- Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isEditModalOpen"
         title="Editar Empresa"
         description="Actualiza la información de tu organización."
         :confirm-on-dirty="true"
         :dirty="isFormDirty"
+        submit-label="Guardar Cambios"
+        :loading="companyStore.isLoading"
         @submit="handleSubmit"
       >
         <UiAlert v-if="companyStore.error" type="error">{{ companyStore.error }}</UiAlert>
@@ -155,28 +142,19 @@
         </div>
 
         <UiTimezoneSelect v-model="form.timezone" />
-
-        <template #footer="{ requestClose }">
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">
-              Cancelar
-            </UiButton>
-            <UiButton type="submit" :loading="companyStore.isLoading">
-              Guardar Cambios
-            </UiButton>
-          </div>
-        </template>
       </UiFormModal>
     </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCompanyStore } from '@/stores/company.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { companyService } from '@/services/company.service';
+import { useModal } from '@/composables/useModal';
+import { useAsyncData } from '@/composables/useAsyncData';
 import type { CompanyDetail } from '@/types/company';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
@@ -191,12 +169,13 @@ import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
+import UiDetailGrid from '@/components/ui/UiDetailGrid.vue';
+import UiInfoRow from '@/components/ui/UiInfoRow.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { emptyToUndefined } from '@/utils/text';
-import { apiErrorMessage } from '@/utils/error';
 import { Permissions } from '@/constants/permissions';
 
 const companyStore = useCompanyStore();
@@ -206,10 +185,28 @@ const route = useRoute();
 const router = useRouter();
 const { companyId, companyPath } = useCompanyPath();
 
-const isEditModalOpen = ref(false);
-const isLoadingDetail = ref(false);
-const detailError = ref<string | null>(null);
-const company = ref<CompanyDetail | null>(null);
+// useModal en lugar de ref(false) — patrón consistente con Members/Branches
+const editModal = useModal();
+const isEditModalOpen = editModal.isOpen;
+
+// useAsyncData reemplaza el bloque manual isLoadingDetail/detailError/loadCompanyData/watch/onMounted
+const {
+  data: company,
+  isLoading: isLoadingDetail,
+  error: detailError,
+  reload: loadCompanyData,
+} = useAsyncData(
+  async () => {
+    if (!companyId.value) return null;
+    const result = await companyService.getCompany(companyId.value);
+    return result.data as CompanyDetail;
+  },
+  {
+    watch: computed(() => authStore.activeTenantId),
+    onBeforeFetch: () => { companyStore.error = null; },
+    errorMessage: 'No pudimos cargar la empresa',
+  },
+);
 const form = reactive({
   name: '',
   tax_id: '',
@@ -231,6 +228,8 @@ const fullAddress = computed(() => {
     .filter(Boolean)
     .join(', ');
 });
+
+const logoBroken = ref(false);
 
 const fillForm = () => {
   if (!company.value) return;
@@ -254,13 +253,12 @@ const { isDirty: isFormDirty, capture: snapshotForm } = useDirtyForm(() => ({ ..
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const slugError = computed(() => {
   const value = form.slug.trim();
-  if (!value) return null; // vacío = se regenera desde el nombre
+  if (!value) return null;
   if (value.length > 100) return 'Máximo 100 caracteres';
   if (!slugPattern.test(value)) return 'Solo minúsculas, números y guiones';
   return null;
 });
 
-// Cambiar el slug rompe bookmarks e integraciones: avisar antes de guardar.
 const slugChangedWarning = computed(() => {
   const next = form.slug.trim().toLowerCase();
   const current = (company.value?.slug || '').toLowerCase();
@@ -268,39 +266,11 @@ const slugChangedWarning = computed(() => {
   return 'Cambiar el identificador actualizará la URL de la empresa. Los enlaces y marcadores anteriores dejarán de funcionar.';
 });
 
-const logoBroken = ref(false);
-
-const loadCompanyData = async () => {
-  const activeId = companyId.value;
-  if (!activeId) return;
-  isLoadingDetail.value = true;
-  detailError.value = null;
-  try {
-    const result = await companyService.getCompany(activeId);
-    company.value = result.data;
-    fillForm();
-  } catch (error) {
-    detailError.value = apiErrorMessage(error, 'No pudimos cargar la empresa');
-  } finally {
-    isLoadingDetail.value = false;
-  }
-};
-
-onMounted(() => {
-  loadCompanyData();
-});
-
-watch(() => authStore.activeTenantId, () => {
-  company.value = null;
-  loadCompanyData();
-  companyStore.error = null;
-});
-
 const openEditModal = () => {
   fillForm();
   companyStore.error = null;
   snapshotForm();
-  isEditModalOpen.value = true;
+  editModal.open();
 };
 
 const handleSubmit = async () => {
@@ -331,12 +301,12 @@ const handleSubmit = async () => {
         slug: company.value.slug,
       });
     } else {
+      // Sin resultado en la respuesta: recargamos via useAsyncData
       await loadCompanyData();
     }
 
     isEditModalOpen.value = false;
     toast.success('Empresa actualizada correctamente');
-
     // Canoniza la URL al slug guardado: la ruta con el slug viejo ya no resolvería.
     const target = companyPath('/settings');
     if (target && target !== route.path) {
@@ -355,38 +325,15 @@ const handleSubmit = async () => {
   gap: var(--space-8);
 }
 
-.info-grid {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-row {
+/* Skeleton de filas en la card de carga */
+.info-row-skeleton {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);
 }
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: var(--text-sm);
-  color: var(--text-main);
-  font-weight: 600;
-  text-align: right;
-  min-width: 0;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
+.info-row-skeleton:last-child { border-bottom: none; }
 
 .company-hero {
   display: flex;

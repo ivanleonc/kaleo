@@ -165,36 +165,23 @@ import type { Role, Permission } from '@/types/role';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useCreateAction } from '@/composables/useCreateAction';
+import { useModal } from '@/composables/useModal';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
-import UiCard from '@/components/ui/UiCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
-import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
-import UiBadge from '@/components/ui/UiBadge.vue';
 import RoleCard from '@/components/features/roles/RoleCard.vue';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
 import { apiErrorMessage } from '@/utils/error';
-import {
-  IconShield,
-  IconUserCog,
-  IconLock,
-  IconChevronDown,
-  IconKey,
-  IconDotsVertical,
-  IconPencil,
-  IconTrash,
-  IconPlus,
-} from '@tabler/icons-vue';
+import { IconShield, IconPlus } from '@tabler/icons-vue';
 
 const toast = useToast();
 const { companyId } = useCompanyPath();
@@ -205,17 +192,22 @@ const loadError = ref<string | null>(null);
 const isSaving = ref(false);
 const errorMsg = ref('');
 
-const isModalOpen = ref(false);
-const form = reactive({ name: '', description: '', color: '', permissionIds: [] as string[] });
+// --- Modales con useModal (consistente con MembersView/BranchesView) ---
+const createModal = useModal();
+const isModalOpen = createModal.isOpen;
 
-const isEditModalOpen = ref(false);
+const editModal = useModal<Role>();
+const isEditModalOpen = editModal.isOpen;
+
+const deleteModal = useModal<{ id: string; name: string }>();
+const isDeleteModalOpen = deleteModal.isOpen;
+const deleteTarget = deleteModal.target;
+
+// --- Formularios ---
+const form = reactive({ name: '', description: '', color: '', permissionIds: [] as string[] });
 const editForm = reactive({ id: '', name: '', description: '', color: '', permissionIds: [] as string[] });
 
-const isDeleteModalOpen = ref(false);
-const deleteTarget = ref<{ id: string; name: string } | null>(null);
-
-// El color es opcional, pero si se escribe debe ser un hex válido: si no,
-// el icono del rol se renderiza sin color en silencio.
+// El color es opcional, pero si se escribe debe ser un hex válido.
 const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
 const createColorError = computed(() =>
   form.color.trim() && !hexColorRegex.test(form.color.trim())
@@ -238,15 +230,51 @@ const allPermissionItems = computed(() =>
   }))
 );
 
-const editableRoleFields = () => ({
+const { isDirty: isCreateDirty, capture: snapshotCreateForm } = useDirtyForm(() => ({
+  name: form.name,
+  description: form.description,
+  color: form.color,
+  permissionIds: [...form.permissionIds],
+}));
+
+const { isDirty: isEditDirty, capture: snapshotEditForm } = useDirtyForm(() => ({
   name: editForm.name,
   description: editForm.description,
   color: editForm.color,
   permissionIds: [...editForm.permissionIds],
-});
+}));
 
-const { isDirty: isEditDirty, capture: snapshotEditForm } = useDirtyForm(editableRoleFields);
+// --- Crear ---
+const openCreateModal = () => {
+  form.name = ''; form.description = ''; form.color = ''; form.permissionIds = [];
+  errorMsg.value = '';
+  snapshotCreateForm();
+  createModal.open();
+};
 
+const handleCreateSubmit = async () => {
+  if (!companyId.value) return;
+  if (createColorError.value) { errorMsg.value = createColorError.value; return; }
+  isSaving.value = true;
+  errorMsg.value = '';
+  try {
+    await roleService.createRole({
+      name: form.name,
+      description: form.description.trim() || undefined,
+      color: form.color.trim() || undefined,
+      permissionIds: form.permissionIds,
+    });
+    createModal.close();
+    toast.success('Rol creado correctamente');
+    await fetchData();
+  } catch (error: any) {
+    errorMsg.value = apiErrorMessage(error, 'Error al crear el rol');
+  } finally {
+    isSaving.value = false;
+  }
+};
+
+// --- Editar ---
 function openEditModal(role: Role) {
   editForm.id = role.id;
   editForm.name = role.name;
@@ -255,20 +283,11 @@ function openEditModal(role: Role) {
   editForm.permissionIds = role.permissions.map((p) => p.id);
   errorMsg.value = '';
   snapshotEditForm();
-  isEditModalOpen.value = true;
-}
-
-function openDeleteModal(role: Role) {
-  deleteTarget.value = { id: role.id, name: role.name };
-  errorMsg.value = '';
-  isDeleteModalOpen.value = true;
+  editModal.open(role);
 }
 
 async function handleEditSubmit() {
-  if (editColorError.value) {
-    errorMsg.value = editColorError.value;
-    return;
-  }
+  if (editColorError.value) { errorMsg.value = editColorError.value; return; }
   isSaving.value = true;
   errorMsg.value = '';
   try {
@@ -278,7 +297,7 @@ async function handleEditSubmit() {
       color: editForm.color.trim() || undefined,
       permissionIds: editForm.permissionIds,
     });
-    isEditModalOpen.value = false;
+    editModal.close();
     toast.success('Rol actualizado correctamente');
     await fetchData();
   } catch (error: any) {
@@ -288,14 +307,19 @@ async function handleEditSubmit() {
   }
 }
 
+// --- Eliminar ---
+function openDeleteModal(role: Role) {
+  errorMsg.value = '';
+  deleteModal.open({ id: role.id, name: role.name });
+}
+
 async function handleDeleteSubmit() {
   if (!deleteTarget.value) return;
   isSaving.value = true;
   errorMsg.value = '';
   try {
     await roleService.deleteRole(deleteTarget.value.id);
-    isDeleteModalOpen.value = false;
-    deleteTarget.value = null;
+    deleteModal.reset();
     toast.success('Rol eliminado correctamente');
     await fetchData();
   } catch (error: any) {
@@ -305,6 +329,7 @@ async function handleDeleteSubmit() {
   }
 }
 
+// --- Fetch ---
 const fetchData = async () => {
   if (!companyId.value) return;
   isLoading.value = true;
@@ -312,7 +337,7 @@ const fetchData = async () => {
   try {
     const [rolesData, permsData] = await Promise.all([
       roleService.getRoles(),
-      roleService.getAllPermissions()
+      roleService.getAllPermissions(),
     ]);
     roles.value = rolesData;
     allPermissions.value = permsData;
@@ -324,55 +349,25 @@ const fetchData = async () => {
 };
 
 onMounted(fetchData);
-
-// Acción rápida de la paleta (Ctrl+K → "Crear rol").
 useCreateAction(() => openCreateModal());
-
-const { isDirty: isCreateDirty, capture: snapshotCreateForm } = useDirtyForm(() => ({
-  name: form.name,
-  description: form.description,
-  color: form.color,
-  permissionIds: [...form.permissionIds],
-}));
-
-const openCreateModal = () => {
-  form.name = ''; form.description = ''; form.color = ''; form.permissionIds = [];
-  errorMsg.value = '';
-  snapshotCreateForm();
-  isModalOpen.value = true;
-};
-
-const handleCreateSubmit = async () => {
-  if (!companyId.value) return;
-  if (createColorError.value) {
-    errorMsg.value = createColorError.value;
-    return;
-  }
-  isSaving.value = true;
-  errorMsg.value = '';
-  try {
-    await roleService.createRole({
-      name: form.name,
-      description: form.description.trim() || undefined,
-      color: form.color.trim() || undefined,
-      permissionIds: form.permissionIds
-    });
-    isModalOpen.value = false;
-    toast.success('Rol creado correctamente');
-    await fetchData();
-  } catch (error: any) {
-    errorMsg.value = apiErrorMessage(error, 'Error al crear el rol');
-  } finally {
-    isSaving.value = false;
-  }
-};
 </script>
 
 <style scoped>
+/* Estilos propios de RolesView.
+   Todo lo visual de cada tarjeta (role-card-header, module-group, perm-item…)
+   vive en RoleCard.vue (scoped allí). Solo quedan aquí los estilos
+   del contenedor y del formulario de crear/editar. */
+
 .roles-container {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+}
+
+.roles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-6);
 }
 
 /* Input de color + muestra en vivo del tono elegido. */
@@ -394,218 +389,6 @@ const handleCreateSubmit = async () => {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background-color: var(--bg-app);
-}
-
-.roles-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: var(--space-6);
-}
-
-.role-card { padding: 0 !important; overflow: hidden; }
-
-.role-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: var(--space-5);
-  border-bottom: 1px solid var(--border);
-}
-
-.role-title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.role-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.role-icon.system {
-  background: var(--accent-blue-bg);
-  color: var(--accent-blue);
-}
-.role-icon.custom {
-  background: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-.role-name {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-main);
-  margin: 0;
-}
-
-.role-title-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.role-actions {
-  flex-shrink: 0;
-}
-
-.role-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius);
-  transition: all 0.15s;
-}
-.role-menu-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-main);
-}
-
-.role-description {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  margin: 0;
-  padding: 0 var(--space-5) var(--space-4);
-  line-height: 1.5;
-}
-
-.role-card-body {
-  padding: var(--space-2) 0;
-  max-height: 400px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.role-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-8);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-
-.module-group {
-  border-bottom: 1px solid var(--border);
-}
-.module-group:last-child {
-  border-bottom: none;
-}
-
-.module-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  padding: var(--space-2) var(--space-4);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-.module-header:hover {
-  background: var(--bg-hover);
-}
-
-.module-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.module-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  /* El color real viene de --module-*: se define en main.css y tiene variante dark. */
-  background: var(--module-color, var(--text-muted));
-}
-
-.module-name {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.module-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.module-count {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  background: var(--bg-app);
-  border: 1px solid var(--border);
-  padding: 0 6px;
-  border-radius: 10px;
-  line-height: 1.6;
-}
-
-.module-chevron {
-  color: var(--text-muted);
-  transition: transform 0.2s;
-}
-.module-chevron.rotated {
-  transform: rotate(-90deg);
-}
-
-.module-perms {
-  padding: 0 var(--space-4) var(--space-2);
-}
-
-.perm-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  padding-left: var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-.perm-item:last-child {
-  border-bottom: none;
-}
-
-.perm-name {
-  font-size: var(--text-sm);
-  color: var(--text-main);
-}
-
-.perm-code {
-  font-size: 11px;
-  font-family: var(--font-mono, monospace);
-  color: var(--text-muted);
-  background: var(--bg-app);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-}
-
-.role-card-footer {
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border);
-  background: var(--bg-app);
-}
-
-.perm-total {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
 }
 
 .skeleton-grid {
@@ -639,28 +422,10 @@ const handleCreateSubmit = async () => {
   to { background-position: -200% 0; }
 }
 
-.roles-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-16) var(--space-4);
-  color: var(--text-muted);
-  text-align: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.roles-empty p { font-size: var(--text-lg); font-weight: 500; color: var(--text-main); margin: 0; }
-.roles-empty span { font-size: var(--text-sm); }
-
 @media (max-width: 768px) {
-  .roles-grid {
-    grid-template-columns: 1fr;
-  }
+  .roles-grid,
   .skeleton-grid {
     grid-template-columns: 1fr;
   }
 }
-
 </style>

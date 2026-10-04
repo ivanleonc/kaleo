@@ -23,12 +23,12 @@
 
       <template v-if="isLoadingProfile">
         <UiCard aria-hidden="true">
-          <div class="info-grid">
-            <div v-for="n in 3" :key="n" class="info-row">
+          <UiDetailGrid>
+            <div v-for="n in 3" :key="n" class="info-row-skeleton">
               <UiSkeleton variant="text" width="100px" />
               <UiSkeleton variant="text" width="160px" />
             </div>
-          </div>
+          </UiDetailGrid>
         </UiCard>
       </template>
 
@@ -66,16 +66,10 @@
           </div>
         </template>
 
-        <div class="info-grid">
-          <div class="info-row">
-            <span class="info-label">Nombre</span>
-            <span class="info-value">{{ profileName || '---' }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Correo Electrónico</span>
-            <span class="info-value">{{ profileEmail }}</span>
-          </div>
-        </div>
+        <UiDetailGrid>
+            <UiInfoRow label="Nombre">{{ profileName || '---' }}</UiInfoRow>
+            <UiInfoRow label="Correo Electrónico">{{ profileEmail }}</UiInfoRow>
+          </UiDetailGrid>
       </UiCard>
 
       <!-- Password Card -->
@@ -92,13 +86,15 @@
         <p class="card-description">Tu contraseña se mantiene segura. Haz clic en editar para actualizarla.</p>
       </UiCard>
 
-      <!-- Profile Edit Modal -->
+      <!-- Profile Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isProfileModalOpen"
         title="Editar Perfil"
         description="Actualiza tu información personal."
         :confirm-on-dirty="true"
         :dirty="isProfileDirty"
+        submit-label="Guardar Cambios"
+        :loading="isSavingProfile"
         @submit="handleProfileSubmit"
       >
         <UiAlert v-if="errorMessage" type="error">{{ errorMessage }}</UiAlert>
@@ -125,26 +121,17 @@
           <UiInput v-model="form.timezone" label="Zona Horaria" type="text" placeholder="America/Bogota" />
           <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
         </div>
-
-        <template #footer="{ requestClose }">
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">
-              Cancelar
-            </UiButton>
-            <UiButton type="submit" :loading="isSavingProfile">
-              Guardar Cambios
-            </UiButton>
-          </div>
-        </template>
       </UiFormModal>
 
-      <!-- Password Change Modal -->
+      <!-- Password Change Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isPasswordModalOpen"
         title="Cambiar Contraseña"
         description="Ingresa tu contraseña actual y la nueva contraseña."
         :confirm-on-dirty="true"
         :dirty="isPasswordDirty"
+        submit-label="Actualizar Contraseña"
+        :loading="isChangingPassword"
         @submit="handlePasswordChange"
       >
         <UiAlert v-if="passwordError" type="error">{{ passwordError }}</UiAlert>
@@ -172,17 +159,6 @@
           @blur="passwordConfirmTouched = true"
           required
         />
-
-        <template #footer="{ requestClose }">
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">
-              Cancelar
-            </UiButton>
-            <UiButton type="submit" :loading="isChangingPassword">
-              Actualizar Contraseña
-            </UiButton>
-          </div>
-        </template>
       </UiFormModal>
     </div>
   </AuthenticatedLayout>
@@ -193,6 +169,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { authService } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
+import { useModal } from '@/composables/useModal';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
@@ -205,6 +182,8 @@ import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import UiDetailGrid from '@/components/ui/UiDetailGrid.vue';
+import UiInfoRow from '@/components/ui/UiInfoRow.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { passwordErrorMessage } from '@/utils/password';
@@ -234,7 +213,10 @@ const loadProfile = async () => {
 const retryProfileLoad = () => loadProfile();
 
 // --- PROFILE ---
-const isProfileModalOpen = ref(false);
+// useModal en lugar de ref(false) — consistente con el resto de vistas
+const profileModal = useModal();
+const isProfileModalOpen = profileModal.isOpen;
+
 const isSavingProfile = ref(false);
 const errorMessage = ref<string | null>(null);
 
@@ -271,11 +253,6 @@ onMounted(async () => {
   await loadProfile();
 });
 
-const getInitials = (name?: string): string => {
-  if (!name) return '?';
-  return name.split(' ').map((w) => w[0]).join('').substring(0, 2).toUpperCase();
-};
-
 const { isDirty: isProfileDirty, capture: snapshotProfileForm } = useDirtyForm(() => ({ ...form }));
 
 const openProfileModal = () => {
@@ -291,7 +268,7 @@ const openProfileModal = () => {
   form.locale = user?.locale || '';
   errorMessage.value = null;
   snapshotProfileForm();
-  isProfileModalOpen.value = true;
+  profileModal.open();
 };
 
 const handleProfileSubmit = async () => {
@@ -321,8 +298,7 @@ const handleProfileSubmit = async () => {
       locale: form.locale || null,
       pending_email: result?.data?.pending_email ?? authStore.user?.pending_email ?? null,
     });
-    isProfileModalOpen.value = false;
-    toast.success(result?.message || 'Perfil actualizado correctamente');
+    isProfileModalOpen.value = false;    toast.success(result?.message || 'Perfil actualizado correctamente');
   } catch (error: any) {
     errorMessage.value = apiErrorMessage(error, 'Error al actualizar perfil');
   } finally {
@@ -353,7 +329,10 @@ const handleCancelPending = async () => {
 };
 
 // --- PASSWORD ---
-const isPasswordModalOpen = ref(false);
+// useModal en lugar de ref(false) — consistente con el resto de vistas
+const passwordModal = useModal();
+const isPasswordModalOpen = passwordModal.isOpen;
+
 const passwordError = ref('');
 const isChangingPassword = ref(false);
 
@@ -363,8 +342,6 @@ const passwordForm = reactive({
   confirmPassword: '',
 });
 
-const passwordSnapshot = ref('');
-
 const passwordConfirmTouched = ref(false);
 const passwordMismatchError = computed(() =>
   passwordConfirmTouched.value && passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword
@@ -372,13 +349,9 @@ const passwordMismatchError = computed(() =>
     : null
 );
 
-const snapshotPasswordForm = () => {
-  passwordSnapshot.value = JSON.stringify({ ...passwordForm });
-};
-
-const isPasswordDirty = computed(
-  () => JSON.stringify({ ...passwordForm }) !== passwordSnapshot.value
-);
+// useDirtyForm en lugar del snapshot manual con JSON.stringify
+// (unificación con el patrón del resto de vistas - Fase A4)
+const { isDirty: isPasswordDirty, capture: snapshotPasswordForm } = useDirtyForm(() => ({ ...passwordForm }));
 
 const openPasswordModal = () => {
   passwordForm.currentPassword = '';
@@ -387,7 +360,7 @@ const openPasswordModal = () => {
   passwordConfirmTouched.value = false;
   passwordError.value = '';
   snapshotPasswordForm();
-  isPasswordModalOpen.value = true;
+  passwordModal.open();
 };
 
 // Password strength
@@ -413,8 +386,7 @@ const handlePasswordChange = async () => {
 
   try {
     await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-    isPasswordModalOpen.value = false;
-    toast.success('Contraseña actualizada correctamente');
+    isPasswordModalOpen.value = false;    toast.success('Contraseña actualizada correctamente');
   } catch (error: any) {
     passwordError.value = apiErrorMessage(error, 'Error al cambiar contraseña');
   } finally {
@@ -483,32 +455,13 @@ const handlePasswordChange = async () => {
   white-space: nowrap;
 }
 
-.info-grid {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-row {
+/* Skeleton de filas en la card de carga */
+.info-row-skeleton {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);
 }
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: var(--text-sm);
-  color: var(--text-main);
-  font-weight: 600;
-}
+.info-row-skeleton:last-child { border-bottom: none; }
 </style>

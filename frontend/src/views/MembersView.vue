@@ -263,12 +263,7 @@ import { apiErrorMessage } from '@/utils/error';
 import { useClipboard } from '@/composables/useClipboard';
 import { useFilterSync } from '@/composables/useFilterSync';
 import { useDirtyForm } from '@/composables/useDirtyForm';
-import {
-  useAppTable,
-  useSortingState,
-  useControlledSorting,
-  sortingStateToServer,
-} from '@/composables/useAppTable';
+import { useTableView } from '@/composables/useTableView';
 import type { Member } from '@/types/member';
 import type { UserSearchResult } from '@/types/member';
 import type { BadgeVariant } from '@/types/ui';
@@ -432,22 +427,9 @@ useFilterSync(memberFilterValues, (v) =>
   }),
 );
 
-const isInitialLoading = computed(() => memberStore.isLoading && memberStore.members.length === 0);
-
-const memberSorting = useSortingState();
-const memberTable = useAppTable<Member>({
-  columns: useMemberColumns(),
-  // computed, no el array pelado: los stores de Pinia desenvuelven los refs
-  // y la tabla solo reacciona a refs/computed (si no, "a veces" no hay filas).
-  data: computed(() => memberStore.members),
-  manualSorting: true,
-  manualPagination: true,
-  autoResetPageIndex: false,
-  ...useControlledSorting(memberSorting, (sorting) => {
-    memberStore.setSort(sortingStateToServer(sorting)).catch(() => {});
-  }),
-});
-
+// useTableView unifica el setup de la tabla: sort, data reactiva, isInitialLoading.
+// El store cumple TableViewStore<Member> automáticamente (items, isLoading, setSort).
+const { table: memberTable, isInitialLoading } = useTableView(useMemberColumns(), memberStore);
 const statusLabel = (status?: string): string => {
   if (status === 'inactive') return 'Inactivo';
   if (status === 'pending') return 'Pendiente';

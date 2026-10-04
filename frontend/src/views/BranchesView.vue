@@ -52,13 +52,15 @@
         @update:limit="branchStore.setLimit"
       />
 
-      <!-- Create/Edit Modal -->
+      <!-- Create/Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isFormModalOpen"
         :title="editingBranch ? 'Editar Sede' : 'Nueva Sede'"
         :description="editingBranch ? `Modificando: ${editingBranch.name}` : 'Agrega una nueva ubicación a tu empresa.'"
         :confirm-on-dirty="true"
         :dirty="isFormDirty"
+        :submit-label="editingBranch ? 'Guardar Cambios' : 'Crear Sede'"
+        :loading="branchStore.isLoading"
         @submit="handleSubmit"
       >
         <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
@@ -95,17 +97,6 @@
           label="Sede principal"
           :options="mainOptions"
         />
-
-        <template #footer="{ requestClose }">
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">
-              Cancelar
-            </UiButton>
-            <UiButton type="submit" :loading="branchStore.isLoading">
-              {{ editingBranch ? 'Guardar Cambios' : 'Crear Sede' }}
-            </UiButton>
-          </div>
-        </template>
       </UiFormModal>
     </div>
 
@@ -154,12 +145,7 @@ import { useCreateAction } from '@/composables/useCreateAction';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useFilterSync } from '@/composables/useFilterSync';
 import { useCompanyPath } from '@/composables/useCompanyPath';
-import {
-  useAppTable,
-  useSortingState,
-  useControlledSorting,
-  sortingStateToServer,
-} from '@/composables/useAppTable';
+import { useTableView } from '@/composables/useTableView';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
 import {
@@ -219,21 +205,7 @@ useFilterSync(branchFilterValues, (v) =>
   }),
 );
 
-const isInitialLoading = computed(() => branchStore.isLoading && branchStore.branches.length === 0);
-
-const branchSorting = useSortingState();
-const branchTable = useAppTable<Branch>({
-  columns: useBranchColumns(),
-  // computed, no el array pelado: los stores de Pinia desenvuelven los refs
-  // y la tabla solo reacciona a refs/computed (si no, "a veces" no hay filas).
-  data: computed(() => branchStore.branches),
-  manualSorting: true,
-  manualPagination: true,
-  autoResetPageIndex: false,
-  ...useControlledSorting(branchSorting, (sorting) => {
-    branchStore.setSort(sortingStateToServer(sorting)).catch(() => {});
-  }),
-});
+const { table: branchTable, isInitialLoading } = useTableView(useBranchColumns(), branchStore);
 
 const handleToggleActive = async (branch: Branch) => {
   const wasActive = branch.is_active;
