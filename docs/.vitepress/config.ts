@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   lang: 'es',
-  title: 'Kaleo Docs',
+  title: 'Kaleo — Documentación',
   description: 'Documentación oficial de Kaleo — plataforma SaaS multi-tenant',
   base: '/',
 

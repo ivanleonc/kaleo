@@ -1,0 +1,15 @@
+/*
+  # Evita que Cloudflare modifique los archivos HTML de VitePress.
+  # Auto Minify de Cloudflare puede romper los scripts inline de SSR.
+  Content-Type: text/html; charset=utf-8
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
