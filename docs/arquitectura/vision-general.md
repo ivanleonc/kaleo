@@ -45,6 +45,7 @@ Kaleo es una plataforma SaaS multi-tenant construida en capas claramente separad
 | `api/` | Instancia axios con interceptores de auth, refresh automático y enriquecimiento de errores |
 | `assets/` | `main.css` — sistema de diseño completo en CSS custom properties |
 | `components/ui/` | 32 componentes del design system (`Ui*`) — sin lógica de dominio |
+| `components/layout/` | Piezas del layout post-login: `AppTopbar.vue`, `AppSidebar.vue` |
 | `components/features/` | Componentes de dominio por módulo (tablas, cards, badges específicos) |
 | `composables/` | Lógica reutilizable: paginación, tablas, modales, formularios, async |
 | `constants/` | Permisos, roles, brand — re-exportan `packages/shared` |

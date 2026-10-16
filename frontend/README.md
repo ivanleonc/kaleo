@@ -59,7 +59,7 @@ src/
 │                            skeletons, filtros, breakpoints, prefers-reduced-motion)
 │
 ├── components/
-│   ├── ui/               → 28 componentes reutilizables (ver lista abajo)
+│   ├── ui/               → 32 componentes reutilizables (ver lista abajo)
 │   ├── CommandPalette.vue → Paleta de comandos (Ctrl+K), combobox a11y completo
 │   └── DashboardMetricCard.vue
 │
@@ -132,6 +132,7 @@ Todos en `src/components/ui/`. Importar con `@/components/ui/NombreComponente.vu
 | `UiConfirmDialog` | Diálogo de confirmación de acción irreversible |
 | `UiCursorPagination` | Paginación por cursor (siguiente/anterior) |
 | `UiDataTable` | Tabla server-side: sort, skeleton, error, empty, mobile-cards |
+| `UiDetailGrid` | Grid de pares label/valor para vistas de detalle |
 | `UiDropdown` + `UiDropdownItem` | Menú contextual accesible (teclado, foco, Escape) |
 | `UiDualListbox` | Asignar/desasignar listas (ej: roles a miembro) |
 | `UiEmptyState` | Estado vacío con icono, título, descripción y acción |
@@ -139,7 +140,9 @@ Todos en `src/components/ui/`. Importar con `@/components/ui/NombreComponente.vu
 | `UiExportButton` | Botón de descarga CSV con loading |
 | `UiFieldError` | Error inline debajo de un campo |
 | `UiFormModal` | Modal de formulario con confirm-on-dirty |
+| `UiInfoRow` | Par label/valor con borde inferior (dentro de UiDetailGrid) |
 | `UiInput` | Input con label, error, tipo password con toggle |
+| `UiMetricCard` | Tarjeta de KPI para dashboards |
 | `UiModal` | Modal base: foco, trap, Escape, scroll-lock, animación |
 | `UiOfflineBanner` | Banner de sin conexión (slide desde abajo) |
 | `UiPageHeader` | Título + subtítulo + slot de acciones |
@@ -149,6 +152,7 @@ Todos en `src/components/ui/`. Importar con `@/components/ui/NombreComponente.vu
 | `UiSelect` | Select con label y aria-label |
 | `UiSkeleton` | Placeholder de carga animado |
 | `UiTableFilters` | Barra de filtros declarativa + v-model + slot escape |
+| `UiTimezoneSelect` | Selector de zona horaria IANA con búsqueda |
 | `UiToast` | Toasts (éxito, error, info, warning, con acción deshacer) |
 
 ### Patrones estándar para una vista nueva

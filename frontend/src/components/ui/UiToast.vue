@@ -7,6 +7,8 @@
     -->
     <div class="ui-toast-stack">
       <TransitionGroup name="ui-toast">
+        <!-- Los handlers de mouse/foco solo pausan el autocierre (WCAG 2.2.1); no son interacción. -->
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
         <div
           v-for="toast in toasts"
           :key="toast.id"

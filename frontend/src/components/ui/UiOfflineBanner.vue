@@ -58,7 +58,7 @@ const { isOnline } = useOnlineStatus();
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .offline-banner {
     left: var(--space-4);
     right: var(--space-4);

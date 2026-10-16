@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="modal-overlay" @click.self="attemptClose">
+    <div v-if="isOpen" class="modal-overlay" role="presentation" @click.self="attemptClose">
       <!-- Confirmación de descarte: se sustituye el contenido para no anidar modales. -->
       <div
         v-if="isConfirming"
@@ -232,7 +232,7 @@ defineExpose({ close, attemptClose });
 .modal-default { max-width: 400px; }
 .modal-large { max-width: 600px; }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .modal-overlay {
     padding: 0.5rem;
     align-items: flex-end;

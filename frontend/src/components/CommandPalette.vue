@@ -1,6 +1,7 @@
 <template>
   <Teleport to="body">
-    <div v-if="open" class="palette-overlay" @click="close">
+    <div v-if="open" class="palette-overlay" role="presentation" @click="close">
+      <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- @click.stop solo frena la propagación al overlay; el teclado ya se maneja con @keydown -->
       <div
         ref="dialogRef"
         class="palette"

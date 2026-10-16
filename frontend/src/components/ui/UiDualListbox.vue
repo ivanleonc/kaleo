@@ -18,6 +18,8 @@
             :aria-label="`Buscar en ${availableLabel}`"
           />
         </div>
+        <!-- Roving tabindex (patrón APG): el foco vive en las opciones, no en el contenedor. -->
+        <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -->
         <ul
           class="panel-list"
           role="listbox"
@@ -25,6 +27,7 @@
           :aria-labelledby="availableTitleId"
           @keydown="onPanelKeydown('available', $event)"
         >
+          <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/click-events-have-key-events -- tabindex es dinámico (roving) y las flechas/Enter se manejan en el panel con onPanelKeydown -->
           <li
             v-for="(item, i) in filteredAvailable"
             :key="item.id"
@@ -107,6 +110,8 @@
             :aria-label="`Buscar en ${selectedLabel}`"
           />
         </div>
+        <!-- Roving tabindex (patrón APG): el foco vive en las opciones, no en el contenedor. -->
+        <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -->
         <ul
           class="panel-list"
           role="listbox"
@@ -114,6 +119,7 @@
           :aria-labelledby="selectedTitleId"
           @keydown="onPanelKeydown('selected', $event)"
         >
+          <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/click-events-have-key-events -- tabindex es dinámico (roving) y las flechas/Enter se manejan en el panel con onPanelKeydown -->
           <li
             v-for="(item, i) in filteredSelected"
             :key="item.id"

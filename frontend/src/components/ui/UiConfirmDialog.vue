@@ -144,7 +144,7 @@ const onCancel = () => {
 }
 
 .typed-confirm-code {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   color: var(--text-main);
   background-color: var(--bg-hover);

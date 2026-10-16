@@ -8,7 +8,7 @@
     <slot name="trigger" :open="isOpen" :toggle="toggle" :trigger-aria="triggerAria" />
   </div>
   <Teleport to="body">
-    <div v-if="isOpen" class="ui-dropdown-overlay" @click="close"></div>
+    <div v-if="isOpen" class="ui-dropdown-overlay" role="presentation" @click="close"></div>
     <div
       v-if="isOpen"
       ref="menuRef"

@@ -20,20 +20,20 @@ El modo oscuro persiste en `localStorage` y también respeta `prefers-color-sche
 
 | Token | Valor claro | Uso |
 |---|---|---|
-| `--bg-app` | `#f9fafb` | Fondo principal de la aplicación |
+| `--bg-app` | `#ffffff` | Fondo principal de la aplicación |
 | `--bg-card` | `#ffffff` | Fondo de tarjetas y modales |
-| `--bg-sidebar` | `#ffffff` | Fondo del sidebar |
+| `--bg-sidebar` | `#f8f8f8` | Fondo del sidebar |
 | `--bg-navbar` | `#ffffff` | Fondo de la barra de navegación superior |
-| `--bg-hover` | `rgba(0,0,0,0.04)` | Estado hover en listas e ítems |
-| `--bg-input` | `#ffffff` | Fondo de inputs y selects |
+| `--bg-hover` | `#f1f1f1` | Estado hover en listas e ítems |
+| `--bg-input` | `#f5f5f5` | Fondo de inputs y selects |
 | `--bg-elevated` | `#ffffff` | Elementos flotantes (dropdowns, tooltips) |
 
 ## Bordes
 
 | Token | Valor | Uso |
 |---|---|---|
-| `--border` | `#e5e7eb` | Borde estándar en cards, inputs, tablas |
-| `--border-light` | `#f3f4f6` | Borde sutil, separadores secundarios |
+| `--border` | `#e5e5e5` | Borde estándar en cards, inputs, tablas |
+| `--border-light` | `#f0f0f0` | Borde sutil, separadores secundarios |
 
 ## Tipografía / Texto
 
@@ -49,21 +49,24 @@ El modo oscuro persiste en `localStorage` y también respeta `prefers-color-sche
 | Token | Valor |
 |---|---|
 | `--primary` | `#1c9c5a` |
-| `--primary-hover` | `#158a4c` |
+| `--primary-hover` | `#1aad64` |
 | `--primary-foreground` | `#ffffff` |
-| `--primary-active` | `#0d7a3e` |
-| `--focus-ring` | `rgba(28, 156, 90, 0.3)` |
+| `--primary-active` | `rgba(28, 156, 90, 0.1)` |
+| `--focus-ring` | `#1c9c5a` |
 
 ## Colores de estado
 
 Cada estado tiene 4 tokens: base, fondo (`-bg`), borde (`-border`) y texto (`-text`).
+La paleta está curada con un método único (misma saturación/luminosidad por modo):
+base para iconos y trazos, `-text` para texto legible (contraste AA), `-bg`/`-border`
+para tintes. `success` es **teal**, deliberadamente distinto del verde de marca (`--primary`).
 
-| Estado | Base | Uso |
-|---|---|---|
-| `--color-success` | `#16a34a` | Operaciones exitosas, estado activo |
-| `--color-warning` | `#d97706` | Advertencias, estados temporales |
-| `--color-danger` | `#dc2626` | Errores, acciones destructivas |
-| `--color-info` | `#2563eb` | Información neutral |
+| Estado | Base (claro) | Base (oscuro) | Uso |
+|---|---|---|---|
+| `--color-success` | `#1cbaa5` | `#58e4d1` | Operaciones exitosas, estado activo |
+| `--color-warning` | `#ba7b1c` | `#e4ac58` | Advertencias, estados temporales |
+| `--color-danger` | `#ba1c29` | `#e45864` | Errores, acciones destructivas |
+| `--color-info` | `#1c53ba` | `#5889e4` | Información neutral |
 
 ```css
 /* Ejemplo de uso en componente */
@@ -86,7 +89,9 @@ Cada estado tiene 4 tokens: base, fondo (`-bg`), borde (`-border`) y texto (`-te
 
 ## Colores de módulo
 
-Cada módulo tiene su color de identificación visual:
+Paleta semántica curada (matiz, saturación y luminosidad uniformes por modo) para
+identificar cada módulo de permisos. Los puntos de las tarjetas de rol usan el color
+definido por rol en BD; estos tokens quedan como referencia y para usos futuros.
 
 | Token | Módulo |
 |---|---|
@@ -147,18 +152,34 @@ El sistema usa una escala de 8 niveles donde `--space-1 = 0.25rem` (4px):
 | Token | Valor | Uso |
 |---|---|---|
 | `--text-xs` | `0.75rem` | Metadatos, badges, timestamps |
-| `--text-sm` | `0.875rem` | Texto de interfaz secundario |
-| `--text-base` | `0.9375rem` | Texto base de interfaz |
-| `--text-md` | `1rem` | Texto de lectura |
+| `--text-sm` | `0.8125rem` | Texto de interfaz secundario |
+| `--text-base` | `0.875rem` | Texto base de interfaz |
+| `--text-md` | `0.9375rem` | Texto de lectura |
 | `--text-lg` | `1.125rem` | Títulos de cards |
 | `--text-xl` | `1.5rem` | Títulos de sección |
+| `--text-display` | `clamp(1.5rem, 1.05rem + 1.4vw, 1.9rem)` | Título de página (fluido, sin media query) |
 
 ### Familias tipográficas
 
+Inter (variable, pesos 400–700) autoalojada en `frontend/public/fonts/` con subsets
+`latin` + `latin-ext`; se precarga desde `index.html`. Sin dependencia de Google Fonts.
+
 | Token | Valor |
 |---|---|
-| `--font-sans` | `Inter, ui-sans-serif, system-ui, sans-serif` |
-| `--font-mono` | `ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace` |
+| `--font-sans` | `'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` |
+| `--font-mono` | `ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace` |
+
+## Breakpoints
+
+Solo existen dos cortes oficiales (más su frontera complementaria en desktop):
+
+| Breakpoint | Uso |
+|---|---|
+| `640px` | Teléfonos: 1 columna, tablas compactas, tipografía compacta |
+| `768px` | Tablets / móvil grande: sidebar off-canvas, layouts de 2 columnas |
+| `min-width: 769px` | Complemento exacto del anterior: solo desktop (empuje del sidebar fijado) |
+
+No inventar otros breakpoints en vistas o componentes.
 
 ## Tokens de layout
 

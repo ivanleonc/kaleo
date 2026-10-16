@@ -16,11 +16,3 @@ useTheme();
 
 const routeKey = computed(() => route.path + '-' + (authStore.activeTenantId || 'public'));
 </script>
-
-<style>
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-}
-</style>

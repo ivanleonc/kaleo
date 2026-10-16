@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { memberService } from '@/services/member.service';
 import { useCompanyPath } from '@/composables/useCompanyPath';
-import { useAsyncOperation } from '@/composables/useAsyncOperation';
 import { usePaginatedSetup } from '@/composables/createPaginatedStore';
 import type { Member, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, MemberCompany, UserSearchResult } from '@/types/member';
 

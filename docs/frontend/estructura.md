@@ -14,11 +14,17 @@ frontend/src/
 │
 ├── assets/
 │   └── main.css          Sistema de diseño completo en CSS custom properties
-│                         698 líneas — tokens de color, espaciado, tipografía, layout
+│                         Tokens de color, espaciado, tipografía, layout,
+│                         breakpoints (640/768) y @font-face de Inter
 │
 ├── components/
 │   ├── ui/               32 componentes del design system (prefijo Ui*)
 │   │                     Sin lógica de dominio — reutilizables entre módulos
+│   │
+│   ├── layout/           Piezas del layout post-login (dominio de navegación)
+│   │   ├── AppTopbar.vue   Topbar: switcher de empresa, breadcrumbs,
+│   │   │                   búsqueda (Ctrl+K), menú de usuario/tema
+│   │   └── AppSidebar.vue  Sidebar: navegación con permisos, fijar/expandir
 │   │
 │   └── features/         Componentes de dominio por módulo
 │       ├── audit/
@@ -31,7 +37,7 @@ frontend/src/
 │       └── roles/
 │           └── RoleCard.vue
 │
-├── composables/          18 composables reutilizables
+├── composables/          19 composables reutilizables
 │                         Ver sección Composables para documentación detallada
 │
 ├── constants/
@@ -43,7 +49,8 @@ frontend/src/
 │   └── permission.ts     v-permission — oculta elementos sin el permiso dado
 │
 ├── layouts/
-│   ├── AuthenticatedLayout.vue  Layout post-login con sidebar + topbar
+│   ├── AuthenticatedLayout.vue  Layout post-login: orquesta AppTopbar,
+│   │                            AppSidebar y el contenido (skip-link, transición)
 │   └── AuthLayout.vue           Layout de páginas públicas (login, registro)
 │
 ├── router/
@@ -100,7 +107,7 @@ frontend/src/
 │   ├── ChangePasswordView.vue
 │   └── NotFoundView.vue
 │
-├── App.vue               Componente raíz: UiOfflineBanner + RouterView + UiToast
+├── App.vue               Componente raíz: RouterView + UiToast
 └── main.ts               Bootstrap Vue: Pinia, Router, Sentry (opt-in)
 ```
 

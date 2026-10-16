@@ -43,6 +43,7 @@ Los composables son funciones reutilizables que encapsulan lógica reactiva. En 
 | Composable | Archivo | Propósito |
 |---|---|---|
 | `useCompanyPath` | `useCompanyPath.ts` | Lee `:companyId` de la ruta y construye URLs tenantizadas |
+| `useSidebar` | `useSidebar.ts` | Estado global del sidebar (fijado/expandido/cajón móvil) compartido entre `AppTopbar` y `AppSidebar` |
 
 ## Reglas de uso
 

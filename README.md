@@ -200,7 +200,7 @@ backend/src/
 frontend/src/
 ├── api/           → axios client (auth, x-company-id, refresh auto en 401, mensajes en español)
 ├── assets/        → Sistema de diseño CSS (variables, breakpoints, componentes base)
-├── components/ui/ → 28 componentes reutilizables del kit
+├── components/ui/ → 32 componentes reutilizables del kit
 ├── composables/   → useToast, useTheme, useCompanyPath, useAsyncOperation, useAppTable,
 │                    useFilterSync, useDirtyForm, useDebounceFn, useOnlineStatus, useClipboard
 ├── layouts/       → AuthenticatedLayout (topbar, sidebar, org-switcher, paleta Ctrl+K, offline banner)
