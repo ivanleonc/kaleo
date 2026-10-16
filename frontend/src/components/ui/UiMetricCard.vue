@@ -49,7 +49,7 @@ import { computed } from 'vue';
  * Uso básico:
  * ```html
  * <UiMetricCard
- *   title="Miembros Activos"
+ *   title="Miembros activos"
  *   :value="42"
  *   trend-text="+3 este mes"
  *   trend-type="positive"

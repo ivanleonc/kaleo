@@ -71,8 +71,8 @@ import UiButton from './UiButton.vue';
  * <!-- Sin footer en el template: UiFormModal lo genera -->
  * <UiFormModal
  *   v-model="isOpen"
- *   title="Nueva Sede"
- *   submit-label="Crear Sede"
+ *   title="Nueva sede"
+ *   submit-label="Crear sede"
  *   :loading="branchStore.isLoading"
  *   @submit="handleSubmit"
  * >

@@ -11,7 +11,7 @@
       <div v-else class="metrics-grid">
         <router-link :to="companyPath('/members')" class="metric-link" v-permission="Permissions.USERS.READ">
           <UiMetricCard
-            title="Miembros Activos"
+            title="Miembros activos"
             :value="activeMembers ?? 0"
             :trend-text="`De un total de ${totalMembers ?? 0}`"
             :trend-type="(activeMembers ?? 0) > 0 ? 'positive' : 'neutral'"
@@ -26,7 +26,7 @@
 
         <router-link :to="companyPath('/roles')" class="metric-link" v-permission="Permissions.ROLES.READ">
           <UiMetricCard
-            title="Roles de Acceso"
+            title="Roles de acceso"
             :value="totalRoles ?? 0"
             trend-text="Niveles de permisos"
             color="purple"
@@ -40,7 +40,7 @@
 
         <router-link :to="companyPath('/settings')" class="metric-link" v-permission="Permissions.SETTINGS.READ">
           <UiMetricCard
-            title="Empresa Actual"
+            title="Empresa actual"
             :value="activeCompanyName"
             :trend-text="activeCompanyRole"
             color="green"

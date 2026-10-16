@@ -17,6 +17,7 @@
     :error-title="errorTitle"
     :empty-title="emptyTitle"
     :empty-description="emptyDescription"
+    caption="Listado de miembros del equipo"
     @retry="emit('retry')"
   >
     <!-- Celda: nombre + avatar + cargo -->

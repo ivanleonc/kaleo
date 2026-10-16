@@ -40,7 +40,7 @@ const handleSubmit = async () => {
     <form @submit.prevent="handleSubmit" class="auth-form">
       <UiCard>
         <template #header>
-          <h2 class="auth-title">Recuperar Contraseña</h2>
+          <h1 class="auth-title">Recuperar contraseña</h1>
           <p class="auth-description">Ingresa tu correo y te enviaremos un enlace temporal.</p>
         </template>
 
@@ -61,7 +61,7 @@ const handleSubmit = async () => {
 
         <template #footer>
           <UiButton v-if="!successMsg" type="submit" :loading="isLoading">
-            Enviar Instrucciones
+            Enviar instrucciones
           </UiButton>
           <UiButton v-else type="button" variant="outline" @click="useAnotherEmail">
             Usar otro correo

@@ -232,7 +232,7 @@ router.afterEach((to) => {
   const authStore = useAuthStore();
   const section = typeof to.meta.title === 'string' ? to.meta.title : undefined;
   const param = typeof to.params.companyId === 'string' ? to.params.companyId : undefined;
-  let allCompaniesAfter: { id: string; slug: string | null; name: string; tax_id: string | null; roles: string[] }[] = [];
+  let allCompaniesAfter: { id: string; slug: string | null; name: string; tax_id: string | null; roles: string[] }[];
   try {
     allCompaniesAfter = useCompanyStore().allCompanies;
   } catch {

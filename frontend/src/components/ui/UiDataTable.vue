@@ -20,6 +20,7 @@
       class="ui-table"
       :class="{ 'is-sticky': sticky }"
     >
+      <caption v-if="caption" class="sr-only">{{ caption }}</caption>
       <thead>
         <tr v-for="headerGroup in headerGroups" :key="headerGroup.id">
           <th
@@ -155,6 +156,8 @@ const props = withDefaults(defineProps<{
   errorTitle?: string;
   emptyTitle?: string;
   emptyDescription?: string;
+  /** Descripción de la tabla para lectores de pantalla (se renderiza como caption sr-only). */
+  caption?: string;
   /** Cabecera fija con scroll interno (útil en tablas largas dentro del layout). */
   sticky?: boolean;
 }>(), {
@@ -164,6 +167,7 @@ const props = withDefaults(defineProps<{
   errorTitle: 'No se pudieron cargar los datos',
   emptyTitle: 'Sin resultados',
   emptyDescription: '',
+  caption: '',
   sticky: false,
 });
 

@@ -3,7 +3,7 @@
     <UiCard>
       <template #header>
         <div class="not-found-hero">
-          <h2 class="auth-title">404</h2>
+          <h1 class="auth-title">404</h1>
           <p class="auth-description">La página que buscas no existe o fue movida.</p>
           <p v-if="attemptedPath" class="attempted-path">
             <code>{{ attemptedPath }}</code>

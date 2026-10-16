@@ -106,8 +106,6 @@ import { useAuditStore } from '@/stores/audit.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import UiAvatar from '@/components/ui/UiAvatar.vue';
-import UiBadge from '@/components/ui/UiBadge.vue';
 import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
@@ -126,7 +124,6 @@ import { auditService } from '@/services/audit.service';
 import { useFilterSync } from '@/composables/useFilterSync';
 import {
   IconClipboardList,
-  IconChevronDown,
   IconPlus,
   IconPencil,
   IconTrash,
@@ -301,19 +298,19 @@ onMounted(() => {
 }
 .timeline-dot.action-create {
   background: var(--color-success-bg);
-  color: var(--color-success);
+  color: var(--color-success-text);
 }
 .timeline-dot.action-update {
   background: var(--color-warning-bg);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 .timeline-dot.action-delete {
   background: var(--color-danger-bg);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 .timeline-dot.action-read {
   background: var(--color-info-bg);
-  color: var(--color-info);
+  color: var(--color-info-text);
 }
 .timeline-dot.action-default { background: var(--bg-app); color: var(--text-muted); }
 
@@ -586,7 +583,7 @@ onMounted(() => {
 }
 
 .change-value {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   color: var(--text-muted);
   max-width: 350px;
   word-break: break-all;

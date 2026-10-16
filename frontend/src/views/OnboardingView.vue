@@ -3,7 +3,7 @@
     <form @submit.prevent="handleSubmit" class="auth-form" novalidate>
       <UiCard>
         <template #header>
-          <h2 class="auth-title">Crea tu primera organización</h2>
+          <h1 class="auth-title">Crea tu primera organización</h1>
           <p class="auth-description">
             Necesitas un espacio de trabajo para empezar. Podrás crear más después y
             cambiar entre ellas cuando quieras.
@@ -32,7 +32,7 @@
 
             <UiInput
               v-model="form.tax_id"
-              label="Tax ID / NIT / RFC (Opcional)"
+              label="Tax ID / NIT / RFC (opcional)"
               type="text"
               placeholder="Ej. TAX-12345"
               :error="taxIdError"
@@ -47,7 +47,7 @@
 
         <template #footer>
           <UiButton v-if="!isSuccess" type="submit" :loading="companyStore.isLoading">
-            Crear Organización
+            Crear organización
           </UiButton>
         </template>
       </UiCard>

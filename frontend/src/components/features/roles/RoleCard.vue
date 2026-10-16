@@ -47,12 +47,12 @@
           <template #default>
             <UiDropdownItem @click="emit('edit', role)" v-permission="Permissions.ROLES.UPDATE">
               <IconPencil :size="14" />
-              <span>Editar Rol</span>
+              <span>Editar rol</span>
             </UiDropdownItem>
             <div class="ui-dropdown-divider" role="separator"></div>
             <UiDropdownItem danger @click="emit('delete', role)" v-permission="Permissions.ROLES.DELETE">
               <IconTrash :size="14" />
-              <span>Eliminar Rol</span>
+              <span>Eliminar rol</span>
             </UiDropdownItem>
           </template>
         </UiDropdown>

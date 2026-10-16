@@ -44,7 +44,7 @@ const handleLogin = async () => {
       return;
     }
     router.push(companyDashboardPath());
-  } catch (error) {
+  } catch {
     // Error manejado por Pinia
   }
 };
@@ -55,7 +55,7 @@ const handleLogin = async () => {
     <form @submit.prevent="handleLogin" class="auth-form">
       <UiCard>
         <template #header>
-          <h2 class="auth-title">Iniciar Sesión</h2>
+          <h1 class="auth-title">Iniciar sesión</h1>
           <p class="auth-description">Ingresa tus credenciales para acceder a tu cuenta.</p>
         </template>
 
@@ -91,7 +91,7 @@ const handleLogin = async () => {
 
         <template #footer>
           <UiButton type="submit" :loading="authStore.isLoading">
-            Ingresar
+            Iniciar sesión
           </UiButton>
           
           <div class="auth-footer-links">

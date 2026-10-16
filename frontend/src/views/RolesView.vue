@@ -61,7 +61,7 @@
 
     <UiFormModal
       v-model="isModalOpen"
-      title="Crear Rol Personalizado"
+      title="Crear rol personalizado"
       size="large"
       :confirm-on-dirty="true"
       :dirty="isCreateDirty"
@@ -96,7 +96,7 @@
       <template #footer="{ requestClose }">
         <div class="modal-footer">
           <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
-          <UiButton type="submit" :loading="isSaving">Guardar Rol</UiButton>
+          <UiButton type="submit" :loading="isSaving">Guardar rol</UiButton>
         </div>
       </template>
     </UiFormModal>
@@ -104,7 +104,7 @@
   <!-- Edit Modal -->
   <UiFormModal
     v-model="isEditModalOpen"
-    title="Editar Rol"
+    title="Editar rol"
     size="large"
     :confirm-on-dirty="true"
     :dirty="isEditDirty"
@@ -137,7 +137,7 @@
     <template #footer="{ requestClose }">
       <div class="modal-footer">
         <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
-        <UiButton type="submit" :loading="isSaving">Guardar Cambios</UiButton>
+        <UiButton type="submit" :loading="isSaving">Guardar cambios</UiButton>
       </div>
     </template>
   </UiFormModal>
@@ -145,7 +145,7 @@
   <!-- Delete Confirmation Modal -->
   <UiConfirmDialog
     v-model="isDeleteModalOpen"
-    title="Eliminar Rol"
+    title="Eliminar rol"
     :loading="isSaving"
     :error="errorMsg"
     confirm-label="Eliminar"

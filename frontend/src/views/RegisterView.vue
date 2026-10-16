@@ -3,7 +3,7 @@
     <form @submit.prevent="handleRegister" class="auth-form">
       <UiCard>
         <template #header>
-          <h2 class="auth-title">Crear Cuenta</h2>
+          <h1 class="auth-title">Crear cuenta</h1>
           <p class="auth-description">Crea tu cuenta personal para comenzar.</p>
         </template>
 
@@ -53,7 +53,7 @@
 
         <template #footer>
           <UiButton type="submit" :loading="authStore.isLoading">
-            Registrarse
+            Crear cuenta
           </UiButton>
           
           <div class="auth-footer-links">
@@ -122,7 +122,7 @@ const handleRegister = async () => {
       return;
     }
     router.push(companyDashboardPath());
-  } catch (error) {
+  } catch {
     // Error manejado por Pinia
   }
 };

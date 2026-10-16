@@ -2,7 +2,7 @@
   <AuthenticatedLayout>
     <div class="profile-container">
       <UiPageHeader
-        title="Mi Cuenta"
+        title="Mi cuenta"
         subtitle="Gestiona tu información personal de acceso y credenciales."
       />
 
@@ -68,7 +68,7 @@
 
         <UiDetailGrid>
             <UiInfoRow label="Nombre">{{ profileName || '---' }}</UiInfoRow>
-            <UiInfoRow label="Correo Electrónico">{{ profileEmail }}</UiInfoRow>
+            <UiInfoRow label="Correo electrónico">{{ profileEmail }}</UiInfoRow>
           </UiDetailGrid>
       </UiCard>
 
@@ -76,7 +76,7 @@
       <UiCard>
         <template #header>
           <div class="card-header-row">
-            <h3 class="card-title">Cambiar Contraseña</h3>
+            <h3 class="card-title">Cambiar contraseña</h3>
             <UiButton variant="outline" size="sm" @click="openPasswordModal" width="auto">
               <IconEdit :size="14" /> Editar
             </UiButton>
@@ -89,20 +89,20 @@
       <!-- Profile Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isProfileModalOpen"
-        title="Editar Perfil"
+        title="Editar perfil"
         description="Actualiza tu información personal."
         :confirm-on-dirty="true"
         :dirty="isProfileDirty"
-        submit-label="Guardar Cambios"
+        submit-label="Guardar cambios"
         :loading="isSavingProfile"
         @submit="handleProfileSubmit"
       >
         <UiAlert v-if="errorMessage" type="error">{{ errorMessage }}</UiAlert>
 
-        <UiInput v-model="form.name" label="Nombre Completo" required />
+        <UiInput v-model="form.name" label="Nombre completo" required />
         <UiInput
           v-model="form.email"
-          label="Correo Electrónico"
+          label="Correo electrónico"
           type="email"
           autocomplete="email"
           required
@@ -118,7 +118,7 @@
         </div>
         <UiInput v-model="form.avatar_url" label="URL de Foto" type="text" placeholder="https://..." />
         <div class="form-row">
-          <UiInput v-model="form.timezone" label="Zona Horaria" type="text" placeholder="America/Bogota" />
+          <UiInput v-model="form.timezone" label="Zona horaria" type="text" placeholder="America/Bogota" />
           <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
         </div>
       </UiFormModal>
@@ -126,11 +126,11 @@
       <!-- Password Change Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isPasswordModalOpen"
-        title="Cambiar Contraseña"
+        title="Cambiar contraseña"
         description="Ingresa tu contraseña actual y la nueva contraseña."
         :confirm-on-dirty="true"
         :dirty="isPasswordDirty"
-        submit-label="Actualizar Contraseña"
+        submit-label="Actualizar contraseña"
         :loading="isChangingPassword"
         @submit="handlePasswordChange"
       >
@@ -138,13 +138,13 @@
 
         <UiInput
           v-model="passwordForm.currentPassword"
-          label="Contraseña Actual"
+          label="Contraseña actual"
           type="password"
           required
         />
         <UiInput
           v-model="passwordForm.newPassword"
-          label="Nueva Contraseña"
+          label="Nueva contraseña"
           type="password"
           required
         />
@@ -153,7 +153,7 @@
 
         <UiInput
           v-model="passwordForm.confirmPassword"
-          label="Confirmar Nueva Contraseña"
+          label="Confirmar nueva contraseña"
           type="password"
           :error="passwordMismatchError"
           @blur="passwordConfirmTouched = true"

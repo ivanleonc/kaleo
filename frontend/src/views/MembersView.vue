@@ -56,7 +56,7 @@
       <!-- Add Member Modal -->
       <UiFormModal
         v-model="isAddModalOpen"
-        title="Invitar Miembro"
+        title="Invitar miembro"
         description="Agrega un nuevo miembro a tu equipo. La contraseña temporal se enviará a su correo."
         size="large"
         :confirm-on-dirty="true"
@@ -64,8 +64,8 @@
         @submit="handleAddSubmit"
       >
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
-        <UiInput v-model="addForm.name" label="Nombre Completo" required />
-        <UiInput v-model="addForm.email" label="Correo Electrónico" type="email" required :error="addEmailError" />
+        <UiInput v-model="addForm.name" label="Nombre completo" required />
+        <UiInput v-model="addForm.email" label="Correo electrónico" type="email" required :error="addEmailError" />
 
         <!-- Buscar usuario existente: si se elige uno, solo se vincula (sin
              tocar su contraseña). Si no, se crea con temporal por correo. -->
@@ -75,8 +75,11 @@
             placeholder="¿Ya existe? Busca por nombre o email..."
             @input="onUserSearchInput"
           />
-          <ul v-if="userSearchResults.length > 0 && !selectedUser" class="user-results" role="listbox" aria-label="Usuarios encontrados">
-            <li v-for="u in userSearchResults" :key="u.id" role="option">
+          <!-- Lista de acciones (elegir un usuario): no es un widget de
+               selección, así que sin roles listbox/option: los botones ya son
+               accesibles por teclado. -->
+          <ul v-if="userSearchResults.length > 0 && !selectedUser" class="user-results" aria-label="Usuarios encontrados">
+            <li v-for="u in userSearchResults" :key="u.id">
               <button type="button" class="user-result" @click="pickExistingUser(u)">
                 <span class="user-result-name">{{ u.name }}</span>
                 <span class="user-result-email">{{ u.email }}</span>
@@ -113,7 +116,7 @@
           <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
         </div>
         <div class="form-row">
-          <UiInput v-model="addForm.document_type" label="Tipo Doc. (Opcional)" type="text" placeholder="CC" />
+          <UiInput v-model="addForm.document_type" label="Tipo Doc. (opcional)" type="text" placeholder="CC" />
           <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
         </div>
         <UiDualListbox
@@ -145,7 +148,7 @@
       <!-- Edit Member Modal -->
       <UiFormModal
         v-model="isEditModalOpen"
-        title="Editar Miembro"
+        title="Editar miembro"
         :description="`Modificando accesos para: ${editForm.name}`"
         size="large"
         :confirm-on-dirty="true"
@@ -192,7 +195,7 @@
     <!-- Delete Confirmation Modal -->
     <UiConfirmDialog
       v-model="isDeleteModalOpen"
-      title="Eliminar Miembro"
+      title="Eliminar miembro"
       :loading="memberStore.isLoading"
       :error="memberStore.error"
       confirm-label="Eliminar"
@@ -205,7 +208,7 @@
     <!-- Reset Password Confirmation Modal (siempre envía por correo) -->
     <UiConfirmDialog
       v-model="isResetModalOpen"
-      title="Resetear Contraseña"
+      title="Resetear contraseña"
       variant="primary"
       :loading="memberStore.isLoading"
       :error="memberStore.error"
@@ -239,39 +242,29 @@ import { useModal } from '@/composables/useModal';
 import { useMemberColumns } from '@/composables/useMemberColumns';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
-import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
-import UiModal from '@/components/ui/UiModal.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
-import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
-import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
-import UiBadge from '@/components/ui/UiBadge.vue';
-import UiAvatar from '@/components/ui/UiAvatar.vue';
 import MemberTable from '@/components/features/members/MemberTable.vue';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
-import { useClipboard } from '@/composables/useClipboard';
 import { useFilterSync } from '@/composables/useFilterSync';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useTableView } from '@/composables/useTableView';
-import type { Member } from '@/types/member';
 import type { UserSearchResult } from '@/types/member';
-import type { BadgeVariant } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDebounceFn } from '@/composables/useDebounceFn';
 import { useCompanyStore } from '@/stores/company.store';
-import { IconCrown, IconPlus, IconDotsVertical, IconPencil, IconTrash, IconKey, IconUsers, IconBuildingCommunity } from '@tabler/icons-vue';
+import { IconPlus } from '@tabler/icons-vue';
 import MemberCompaniesModal from '@/components/MemberCompaniesModal.vue';
 
 const authStore = useAuthStore();
@@ -288,8 +281,6 @@ const roleItems = computed(() =>
     description: r.is_system ? 'Sistema' : 'Personalizado',
   }))
 );
-
-const { copyToClipboard } = useClipboard();
 
 // --- ASIGNACIÓN MULTI-EMPRESA (Owner de varias / super-admin) ---
 // El flujo legacy (una empresa = la activa) sigue intacto abajo. Este bloque
@@ -430,21 +421,8 @@ useFilterSync(memberFilterValues, (v) =>
 // useTableView unifica el setup de la tabla: sort, data reactiva, isInitialLoading.
 // El store cumple TableViewStore<Member> automáticamente (items, isLoading, setSort).
 const { table: memberTable, isInitialLoading } = useTableView(useMemberColumns(), memberStore);
-const statusLabel = (status?: string): string => {
-  if (status === 'inactive') return 'Inactivo';
-  if (status === 'pending') return 'Pendiente';
-  return 'Activo';
-};
-
-const statusVariant = (status?: string): BadgeVariant => {
-  if (status === 'inactive') return 'danger';
-  if (status === 'pending') return 'warning';
-  return 'success';
-};
 
 const isSelf = (memberId: string): boolean => authStore.user?.id === memberId;
-
-const isOwnerRole = (role: string): boolean => role === 'Owner' || role === 'owner';
 
 // --- ADD MEMBER ---
 const addModal = useModal();
@@ -681,7 +659,7 @@ const handleEditSubmit = async () => {
     } else {
       toast.success('Miembro actualizado correctamente');
     }
-  } catch (error) {
+  } catch {
     // El error queda en memberStore.error y lo muestra el UiAlert del modal.
   }
 };
@@ -706,7 +684,7 @@ const confirmDelete = async () => {
     await memberStore.removeMember(deleteTarget.value.id);
     deleteModal.reset();
     toast.success('Miembro removido del equipo');
-  } catch (error) {
+  } catch {
     // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
   }
 };
@@ -785,7 +763,7 @@ const confirmResetPassword = async () => {
 
 .credentials-warning {
   font-size: var(--text-sm);
-  color: var(--accent-amber, var(--text-muted));
+  color: var(--accent-amber);
   margin-bottom: var(--space-2);
 }
 
@@ -854,7 +832,7 @@ const confirmResetPassword = async () => {
   background: none;
   border: none;
   padding: 0;
-  color: var(--color-danger, #e5484d);
+  color: var(--color-danger-text);
   font-size: var(--text-sm);
   cursor: pointer;
   text-decoration: underline;
@@ -916,10 +894,10 @@ const confirmResetPassword = async () => {
   font-size: var(--text-sm);
 }
 .attach-ok {
-  color: var(--color-success, #30a46c);
+  color: var(--color-success-text);
 }
 .attach-fail {
-  color: var(--color-danger, #e5484d);
+  color: var(--color-danger-text);
 }
 
 

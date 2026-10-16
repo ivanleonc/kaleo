@@ -2,7 +2,7 @@
   <AuthenticatedLayout>
     <div class="change-password-container">
       <UiPageHeader
-        title="Cambiar Contraseña"
+        title="Cambiar contraseña"
         :subtitle="isTemporary
           ? 'Tu contraseña es temporal. Debes cambiarla para continuar usando el sistema.'
           : 'Actualiza tu contraseña de acceso.'"
@@ -15,7 +15,7 @@
       <form @submit.prevent="handleSubmit">
         <UiCard>
           <template #header>
-            <h3 class="card-title">{{ isTemporary ? 'Nueva Contraseña' : 'Cambiar Contraseña' }}</h3>
+            <h3 class="card-title">{{ isTemporary ? 'Nueva contraseña' : 'Cambiar contraseña' }}</h3>
           </template>
 
           <div class="form-body">
@@ -25,14 +25,14 @@
             <UiInput
               v-if="!isTemporary"
               v-model="form.currentPassword"
-              label="Contraseña Actual"
+              label="Contraseña actual"
               type="password"
               autocomplete="current-password"
               required
             />
             <UiInput
               v-model="form.newPassword"
-              label="Nueva Contraseña"
+              label="Nueva contraseña"
               type="password"
               autocomplete="new-password"
               required
@@ -42,7 +42,7 @@
 
             <UiInput
               v-model="form.confirmPassword"
-              label="Confirmar Nueva Contraseña"
+              label="Confirmar nueva contraseña"
               type="password"
               autocomplete="new-password"
               required
@@ -58,7 +58,7 @@
               type="submit"
               :loading="isLoading"
             >
-              {{ isTemporary ? 'Establecer Contraseña' : 'Actualizar Contraseña' }}
+              {{ isTemporary ? 'Establecer contraseña' : 'Actualizar contraseña' }}
             </UiButton>
           </template>
         </UiCard>
@@ -73,7 +73,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { authService } from '@/services/auth.service';
-import { isPasswordValid, passwordErrorMessage } from '@/utils/password';
+import { passwordErrorMessage } from '@/utils/password';
 
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';

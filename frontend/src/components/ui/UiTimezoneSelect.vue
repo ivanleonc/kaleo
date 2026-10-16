@@ -33,7 +33,7 @@ interface Props {
   ariaLabel?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   label: 'Zona horaria',
   placeholder: 'Seleccionar zona horaria...',
   required: false,

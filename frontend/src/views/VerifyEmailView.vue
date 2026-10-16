@@ -2,7 +2,7 @@
   <AuthLayout>
     <UiCard>
       <template #header>
-        <h2 class="auth-title">Verificar Correo</h2>
+        <h1 class="auth-title">Verificar correo</h1>
         <p class="auth-description">Estamos confirmando tu nueva dirección de correo.</p>
       </template>
 

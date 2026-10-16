@@ -60,7 +60,7 @@
               <UiInfoRow label="Teléfono">{{ company.phone || 'No configurado' }}</UiInfoRow>
               <UiInfoRow label="Email">{{ company.email || 'No configurado' }}</UiInfoRow>
               <UiInfoRow label="Dirección">{{ fullAddress || 'No configurada' }}</UiInfoRow>
-              <UiInfoRow label="Zona Horaria">{{ company.timezone || 'No configurada' }}</UiInfoRow>
+              <UiInfoRow label="Zona horaria">{{ company.timezone || 'No configurada' }}</UiInfoRow>
             </UiDetailGrid>
         </UiCard>
       </template>
@@ -68,11 +68,11 @@
       <!-- Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isEditModalOpen"
-        title="Editar Empresa"
+        title="Editar empresa"
         description="Actualiza la información de tu organización."
         :confirm-on-dirty="true"
         :dirty="isFormDirty"
-        submit-label="Guardar Cambios"
+        submit-label="Guardar cambios"
         :loading="companyStore.isLoading"
         @submit="handleSubmit"
       >
@@ -138,7 +138,7 @@
 
         <div class="form-row">
           <UiInput v-model="form.country" label="País" autocomplete="country-name" />
-          <UiInput v-model="form.postal_code" label="Código Postal" autocomplete="postal-code" />
+          <UiInput v-model="form.postal_code" label="Código postal" autocomplete="postal-code" />
         </div>
 
         <UiTimezoneSelect v-model="form.timezone" />
@@ -148,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCompanyStore } from '@/stores/company.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -312,7 +312,7 @@ const handleSubmit = async () => {
     if (target && target !== route.path) {
       router.replace(target);
     }
-  } catch (error) {
+  } catch {
     // Error manejado por UiAlert
   }
 };

@@ -55,11 +55,11 @@
       <!-- Create/Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isFormModalOpen"
-        :title="editingBranch ? 'Editar Sede' : 'Nueva Sede'"
+        :title="editingBranch ? 'Editar sede' : 'Nueva sede'"
         :description="editingBranch ? `Modificando: ${editingBranch.name}` : 'Agrega una nueva ubicación a tu empresa.'"
         :confirm-on-dirty="true"
         :dirty="isFormDirty"
-        :submit-label="editingBranch ? 'Guardar Cambios' : 'Crear Sede'"
+        :submit-label="editingBranch ? 'Guardar cambios' : 'Crear sede'"
         :loading="branchStore.isLoading"
         @submit="handleSubmit"
       >
@@ -76,7 +76,7 @@
         </div>
         <div class="form-row">
           <UiInput v-model="form.country" label="País" />
-          <UiInput v-model="form.postal_code" label="Código Postal" />
+          <UiInput v-model="form.postal_code" label="Código postal" />
         </div>
         <div class="form-row">
           <UiInput v-model="form.phone" label="Teléfono" type="tel" />
@@ -103,7 +103,7 @@
     <!-- Delete Confirmation Modal -->
     <UiConfirmDialog
       v-model="isDeleteModalOpen"
-      title="Eliminar Sede"
+      title="Eliminar sede"
       :loading="branchStore.isLoading"
       :error="branchStore.error"
       confirm-label="Eliminar"
@@ -129,13 +129,9 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
-import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
-import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
-import UiBadge from '@/components/ui/UiBadge.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
@@ -148,14 +144,7 @@ import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useTableView } from '@/composables/useTableView';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
-import {
-  IconPlus,
-  IconDotsVertical,
-  IconPencil,
-  IconTrash,
-  IconBuildingCommunity,
-  IconSwitchHorizontal,
-} from '@tabler/icons-vue';
+import { IconPlus } from '@tabler/icons-vue';
 
 const branchStore = useBranchStore();
 const memberStore = useMemberStore();

@@ -78,7 +78,7 @@ const handleSubmit = async () => {
     <form @submit.prevent="handleSubmit" class="auth-form">
       <UiCard>
         <template #header>
-          <h2 class="auth-title">Crear Nueva Contraseña</h2>
+          <h1 class="auth-title">Crear nueva contraseña</h1>
           <p class="auth-description">Ingresa una contraseña segura para tu cuenta.</p>
         </template>
 
@@ -89,7 +89,7 @@ const handleSubmit = async () => {
           <template v-if="!successMsg && token && email">
             <UiInput
               v-model="password"
-              label="Nueva Contraseña"
+              label="Nueva contraseña"
               type="password"
               autocomplete="new-password"
               required
@@ -97,7 +97,7 @@ const handleSubmit = async () => {
             <UiPasswordStrength v-model="password" />
             <UiInput
               v-model="passwordConfirm"
-              label="Confirmar Contraseña"
+              label="Confirmar contraseña"
               type="password"
               autocomplete="new-password"
               :error="passwordMismatchError"
@@ -112,7 +112,7 @@ const handleSubmit = async () => {
             Ir al inicio de sesión ahora
           </UiButton>
           <UiButton v-else-if="token && email" type="submit" :loading="isLoading">
-            Actualizar Contraseña
+            Actualizar contraseña
           </UiButton>
 
           <div class="auth-footer-links">

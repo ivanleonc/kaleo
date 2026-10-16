@@ -15,6 +15,7 @@
     :error-title="errorTitle"
     :empty-title="emptyTitle"
     :empty-description="emptyDescription"
+    caption="Listado de sedes"
     @retry="emit('retry')"
   >
     <!-- Celda: nombre + código + tag "Principal" -->
