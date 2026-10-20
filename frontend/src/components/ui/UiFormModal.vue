@@ -7,6 +7,7 @@
     :confirm-on-dirty="confirmOnDirty"
     :dirty="dirty"
     :confirm-message="confirmMessage"
+    :prevent-close="preventClose"
   >
     <form class="ui-form-modal" @submit.prevent="emit('submit')">
       <UiCard>
@@ -91,6 +92,7 @@ withDefaults(
     dirty?: boolean;
     confirmOnDirty?: boolean;
     confirmMessage?: string;
+    preventClose?: boolean;
     /** Texto del botón de envío en el footer por defecto. */
     submitLabel?: string;
     /** Texto del botón de cancelar en el footer por defecto. */
@@ -107,6 +109,7 @@ withDefaults(
     dirty: false,
     confirmOnDirty: false,
     confirmMessage: 'Tienes cambios sin guardar. ¿Cerrar de todos modos?',
+    preventClose: false,
     submitLabel: 'Guardar',
     cancelLabel: 'Cancelar',
     loading: false,

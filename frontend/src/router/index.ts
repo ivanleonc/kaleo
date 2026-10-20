@@ -58,14 +58,32 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, title: 'Panel' },
   },
   {
-    path: '/companies/:companyId/energy',
-    name: 'Energy',
-    component: () => import('@/views/EnergyView.vue'),
+    path: '/companies/:companyId/analyses',
+    name: 'Analyses',
+    component: () => import('@/views/AnalysesView.vue'),
     meta: {
       requiresAuth: true,
-      requiredPermission: Permissions.DASHBOARD.READ,
-      title: 'Energía',
+      requiredPermission: Permissions.ANALYSES.READ,
+      title: 'Analítica',
     },
+  },
+  {
+    path: '/companies/:companyId/analyses/:analysisId',
+    name: 'AnalysisDetail',
+    component: () => import('@/views/AnalysisDetailView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.ANALYSES.READ,
+      title: 'Analítica',
+    },
+  },
+  {
+    path: '/companies/:companyId/energy',
+    redirect: (to) => ({
+      path: `/companies/${String(to.params.companyId)}/analyses`,
+      query: to.query,
+      hash: to.hash,
+    }),
   },
   {
     path: '/companies/:companyId/settings',

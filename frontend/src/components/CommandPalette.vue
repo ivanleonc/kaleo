@@ -65,7 +65,7 @@ import { useRouter } from 'vue-router';
 import {
   IconSearch,
   IconLayoutDashboard,
-  IconBolt,
+  IconChartHistogram,
   IconUsers,
   IconBuildingCommunity,
   IconShieldLock,
@@ -136,7 +136,7 @@ const items = computed<PaletteItem[]>(() => {
   };
 
   go('Panel', 'Ir al dashboard', IconLayoutDashboard, '/dashboard');
-  go('Energía', 'Analizar consumo y pérdidas', IconBolt, '/energy', Permissions.DASHBOARD.READ);
+  go('Analítica', 'Historial y resultados', IconChartHistogram, '/analyses', Permissions.ANALYSES.READ);
   go('Equipo', 'Gestionar miembros', IconUsers, '/members', Permissions.USERS.READ);
   go('Sedes', 'Gestionar sedes', IconBuildingCommunity, '/branches', Permissions.BRANCHES.READ);
   go('Roles', 'Configurar roles', IconShieldLock, '/roles', Permissions.ROLES.READ);
@@ -157,6 +157,7 @@ const items = computed<PaletteItem[]>(() => {
     });
   };
 
+  act('Nuevo análisis', 'Abrir procesamiento de Excel', IconPlus, '/analyses', Permissions.ANALYSES.CREATE);
   act('Invitar miembro', 'Abrir invitación en Equipo', IconPlus, '/members', Permissions.USERS.CREATE);
   act('Nueva sede', 'Abrir creación en Sedes', IconPlus, '/branches', Permissions.BRANCHES.CREATE);
   act('Crear rol', 'Abrir creación en Roles', IconPlus, '/roles', Permissions.ROLES.CREATE);

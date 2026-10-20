@@ -69,6 +69,7 @@ interface Props {
   confirmOnDirty?: boolean;
   dirty?: boolean;
   confirmMessage?: string;
+  preventClose?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -77,6 +78,7 @@ const props = withDefaults(defineProps<Props>(), {
   confirmOnDirty: false,
   dirty: false,
   confirmMessage: 'Tienes cambios sin guardar. ¿Cerrar de todos modos?',
+  preventClose: false,
 });
 
 const isOpen = defineModel<boolean>({ default: false });
@@ -142,6 +144,7 @@ const cancelConfirm = () => {
 };
 
 const attemptClose = () => {
+  if (props.preventClose) return;
   if (props.confirmOnDirty && props.dirty) {
     // Confirmación dentro del propio modal: window.confirm se ve ajeno al diseño
     // y no se puede estilar ni traducir de forma consistente.

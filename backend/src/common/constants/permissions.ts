@@ -55,6 +55,13 @@ export const Permissions = {
     DELETE: 'branches:delete',
   },
 
+  ANALYSES: {
+    READ: 'analyses:read',
+    CREATE: 'analyses:create',
+    UPDATE: 'analyses:update',
+    DELETE: 'analyses:delete',
+  },
+
   AUDIT: {
     READ: 'audit:read',
   },

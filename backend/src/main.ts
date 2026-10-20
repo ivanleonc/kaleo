@@ -35,6 +35,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { json, urlencoded } from 'express';
 import { timingSafeEqual } from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module.js';
@@ -96,7 +97,10 @@ async function bootstrap() {
     throw new Error(`Faltan variables de entorno requeridas: ${missing.join(', ')}`);
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  app.use(json({ limit: '2mb' }));
+  app.use(urlencoded({ extended: true, limit: '2mb' }));
 
   // Tras proxy (Render/Cloudflare): IPs reales en req.ip para auditoría
   app.getHttpAdapter().getInstance().set('trust proxy', 1);

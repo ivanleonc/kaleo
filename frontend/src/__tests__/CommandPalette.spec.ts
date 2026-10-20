@@ -100,7 +100,7 @@ describe('CommandPalette', () => {
     await press('ArrowDown');
     await press('Enter');
 
-    expect(push).toHaveBeenCalledWith('/acme/energy');
+    expect(push).toHaveBeenCalledWith('/acme/analyses');
   });
 
   it('filtra por etiqueta y por sugerencia', async () => {
@@ -126,6 +126,21 @@ describe('CommandPalette', () => {
 
     expect(push).toHaveBeenCalledWith({
       path: expect.stringContaining('/branches'),
+      query: { crear: '1' },
+    });
+  });
+
+  it('abre la creación de análisis desde una acción rápida', async () => {
+    await openPalette();
+    input()!.value = 'nuevo análisis';
+    input()!.dispatchEvent(new Event('input', { bubbles: true }));
+    await nextTick();
+
+    expect(options()).toHaveLength(1);
+    await press('Enter');
+
+    expect(push).toHaveBeenCalledWith({
+      path: '/acme/analyses',
       query: { crear: '1' },
     });
   });

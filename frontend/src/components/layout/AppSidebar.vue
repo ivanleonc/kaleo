@@ -25,9 +25,14 @@
         <IconLayoutDashboard :size="22" stroke-width="1.8" />
         <span class="nav-label">Panel</span>
       </router-link>
-      <router-link :to="companyPath('/energy')" class="nav-link" active-class="active" v-permission="Permissions.DASHBOARD.READ">
-        <IconBolt :size="22" stroke-width="1.8" />
-        <span class="nav-label">Energía</span>
+      <router-link
+        :to="companyPath('/analyses')"
+        class="nav-link"
+        :class="{ active: isAnalysesActive }"
+        v-permission="Permissions.ANALYSES.READ"
+      >
+        <IconChartHistogram :size="22" stroke-width="1.8" />
+        <span class="nav-label">Analítica</span>
       </router-link>
       <router-link :to="companyPath('/members')" class="nav-link" active-class="active" v-permission="Permissions.USERS.READ">
         <IconUsers :size="22" stroke-width="1.8" />
@@ -83,13 +88,15 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
 import { Permissions } from '@/constants/permissions';
 import {
   IconLayoutDashboard,
-  IconBolt,
+  IconChartHistogram,
   IconUsers,
   IconShieldLock,
   IconClipboardList,
@@ -103,8 +110,10 @@ import {
   IconBuildingCommunity,
 } from '@tabler/icons-vue';
 
+const route = useRoute();
 const { companyPath } = useCompanyPath();
 const { isDarkMode, toggleTheme } = useTheme();
+const isAnalysesActive = computed(() => route.path.includes('/analyses'));
 const {
   isSidebarExpanded,
   isSidebarPinned,

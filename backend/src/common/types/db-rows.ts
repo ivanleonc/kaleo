@@ -76,6 +76,22 @@ export interface BranchRow {
   updated_at: string;
 }
 
+export interface AnalysisRow {
+  id: string;
+  company_id: string;
+  created_by: string | null;
+  created_by_name: string | null;
+  name: string;
+  analysis_type: string;
+  source: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  summary: Record<string, unknown>;
+  result?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Resultado genérico de queries que solo retornan el ID de una fila. */
 export interface IdRow {
   id: string;

@@ -10,6 +10,7 @@ export type AuditEntityType =
   | 'Role'
   | 'Permission'
   | 'Branch'
+  | 'Analysis'
   | 'Settings'
   | 'Audit';
 

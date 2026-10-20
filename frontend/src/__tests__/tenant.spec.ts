@@ -72,6 +72,12 @@ describe('preservableSection', () => {
     );
   });
 
+  it('vuelve al listado al cambiar de empresa desde el detalle de un análisis', () => {
+    expect(
+      preservableSection('/companies/acme/analyses/analysis-1', 'AnalysisDetail'),
+    ).toBe('/analyses');
+  });
+
   it.each([...PRESERVABLE_SECTIONS])('cubre la ruta conocida %s', (name) => {
     expect(preservableSection(`/companies/acme/${name.toLowerCase()}`, name)).not.toBe('');
   });

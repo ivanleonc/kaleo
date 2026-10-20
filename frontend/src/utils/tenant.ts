@@ -42,7 +42,8 @@ export function companyPathFor(tenant: Tenant | undefined, suffix = ''): string 
  */
 export const PRESERVABLE_SECTIONS: ReadonlySet<string> = new Set([
   'Dashboard',
-  'Energy',
+  'Analyses',
+  'AnalysisDetail',
   'Settings',
   'Profile',
   'ChangePassword',
@@ -71,6 +72,7 @@ export function preservableSection(
     PRESERVABLE_SECTIONS.has(routeName) &&
     currentPath.startsWith('/companies/')
   ) {
+    if (routeName === 'AnalysisDetail') return '/analyses';
     return currentPath.replace(/^\/companies\/[^/]+/, '') || '/dashboard';
   }
   return '/dashboard';
