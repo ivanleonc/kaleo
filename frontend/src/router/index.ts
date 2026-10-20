@@ -58,6 +58,16 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: true, title: 'Panel' },
   },
   {
+    path: '/companies/:companyId/energy',
+    name: 'Energy',
+    component: () => import('@/views/EnergyView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.DASHBOARD.READ,
+      title: 'Energía',
+    },
+  },
+  {
     path: '/companies/:companyId/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),

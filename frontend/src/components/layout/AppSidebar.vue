@@ -25,6 +25,10 @@
         <IconLayoutDashboard :size="22" stroke-width="1.8" />
         <span class="nav-label">Panel</span>
       </router-link>
+      <router-link :to="companyPath('/energy')" class="nav-link" active-class="active" v-permission="Permissions.DASHBOARD.READ">
+        <IconBolt :size="22" stroke-width="1.8" />
+        <span class="nav-label">Energía</span>
+      </router-link>
       <router-link :to="companyPath('/members')" class="nav-link" active-class="active" v-permission="Permissions.USERS.READ">
         <IconUsers :size="22" stroke-width="1.8" />
         <span class="nav-label">Equipo</span>
@@ -85,6 +89,7 @@ import { useSidebar } from '@/composables/useSidebar';
 import { Permissions } from '@/constants/permissions';
 import {
   IconLayoutDashboard,
+  IconBolt,
   IconUsers,
   IconShieldLock,
   IconClipboardList,

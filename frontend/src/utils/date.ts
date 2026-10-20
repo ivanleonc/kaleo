@@ -47,7 +47,10 @@ export function formatDateTime(dateStr: string, timeZone?: string): string {
 
 /** Solo fecha: "12 mar 2026". */
 export function formatDate(dateStr: string, timeZone?: string): string {
-  const date = new Date(dateStr);
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  const date = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(dateStr);
   if (Number.isNaN(date.getTime())) return '—';
 
   return date.toLocaleDateString('es-ES', {

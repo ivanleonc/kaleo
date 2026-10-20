@@ -65,6 +65,7 @@ import { useRouter } from 'vue-router';
 import {
   IconSearch,
   IconLayoutDashboard,
+  IconBolt,
   IconUsers,
   IconBuildingCommunity,
   IconShieldLock,
@@ -135,6 +136,7 @@ const items = computed<PaletteItem[]>(() => {
   };
 
   go('Panel', 'Ir al dashboard', IconLayoutDashboard, '/dashboard');
+  go('Energía', 'Analizar consumo y pérdidas', IconBolt, '/energy', Permissions.DASHBOARD.READ);
   go('Equipo', 'Gestionar miembros', IconUsers, '/members', Permissions.USERS.READ);
   go('Sedes', 'Gestionar sedes', IconBuildingCommunity, '/branches', Permissions.BRANCHES.READ);
   go('Roles', 'Configurar roles', IconShieldLock, '/roles', Permissions.ROLES.READ);

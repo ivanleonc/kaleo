@@ -42,6 +42,7 @@ export function companyPathFor(tenant: Tenant | undefined, suffix = ''): string 
  */
 export const PRESERVABLE_SECTIONS: ReadonlySet<string> = new Set([
   'Dashboard',
+  'Energy',
   'Settings',
   'Profile',
   'ChangePassword',

@@ -100,7 +100,7 @@ describe('CommandPalette', () => {
     await press('ArrowDown');
     await press('Enter');
 
-    expect(push).toHaveBeenCalledWith('/acme/members');
+    expect(push).toHaveBeenCalledWith('/acme/energy');
   });
 
   it('filtra por etiqueta y por sugerencia', async () => {

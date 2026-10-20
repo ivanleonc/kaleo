@@ -302,6 +302,7 @@ const filteredAllCompanies = computed(() => {
 
 const SECTION_LABELS: Record<string, string> = {
   dashboard: 'Panel',
+  energy: 'Energía',
   members: 'Equipo',
   branches: 'Sedes',
   roles: 'Roles',

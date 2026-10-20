@@ -19,7 +19,7 @@ export function apiErrorMessage(
   const data = (error as any)?.response?.data;
   if (typeof data === 'string' && data.trim()) return data;
 
-  const message = data?.message ?? data?.error;
+  const message = data?.message ?? data?.error ?? data?.detail;
   if (typeof message === 'string' && message.trim()) return message;
 
   if (Array.isArray(message) && message.length > 0) {

@@ -40,4 +40,10 @@ describe('enrichAxiosError + apiErrorMessage (403)', () => {
     expect(error._isForbidden).toBeUndefined();
     expect(apiErrorMessage(error, 'fallback')).toBe('Error interno');
   });
+
+  it('lee el campo detail de Django REST Framework', () => {
+    expect(apiErrorMessage({ response: { data: { detail: 'Archivo no válido.' } } })).toBe(
+      'Archivo no válido.',
+    );
+  });
 });
