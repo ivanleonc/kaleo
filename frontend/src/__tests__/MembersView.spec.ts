@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises, RouterLinkStub, type VueWrapper } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import MembersView from '@/views/MembersView.vue';
 import { useAuthStore } from '@/stores/auth.store';
@@ -70,8 +71,20 @@ const mountView = async () => {
   return wrapper;
 };
 
-const filterSelects = () => wrapper!.find('.filters-bar').findAll('select');
+const filterSelects = () => wrapper!.find('.filters-bar').findAll('[role="combobox"]');
 const bodyText = () => document.querySelector('tbody')?.textContent ?? '';
+
+const chooseFilterOption = async (index: number, label: string) => {
+  await filterSelects()[index]?.trigger('click');
+  await nextTick();
+  await nextTick();
+  const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(
+    (item) => item.textContent?.trim() === label,
+  );
+  option!.click();
+  await nextTick();
+  await nextTick();
+};
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -116,7 +129,7 @@ describe('MembersView — cadena de datos (regresión)', () => {
     mockGetMembers.mockClear();
     mockGetMembers.mockResolvedValue(pageOf([], 0));
 
-    await filterSelects()[0]?.setValue('role-viewer');
+    await chooseFilterOption(0, 'Viewer');
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
 
@@ -131,7 +144,7 @@ describe('MembersView — cadena de datos (regresión)', () => {
     await mountView();
     mockGetMembers.mockClear();
 
-    await filterSelects()[1]?.setValue('inactive');
+    await chooseFilterOption(1, 'Inactivo');
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
 
@@ -164,7 +177,7 @@ describe('MembersView — cadena de datos (regresión)', () => {
     expect(bodyText()).toContain('Iván Capote');
 
     mockGetMembers.mockRejectedValueOnce(new Error('Network Error'));
-    await filterSelects()[1]?.setValue('inactive');
+    await chooseFilterOption(1, 'Inactivo');
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
 

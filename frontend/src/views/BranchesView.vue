@@ -112,7 +112,14 @@
           description="Responsable, zona horaria y jerarquía de la sede."
         >
           <div class="form-grid">
-            <UiSelect v-model="form.manager_user_id" label="Responsable" :options="managerOptions" />
+            <UiSelect
+              v-model="form.manager_user_id"
+              label="Responsable"
+              placeholder="Seleccionar responsable..."
+              :options="managerOptions"
+              searchable
+              :clearable="false"
+            />
             <UiTimezoneSelect v-model="form.timezone" />
           </div>
           <div class="section-switch">
@@ -148,6 +155,7 @@ import { useMemberStore } from '@/stores/member.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { Permissions } from '@/constants/permissions';
 import type { Branch } from '@/types/branch';
+import type { UiSelectOption } from '@/types/ui';
 import { useModal } from '@/composables/useModal';
 import { useBranchColumns } from '@/composables/useBranchColumns';
 
@@ -242,8 +250,8 @@ const branchFilterDefs: TableFilterDef[] = [
     label: 'Filtrar por estado',
     options: [
       { label: 'Todos los estados', value: '' },
-      { label: 'Activa', value: 'active' },
-      { label: 'Inactiva', value: 'inactive' },
+      { label: 'Activa', value: 'active', tone: 'success' },
+      { label: 'Inactiva', value: 'inactive', tone: 'danger' },
     ],
   },
 ];
@@ -342,11 +350,13 @@ const branchEmailError = computed(() =>
     : null
 );
 
-const managerOptions = computed(() => [
+const managerOptions = computed<UiSelectOption[]>(() => [
   { label: 'Sin responsable', value: '' },
-  ...memberStore.members.map((m: any) => ({
-    label: `${m.name} (${m.email})`,
-    value: m.id,
+  ...memberStore.members.map((member: any) => ({
+    label: member.name,
+    value: member.id,
+    description: member.email,
+    keywords: [member.email],
   })),
 ]);
 

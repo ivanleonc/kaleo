@@ -150,6 +150,7 @@ const auditFilterDefs = computed<TableFilterDef[]>(() => [
     type: 'select',
     label: 'Filtrar por entidad',
     placeholder: 'Todas las entidades',
+    searchable: true,
     options: auditStore.entityTypes.map((t) => ({ label: t, value: t })),
   },
   {

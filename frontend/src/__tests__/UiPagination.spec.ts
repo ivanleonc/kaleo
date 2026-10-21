@@ -86,11 +86,21 @@ describe('UiPagination', () => {
 
   it('el selector emite el límite y vuelve a la primera página', async () => {
     await mountPagination({ page: 4, total: 400, limit: 20, showPageSize: true });
-    const select = document.querySelector<HTMLSelectElement>('.page-size-select');
-    expect(select).not.toBeNull();
+    const input = document.querySelector<HTMLInputElement>(
+      '.page-size-select [role="combobox"]',
+    );
+    expect(input).not.toBeNull();
 
-    select!.value = '50';
-    select!.dispatchEvent(new Event('change', { bubbles: true }));
+    input!.click();
+    await nextTick();
+    await nextTick();
+
+    const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(
+      (item) => item.textContent?.trim() === '50',
+    );
+    expect(option).toBeDefined();
+    option!.click();
+    await nextTick();
     await nextTick();
 
     expect(wrapper!.emitted('update:limit')).toEqual([[50]]);

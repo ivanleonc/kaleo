@@ -1,15 +1,17 @@
 <template>
   <div v-if="totalPages > 1 || showPageSize" class="pagination">
     <div v-if="showPageSize" class="page-size">
-      <label class="page-size-label" :for="selectId">Filas por página</label>
-      <select
-        :id="selectId"
+      <span class="page-size-label">Filas por página</span>
+      <UiSelect
         class="page-size-select"
-        :value="limit"
-        @change="onLimitChange"
-      >
-        <option v-for="opt in pageSizeOptions" :key="opt" :value="opt">{{ opt }}</option>
-      </select>
+        style="width: auto"
+        :model-value="limit"
+        :options="pageSizeOptions.map((opt) => ({ label: String(opt), value: opt }))"
+        size="sm"
+        :clearable="false"
+        aria-label="Filas por página"
+        @update:model-value="onLimitChange"
+      />
     </div>
 
     <nav v-if="totalPages > 1" class="page-nav" :aria-label="`Paginación, página ${page} de ${totalPages}`">
@@ -57,6 +59,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import UiSelect from '@/components/ui/UiSelect.vue';
+import type { UiSelectValue } from '@/types/ui';
 
 const props = withDefaults(defineProps<{
   page?: number;
@@ -79,8 +83,6 @@ const emit = defineEmits<{
   (e: 'update:page', page: number): void;
   (e: 'update:limit', limit: number): void;
 }>();
-
-const selectId = 'ui-pagination-page-size';
 
 const totalPages = computed(() => Math.max(1, Math.ceil(props.total / props.limit)));
 
@@ -108,10 +110,10 @@ const pageItems = computed<(number | '…')[]>(() => {
 const rangeStart = computed(() => (props.total === 0 ? 0 : (props.page - 1) * props.limit + 1));
 const rangeEnd = computed(() => Math.min(props.page * props.limit, props.total));
 
-const onLimitChange = (event: Event) => {
-  const value = Number((event.target as HTMLSelectElement).value);
-  if (!Number.isFinite(value) || value === props.limit) return;
-  emit('update:limit', value);
+const onLimitChange = (value: UiSelectValue) => {
+  const limit = Number(value);
+  if (!Number.isFinite(limit) || limit === props.limit) return;
+  emit('update:limit', limit);
   // Cambiar el tamaño de página invalida la actual: se vuelve a la primera
   // para no dejar al usuario en una página vacía.
   emit('update:page', 1);
@@ -211,18 +213,6 @@ const onLimitChange = (event: Event) => {
   white-space: nowrap;
 }
 
-.page-size-select {
-  height: 2rem;
-  padding: 0 var(--space-2);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text-main);
-  cursor: pointer;
-}
-
 .page-summary {
   font-size: var(--text-sm);
   color: var(--text-muted);
@@ -248,8 +238,7 @@ const onLimitChange = (event: Event) => {
 
 @media (pointer: coarse) {
   .page-btn,
-  .page-number,
-  .page-size-select {
+  .page-number {
     min-height: 44px;
   }
 }

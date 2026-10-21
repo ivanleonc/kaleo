@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import MemberCompaniesModal from '@/components/MemberCompaniesModal.vue';
 import { useAuthStore } from '@/stores/auth.store';
@@ -114,7 +115,7 @@ describe('MemberCompaniesModal', () => {
 
   it('agregar llama a attach con roleNames y recarga la lista', async () => {
     await mountModal();
-    const selects = document.body.querySelectorAll('select');
+    const selects = document.body.querySelectorAll('[role="combobox"]');
     // Primer select = empresa, segundo = rol.
     expect(selects.length).toBeGreaterThanOrEqual(2);
 
@@ -150,8 +151,13 @@ describe('MemberCompaniesModal', () => {
     expect(memberService.attachToCompany).toBeDefined();
     await mountModal();
     // El select de empresa tiene a Globex como opción (no asignada).
-    const companySelect = document.body.querySelectorAll('select')[0] as HTMLSelectElement;
-    const options = [...companySelect.options].map((o) => o.textContent);
+    const companySelect = document.body.querySelector<HTMLInputElement>('[role="combobox"]');
+    companySelect!.click();
+    await nextTick();
+    await nextTick();
+    const options = Array.from(document.querySelectorAll('[role="option"]')).map(
+      (option) => option.textContent,
+    );
     expect(options.join(' ')).toContain('Globex');
   });
 });

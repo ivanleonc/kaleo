@@ -172,6 +172,7 @@ const filterDefs = computed<TableFilterDef[]>(() => [
         key: 'analysis_type',
         type: 'select' as const,
         label: 'Filtrar por tipo',
+        searchable: false,
         options: [
           { label: 'Todos los tipos', value: '' },
           ...ANALYSIS_TYPES.map((type) => ({ label: type === 'energy' ? 'Energía' : type, value: type })),

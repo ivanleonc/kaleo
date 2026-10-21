@@ -164,7 +164,10 @@
             v-if="isMultiAssign"
             v-model="assignRoleName"
             label="Rol (se aplica en todas las empresas elegidas)"
+            placeholder="Seleccionar rol..."
             :options="assignRoleOptions"
+            searchable
+            :clearable="false"
           />
         </UiFormSection>
 
@@ -218,6 +221,7 @@
               v-model="editForm.status"
               label="Estado de la Cuenta"
               :options="statusOptions"
+              :clearable="false"
             />
           </div>
         </UiFormSection>
@@ -317,6 +321,7 @@ import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useTableView } from '@/composables/useTableView';
 import type { ServerSort } from '@/composables/useAppTable';
 import type { UserSearchResult } from '@/types/member';
+import type { UiSelectOption } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDebounceFn } from '@/composables/useDebounceFn';
@@ -479,6 +484,7 @@ const memberFilterDefs = computed<TableFilterDef[]>(() => [
     key: 'roleId',
     type: 'select',
     label: 'Filtrar por rol',
+    searchable: true,
     options: [
       { label: 'Todos los roles', value: '' },
       ...availableRoles.value.map((r) => ({ label: r.name, value: r.id })),
@@ -490,8 +496,8 @@ const memberFilterDefs = computed<TableFilterDef[]>(() => [
     label: 'Filtrar por estado',
     options: [
       { label: 'Todos los estados', value: '' },
-      { label: 'Activo', value: 'active' },
-      { label: 'Inactivo', value: 'inactive' },
+      { label: 'Activo', value: 'active', tone: 'success' },
+      { label: 'Inactivo', value: 'inactive', tone: 'danger' },
     ],
   },
 ]);
@@ -725,9 +731,9 @@ const editForm = reactive({
   document_number: '',
 });
 
-const statusOptions = [
-  { label: 'Activo', value: 'active' },
-  { label: 'Inactivo', value: 'inactive' }
+const statusOptions: UiSelectOption[] = [
+  { label: 'Activo', value: 'active', tone: 'success' },
+  { label: 'Inactivo', value: 'inactive', tone: 'danger' },
 ];
 
 // Estado previo a la edición: permite ofrecer "Deshacer" si solo cambió el status.

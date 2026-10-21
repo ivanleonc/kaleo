@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises, RouterLinkStub, type VueWrapper } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 import AuditView from '@/views/AuditView.vue';
 import { useAuthStore } from '@/stores/auth.store';
@@ -49,6 +50,18 @@ const mountView = async () => {
   return wrapper;
 };
 
+const chooseEntity = async (label: string) => {
+  await wrapper!.find('.filters-bar [role="combobox"]').trigger('click');
+  await nextTick();
+  await nextTick();
+  const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(
+    (item) => item.textContent?.trim() === label,
+  );
+  option!.click();
+  await nextTick();
+  await nextTick();
+};
+
 beforeEach(() => {
   vi.useFakeTimers();
   setActivePinia(createPinia());
@@ -83,8 +96,7 @@ describe('AuditView — filtros (regresión)', () => {
     mockGetLogs.mockClear();
 
     // El bug: el select de entidad no tenía watcher ni @change y no hacía nada.
-    const select = wrapper!.find('.filters-bar select');
-    await select.setValue('Member');
+    await chooseEntity('Member');
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
 
@@ -111,8 +123,7 @@ describe('AuditView — filtros (regresión)', () => {
   it('Limpiar resetea y vuelve a pedir sin filtros', async () => {
     await mountView();
 
-    const select = wrapper!.find('.filters-bar select');
-    await select.setValue('Member');
+    await chooseEntity('Member');
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
     mockGetLogs.mockClear();

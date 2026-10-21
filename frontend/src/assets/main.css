@@ -557,7 +557,7 @@ body {
 }
 
 .filters-bar .ui-select {
-  height: 2rem;
+  min-height: 2rem;
   font-size: var(--text-sm);
 }
 
@@ -710,7 +710,7 @@ button, a, [role='button'] {
   }
   .filter-input,
   .filters-bar .ui-select {
-    height: 2.75rem;
+    min-height: 2.75rem;
     font-size: 1rem;
   }
   .filter-date {

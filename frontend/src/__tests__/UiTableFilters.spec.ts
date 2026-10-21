@@ -41,11 +41,29 @@ const mountFilters = async (
 const emittedValues = () =>
   (wrapper!.emitted('update:modelValue') ?? []).map((args) => args[0]);
 
+const openSelect = async (label: string) => {
+  const input = document.querySelector<HTMLInputElement>(
+    `.filters-bar [role="combobox"][aria-label="${label}"]`,
+  );
+  input!.click();
+  await nextTick();
+  await nextTick();
+};
+
+const chooseOption = async (label: string) => {
+  const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(
+    (item) => item.textContent?.trim() === label,
+  );
+  option!.click();
+  await nextTick();
+  await nextTick();
+};
+
 describe('UiTableFilters', () => {
   it('renderiza un control por definición con sus etiquetas', async () => {
     await mountFilters();
     expect(document.querySelector('.filters-bar input[type="text"]')).not.toBeNull();
-    expect(document.querySelectorAll('select')).toHaveLength(1);
+    expect(document.querySelectorAll('.filters-bar [role="combobox"]')).toHaveLength(1);
     expect(document.querySelector('input[type="date"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Filtrar por estado"]')).not.toBeNull();
   });
@@ -71,10 +89,8 @@ describe('UiTableFilters', () => {
 
   it('el select emite el valor elegido', async () => {
     await mountFilters();
-    const select = document.querySelector<HTMLSelectElement>('.filters-bar select');
-    select!.value = 'active';
-    select!.dispatchEvent(new Event('change', { bubbles: true }));
-    await nextTick();
+    await openSelect('Filtrar por estado');
+    await chooseOption('Activo');
 
     expect(emittedValues()).toContainEqual(expect.objectContaining({ status: 'active' }));
   });
@@ -141,6 +157,6 @@ describe('UiTableFilters', () => {
       { 'filter-status': () => h('button', { class: 'custom-filter' }, 'Especial') },
     );
     expect(document.querySelector('.custom-filter')).not.toBeNull();
-    expect(document.querySelectorAll('select')).toHaveLength(0);
+    expect(document.querySelectorAll('.filters-bar [role="combobox"]')).toHaveLength(0);
   });
 });

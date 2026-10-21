@@ -89,13 +89,19 @@
           <UiSelect
             v-model="addCompanyId"
             label="Empresa"
+            placeholder="Seleccionar empresa..."
             :options="addableCompanies.map((c) => ({ label: c.name, value: c.id }))"
+            searchable
+            :clearable="false"
           />
           <UiSelect
             v-model="addRoleName"
             label="Rol"
+            placeholder="Seleccionar rol..."
             :options="addRoleOptions"
             :disabled="!addCompanyId || isLoadingRoles"
+            searchable
+            :clearable="false"
           />
         </div>
         <UiButton

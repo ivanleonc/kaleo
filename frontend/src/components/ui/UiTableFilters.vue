@@ -30,6 +30,9 @@
           :model-value="valueOf(def.key)"
           :options="def.options ?? []"
           :placeholder="def.placeholder ?? ''"
+          :searchable="def.searchable ?? 'auto'"
+          size="sm"
+          :clearable="false"
           :aria-label="def.label"
           @update:model-value="update(def.key, String($event ?? ''))"
         />
@@ -80,11 +83,11 @@ import { computed } from 'vue';
 import { IconX } from '@tabler/icons-vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
+import type { UiSelectOption } from '@/types/ui';
 
 export type TableFilterType = 'search' | 'select' | 'date';
 
-export interface TableFilterOption {
-  label: string;
+export interface TableFilterOption extends Omit<UiSelectOption, 'value'> {
   value: string;
 }
 
@@ -98,6 +101,7 @@ export interface TableFilterDef {
   placeholder?: string;
   /** Opciones del select. */
   options?: TableFilterOption[];
+  searchable?: boolean | 'auto';
   /** Ocupa el espacio restante (normalmente el buscador). */
   grow?: boolean;
   /** Límites para `type: 'date'`. */
