@@ -6,6 +6,8 @@
         subtitle="Gestiona los accesos y roles de los usuarios en tu organización."
       >
         <template #actions>
+          <UiTableColumnMenu :table="memberTable" />
+          <UiExportMenu :fetcher="exportMembers" />
           <UiButton v-permission="Permissions.USERS.CREATE" @click="openAddModal" width="auto">
             <IconPlus :size="16" /> Nuevo Miembro
           </UiButton>
@@ -311,7 +313,11 @@ import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
+import UiTableColumnMenu from '@/components/ui/UiTableColumnMenu.vue';
+import UiExportMenu from '@/components/ui/UiExportMenu.vue';
 import MemberTable from '@/components/features/members/MemberTable.vue';
+import { memberService } from '@/services/member.service';
+import type { ExportFormat } from '@/api/export';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
 import { useFilterSync } from '@/composables/useFilterSync';
@@ -512,11 +518,26 @@ useFilterSync(memberFilterValues, (v) =>
 
 // useTableView unifica el setup de la tabla: sort, data reactiva, isInitialLoading.
 // El store cumple TableViewStore<Member> automáticamente (items, isLoading, setSort).
-const { table: memberTable, isInitialLoading } = useTableView(
+const {
+  table: memberTable,
+  isInitialLoading,
+  visibleColumnIds,
+} = useTableView(
   useMemberColumns(),
   memberStore,
-  initialSort,
+  { initialSort, columnVisibilityKey: 'members' },
 );
+
+const exportMembers = (format: ExportFormat) =>
+  memberService.exportMembers({
+    search: emptyToUndefined(memberFilterValues.value.search),
+    status: memberFilterValues.value.status || undefined,
+    roleId: memberFilterValues.value.roleId || undefined,
+    sortBy: memberStore.sortBy ?? undefined,
+    sortDir: memberStore.sortDir,
+    format,
+    columns: visibleColumnIds.value,
+  });
 
 const queryState = computed<ListQueryState>(() => ({
   filters: memberFilterValues.value,

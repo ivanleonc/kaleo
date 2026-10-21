@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { EXPORT_MAX_ROWS } from '../common/export/export.types.js';
 import { decodeAuditCursor, encodeAuditCursor } from './audit-cursor.js';
 
 @Injectable()
@@ -183,13 +184,14 @@ export class AuditLogRepository {
     return this.dataSource.query(
       `SELECT al.action, al.entity_type, al.entity_id,
               al.old_values, al.new_values, al.ip_address, al.user_agent, al.created_at,
+              al.response_status, al.duration_ms,
               u.name as user_name, u.email as user_email
        FROM audit_logs al
        LEFT JOIN users u ON al.user_id = u.id
        WHERE ${where}
        ORDER BY al.created_at DESC, al.id DESC
-       LIMIT 5000`,
-      values,
+       LIMIT $${idx}`,
+      [...values, EXPORT_MAX_ROWS + 1],
     );
   }
 

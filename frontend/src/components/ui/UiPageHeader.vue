@@ -21,7 +21,14 @@ defineProps<{
 .page-header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .page-header-actions {
+    width: 100%;
+  }
 }
 </style>

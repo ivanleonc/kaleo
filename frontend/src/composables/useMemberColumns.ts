@@ -18,6 +18,11 @@ export function useMemberColumns(): AppColumnDef<Member>[] {
       meta: { label: 'Rol' },
     }),
     memberColumnHelper.accessor('status', { header: 'Estado', meta: { label: 'Estado' } }),
-    memberColumnHelper.display({ id: 'actions', header: '', meta: { label: '', align: 'right' } }),
+    memberColumnHelper.display({
+      id: 'actions',
+      header: '',
+      meta: { label: '', align: 'right' },
+      enableHiding: false,
+    }),
   ];
 }

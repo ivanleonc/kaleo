@@ -1,15 +1,28 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AnalysesService } from './analyses.service.js';
+import { TabularExportService } from '../common/export/tabular-export.service.js';
 import { createEnergyResult } from './testing/energy-result.fixture.js';
 
 function createRepositoryStub() {
   return {
     findPagedByCompany: vi.fn(),
+    findForExport: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
     rename: vi.fn(),
     softDelete: vi.fn(),
+  };
+}
+
+function createExportServiceStub() {
+  return {
+    resolveColumns: vi.fn((columns) => columns),
+    generate: vi.fn(async () => ({
+      buffer: Buffer.from(''),
+      filename: 'x.csv',
+      contentType: 'text/csv',
+    })),
   };
 }
 
@@ -38,7 +51,7 @@ describe('AnalysesService', () => {
 
   beforeEach(() => {
     repository = createRepositoryStub();
-    service = new AnalysesService(repository as any);
+    service = new AnalysesService(repository as any, createExportServiceStub() as any);
   });
 
   it('lista análisis sin incluir el resultado completo', async () => {
@@ -132,5 +145,74 @@ describe('AnalysesService', () => {
 
     await expect(service.deleteAnalysis('company-1', 'analysis-1'))
       .rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('AnalysesService.exportAnalyses', () => {
+  let repository: ReturnType<typeof createRepositoryStub>;
+  let service: AnalysesService;
+
+  beforeEach(() => {
+    repository = createRepositoryStub();
+    service = new AnalysesService(
+      repository as any,
+      new TabularExportService() as any,
+    );
+  });
+
+  it('exporta solo las columnas solicitadas en CSV', async () => {
+    repository.findForExport.mockResolvedValue([analysisRow()]);
+
+    const file = await service.exportAnalyses(
+      'company-1',
+      {},
+      { sortBy: 'name', sortDir: 'asc' },
+      'csv',
+      ['name', 'analysis_type'],
+    );
+
+    const text = file.buffer.toString('utf-8');
+    expect(text).toContain('"Análisis","Tipo"');
+    expect(text).not.toContain('"Resumen"');
+    expect(file.filename.endsWith('.csv')).toBe(true);
+  });
+
+  it('rechaza ids de columna que no existen', async () => {
+    repository.findForExport.mockResolvedValue([analysisRow()]);
+
+    await expect(
+      service.exportAnalyses('company-1', {}, {}, 'csv', ['columna_fantasma']),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('AnalysesService.exportCriticalZones', () => {
+  let repository: ReturnType<typeof createRepositoryStub>;
+  let service: AnalysesService;
+
+  beforeEach(() => {
+    repository = createRepositoryStub();
+    service = new AnalysesService(
+      repository as any,
+      new TabularExportService() as any,
+    );
+  });
+
+  it('exporta las zonas críticas del análisis', async () => {
+    repository.findById.mockResolvedValue(analysisRow());
+
+    const file = await service.exportCriticalZones('company-1', 'analysis-1', 'csv');
+
+    const text = file.buffer.toString('utf-8');
+    expect(text).toContain('"Zona"');
+    expect(text).toContain('"% Pérdida"');
+  });
+
+  it('falla si el análisis no es de energía', async () => {
+    repository.findById.mockResolvedValue(analysisRow({ analysis_type: 'other' }));
+
+    await expect(
+      service.exportCriticalZones('company-1', 'analysis-1', 'csv'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

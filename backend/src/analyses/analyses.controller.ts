@@ -30,6 +30,9 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator.j
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { normalizePagination, normalizeSort } from '../common/dto/pagination-query.dto.js';
 import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
+import { exportFileToStreamable } from '../common/export/tabular-export.service.js';
+import { ExportQueryDto } from '../common/export/export-query.dto.js';
+import { AnalysisExportQueryDto } from './dto/analysis-export-query.dto.js';
 import { Audit } from '../common/decorators/audit-context.decorator.js';
 import { Permissions } from '../common/constants/permissions.js';
 
@@ -63,6 +66,60 @@ export class AnalysesController {
       { sortBy, sortDir },
     );
     return OkPaged(result.data, result.total, result.page, result.limit);
+  }
+
+  @Get('export')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permissions.ANALYSES.READ)
+  @ApiOperation({
+    summary: 'Exportar análisis de la empresa',
+    description: 'Exporta todos los análisis que cumplen los filtros en CSV o Excel.',
+  })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiResponse({ status: 200, description: 'Archivo CSV o XLSX' })
+  @ApiResponse({ status: 403, description: 'Permiso denegado' })
+  @ApiResponse({ status: 413, description: 'El resultado supera el límite de filas' })
+  async exportAnalyses(
+    @Headers('x-company-id') companyId: string,
+    @Query() query: AnalysisExportQueryDto,
+  ) {
+    const { sortBy, sortDir } = normalizeSort(query);
+    const file = await this.analysesService.exportAnalyses(
+      companyId,
+      { search: query.search, analysis_type: query.analysis_type },
+      { sortBy, sortDir },
+      query.format ?? 'csv',
+      query.columns,
+    );
+
+    return exportFileToStreamable(file);
+  }
+
+  @Get(':analysisId/critical-zones/export')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permissions.ANALYSES.READ)
+  @ApiOperation({
+    summary: 'Exportar zonas críticas de un análisis',
+    description: 'Exporta las zonas críticas del resultado en CSV o Excel.',
+  })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiParam({ name: 'analysisId', description: 'UUID del análisis' })
+  @ApiResponse({ status: 200, description: 'Archivo CSV o XLSX' })
+  @ApiResponse({ status: 403, description: 'Permiso denegado' })
+  @ApiResponse({ status: 404, description: 'Análisis no encontrado o sin zonas críticas' })
+  async exportCriticalZones(
+    @Headers('x-company-id') companyId: string,
+    @Param('analysisId', ParseUUIDPipe) analysisId: string,
+    @Query() query: ExportQueryDto,
+  ) {
+    const file = await this.analysesService.exportCriticalZones(
+      companyId,
+      analysisId,
+      query.format ?? 'csv',
+      query.columns,
+    );
+
+    return exportFileToStreamable(file);
   }
 
   @Post()

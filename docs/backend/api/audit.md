@@ -79,18 +79,31 @@ Para ir a la página anterior, el **frontend mantiene una pila de cursores** (`c
 
 ## `GET /api/audit/logs/export`
 
-Exporta los logs filtrados como archivo CSV.
+Exporta los logs filtrados como archivo CSV o Excel.
 
-**Mismos query params** que `/logs` (excepto `cursor` y `limit`).
+**Mismos query params** que `/logs` (excepto `cursor` y `limit`), más:
 
-**Respuesta:** Archivo CSV descargable.
+| Param | Valores | Descripción |
+|---|---|---|
+| `format` | `csv` (default) \| `xlsx` | Formato del archivo |
+| `columns` | ids separados por coma | Columnas a exportar. Sin valor: todas |
+
+**Respuesta:** Archivo descargable.
 
 ```http
 Content-Type: text/csv
-Content-Disposition: attachment; filename="audit-export.csv"
+Content-Disposition: attachment; filename="auditoria_2026-01-01.csv"
 ```
 
-Columnas del CSV: `id`, `created_at`, `action`, `entity_type`, `user_name`, `user_email`, `response_status`, `ip_address`.
+Columnas disponibles: `created_at`, `user_name`, `user_email`, `action`, `response_status`, `duration_ms`, `entity_type`, `entity_id`, `old_values`, `new_values`, `ip_address`, `user_agent`.
+
+::: info Ventana por defecto
+Si no se envía `from`, la exportación cubre los **últimos 30 días** (mismo comportamiento que el listado).
+:::
+
+::: warning Límite de filas
+La exportación está limitada a **10.000 filas** (`EXPORT_MAX_ROWS`). Si el resultado lo supera, el backend responde `413` con un mensaje para que el usuario aplique filtros.
+:::
 
 ---
 

@@ -6,6 +6,8 @@
         subtitle="Gestiona las ubicaciones de tu empresa."
       >
         <template #actions>
+          <UiTableColumnMenu :table="branchTable" />
+          <UiExportMenu :fetcher="exportBranches" />
           <UiButton v-permission="Permissions.BRANCHES.CREATE" @click="openCreateModal" width="auto">
             <IconPlus :size="16" /> Nueva Sede
           </UiButton>
@@ -172,7 +174,11 @@ import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiSwitch from '@/components/ui/UiSwitch.vue';
 import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
+import UiTableColumnMenu from '@/components/ui/UiTableColumnMenu.vue';
+import UiExportMenu from '@/components/ui/UiExportMenu.vue';
 import BranchTable from '@/components/features/branches/BranchTable.vue';
+import { branchService } from '@/services/branch.service';
+import type { ExportFormat } from '@/api/export';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDirtyForm } from '@/composables/useDirtyForm';
@@ -263,11 +269,25 @@ useFilterSync(branchFilterValues, (v) =>
   }),
 );
 
-const { table: branchTable, isInitialLoading } = useTableView(
+const {
+  table: branchTable,
+  isInitialLoading,
+  visibleColumnIds,
+} = useTableView(
   useBranchColumns(),
   branchStore,
-  initialSort,
+  { initialSort, columnVisibilityKey: 'branches' },
 );
+
+const exportBranches = (format: ExportFormat) =>
+  branchService.exportBranches({
+    search: emptyToUndefined(branchFilterValues.value.search),
+    status: branchFilterValues.value.status || undefined,
+    sortBy: branchStore.sortBy ?? undefined,
+    sortDir: branchStore.sortDir,
+    format,
+    columns: visibleColumnIds.value,
+  });
 
 const queryState = computed<ListQueryState>(() => ({
   filters: branchFilterValues.value,

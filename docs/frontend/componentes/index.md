@@ -1,6 +1,6 @@
 # Catálogo de Componentes UI
 
-32 componentes del sistema de diseño, organizados por categoría. Todos usan exclusivamente **CSS custom properties** del sistema de tokens — sin dependencias de frameworks externos.
+34 componentes del sistema de diseño, organizados por categoría. Todos usan exclusivamente **CSS custom properties** del sistema de tokens — sin dependencias de frameworks externos.
 
 ## Layout
 
@@ -16,6 +16,8 @@
 | Componente | Descripción |
 |---|---|
 | [UiDataTable](/frontend/componentes/datos/ui-data-table) | Tabla TanStack con slots por columna, skeleton, empty state y error |
+| [UiTableColumnMenu](/frontend/componentes/datos/ui-table-column-menu) | Menú para mostrar/ocultar columnas (persiste en localStorage) |
+| [UiExportMenu](/frontend/componentes/datos/ui-export-menu) | Menú de exportación a CSV o Excel (el archivo lo genera el backend) |
 | [UiTableFilters](/frontend/componentes/datos/ui-table-filters) | Barra de filtros (search, select, date) con escape-hatch por slot |
 | [UiPagination](/frontend/componentes/datos/ui-pagination) | Paginación offset con selector de tamaño de página |
 | [UiCursorPagination](/frontend/componentes/datos/ui-cursor-pagination) | Paginación por cursor (para audit logs) |

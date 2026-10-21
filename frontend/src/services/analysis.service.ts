@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/axios';
+import { fetchExportFile, type ExportedFile, type ExportFormat } from '@/api/export';
 import type {
   AnalysesResponse,
   AnalysisDetailResponse,
@@ -46,5 +47,29 @@ export const analysisService = {
   async deleteAnalysis(analysisId: string) {
     const response = await apiClient.delete(`/companies/analyses/${analysisId}`);
     return response.data;
+  },
+
+  async exportAnalyses(params: {
+    search?: string;
+    analysis_type?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+    format: ExportFormat;
+    columns?: string[];
+  }): Promise<ExportedFile> {
+    return fetchExportFile('/companies/analyses/export', {
+      ...params,
+      columns: params.columns?.join(','),
+    });
+  },
+
+  async exportCriticalZones(
+    analysisId: string,
+    params: { format: ExportFormat; columns?: string[] },
+  ): Promise<ExportedFile> {
+    return fetchExportFile(`/companies/analyses/${analysisId}/critical-zones/export`, {
+      ...params,
+      columns: params.columns?.join(','),
+    });
   },
 };

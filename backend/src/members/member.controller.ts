@@ -2,10 +2,12 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Headers, Query, UseG
 import { MemberQueryDto, normalizePagination, normalizeSort } from '../common/dto/pagination-query.dto.js';
 import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiHeader, ApiQuery } from '@nestjs/swagger';
+import { exportFileToStreamable } from '../common/export/tabular-export.service.js';
 import { MemberService } from './member.service.js';
 import { AddMemberDto } from './dto/add-member.dto.js';
 import { AttachMemberDto } from './dto/attach-member.dto.js';
 import { UpdateMemberDto } from './dto/update-member.dto.js';
+import { MemberExportQueryDto } from './dto/member-export-query.dto.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
@@ -55,6 +57,37 @@ export class MemberController {
       roleId: query.roleId,
     }, { sortBy, sortDir });
     return OkPaged(result.data, result.total, result.page, result.limit);
+  }
+
+  @Get('export')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('users:read')
+  @ApiOperation({
+    summary: 'Exportar miembros de la empresa',
+    description: 'Exporta todos los miembros que cumplen los filtros en CSV o Excel. Requiere permiso users:read.',
+  })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiResponse({ status: 200, description: 'Archivo CSV o XLSX' })
+  @ApiResponse({ status: 403, description: 'Permiso denegado' })
+  @ApiResponse({ status: 413, description: 'El resultado supera el límite de filas' })
+  async exportMembers(
+    @Headers('x-company-id') companyId: string,
+    @Query() query: MemberExportQueryDto,
+  ) {
+    const { sortBy, sortDir } = normalizeSort(query);
+    const file = await this.memberService.exportMembers(
+      companyId,
+      {
+        search: query.search,
+        status: query.status,
+        roleId: query.roleId,
+      },
+      { sortBy, sortDir },
+      query.format ?? 'csv',
+      query.columns,
+    );
+
+    return exportFileToStreamable(file);
   }
 
   @Post()

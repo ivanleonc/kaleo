@@ -2,8 +2,10 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { DataSource } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
+import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
 import { assertMember } from '../../common/utils/membership.helper.js';
 import { rows, row } from '../../common/utils/db.js';
+import type { BranchRow } from '../../common/types/db-rows.js';
 
 /**
  * Orden y búsqueda server-side. `location`/`contact` replican las columnas
@@ -90,6 +92,47 @@ export class BranchRepository {
     );
 
     return { data, total, page: safePage, limit: safeLimit };
+  }
+
+  /**
+   * Misma consulta que `findPagedByCompany`, sin paginación y con tope duro
+   * de filas para exportación. La fila extra permite detectar el exceso.
+   */
+  async findForExport(
+    companyId: string,
+    filters: { search?: string; status?: string } = {},
+    sort: SortSpec = {},
+  ) {
+    const { where, values, nextIndex } = buildWhere(
+      [
+        { clause: 'b.company_id = $?', value: companyId },
+        { clause: 'b.deleted_at IS NULL' },
+        filters.search
+          ? { clause: '(b.name ILIKE $? OR b.city ILIKE $? OR b.state ILIKE $? OR b.country ILIKE $?)', value: `%${filters.search}%`, reuse: true }
+          : undefined,
+        filters.status === 'inactive'
+          ? { clause: 'b.is_active = FALSE' }
+          : filters.status === 'active'
+            ? { clause: 'b.is_active = TRUE' }
+            : undefined,
+      ],
+      1,
+    );
+
+    const orderBy = buildOrderBy(BRANCH_SORT_COLUMNS, sort, 'name');
+
+    return rows<BranchRow>(await this.dataSource.query(
+      `SELECT b.id, b.company_id, b.name, b.address, b.city, b.state, b.country,
+              b.postal_code, b.phone, b.email, b.is_active, b.code, b.is_main,
+              b.timezone, b.created_at, b.updated_at,
+              u.name as manager_name
+       FROM branches b
+       LEFT JOIN users u ON u.id = b.manager_user_id AND u.deleted_at IS NULL
+       WHERE ${where}
+       ORDER BY ${orderBy}, b.name
+       LIMIT $${nextIndex}`,
+      [...values, EXPORT_MAX_ROWS + 1],
+    ));
   }
 
   async findById(branchId: string, companyId: string) {

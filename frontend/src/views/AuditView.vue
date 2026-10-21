@@ -6,7 +6,7 @@
         subtitle="Registro de todas las acciones realizadas en tu organización."
       >
         <template #actions>
-          <UiExportButton label="Exportar CSV" :fetcher="fetchExportBlob" />
+          <UiExportMenu :fetcher="exportLogs" />
         </template>
       </UiPageHeader>
 
@@ -112,7 +112,7 @@ import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCursorPagination from '@/components/ui/UiCursorPagination.vue';
-import UiExportButton from '@/components/ui/UiExportButton.vue';
+import UiExportMenu from '@/components/ui/UiExportMenu.vue';
 import AuditLogEntry from '@/components/features/audit/AuditLogEntry.vue';
 import {
   formatDateTime,
@@ -121,6 +121,7 @@ import {
   useNowTick,
 } from '@/utils/date';
 import { auditService } from '@/services/audit.service';
+import type { ExportFormat } from '@/api/export';
 import { useFilterSync } from '@/composables/useFilterSync';
 import {
   IconClipboardList,
@@ -172,12 +173,13 @@ useFilterSync(auditFilterValues, (v) =>
   }),
 );
 
-function fetchExportBlob() {
-  return auditService.fetchCsvBlob({
+function exportLogs(format: ExportFormat) {
+  return auditService.exportLogs({
     entityType: auditFilterValues.value.entityType || undefined,
     action: auditFilterValues.value.action || undefined,
     from: auditFilterValues.value.from || undefined,
     to: auditFilterValues.value.to || undefined,
+    format,
   });
 }
 

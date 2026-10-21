@@ -118,7 +118,7 @@ const items = (): HTMLElement[] => {
   // además devuelve null de forma fiable en entornos sin layout (jsdom).
   return Array.from(
     menuRef.value.querySelectorAll<HTMLElement>(
-      '[role="menuitem"]:not([disabled]):not([hidden]):not([aria-hidden="true"])',
+      '[role="menuitem"]:not([disabled]):not([hidden]):not([aria-hidden="true"]), [role="menuitemcheckbox"]:not([disabled]):not([hidden]):not([aria-hidden="true"])',
     ),
   );
 };
@@ -183,7 +183,7 @@ onBeforeUnmount(() => {
 
 provide('ui-dropdown-close', close);
 
-defineExpose({ open, close, toggle, isOpen });
+defineExpose({ open, close, toggle, isOpen, closeAndFocus: closeAndFocusTrigger });
 </script>
 
 <style>

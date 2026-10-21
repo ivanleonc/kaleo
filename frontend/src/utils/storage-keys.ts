@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   accessToken: 'kaleo_access_token',
   refreshToken: 'kaleo_refresh_token',
   sidebarPinned: 'kaleo:sidebar-pinned',
+  tableColumns: (tableId: string) => `kaleo:table-columns:${tableId}`,
 } as const;
 
 /**

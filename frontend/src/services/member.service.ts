@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/axios';
+import { fetchExportFile, type ExportedFile, type ExportFormat } from '@/api/export';
 import type { MembersResponse, CreateMemberResponse, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, UserSearchResult, MemberCompany } from '@/types/member';
 
 /** Header por request para operar sobre una empresa distinta a la activa. */
@@ -77,5 +78,20 @@ export const memberService = {
   async getUserCompanies(userId: string): Promise<{ success: boolean; data: MemberCompany[] }> {
     const response = await apiClient.get(`/companies/users/${userId}/companies`);
     return response.data;
+  },
+
+  async exportMembers(params: {
+    search?: string;
+    status?: string;
+    roleId?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+    format: ExportFormat;
+    columns?: string[];
+  }): Promise<ExportedFile> {
+    return fetchExportFile('/companies/users/export', {
+      ...params,
+      columns: params.columns?.join(','),
+    });
   },
 };

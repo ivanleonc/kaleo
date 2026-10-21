@@ -8,6 +8,8 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator.j
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { BranchQueryDto, normalizePagination, normalizeSort } from '../common/dto/pagination-query.dto.js';
 import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
+import { exportFileToStreamable } from '../common/export/tabular-export.service.js';
+import { BranchExportQueryDto } from './dto/branch-export-query.dto.js';
 import { Audit } from '../common/decorators/audit-context.decorator.js';
 
 @ApiTags('Branches - Sedes')
@@ -35,6 +37,33 @@ export class BranchController {
       status: query.status,
     }, { sortBy, sortDir });
     return OkPaged(result.data, result.total, result.page, result.limit);
+  }
+
+  @Get('export')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('branches:read')
+  @ApiOperation({
+    summary: 'Exportar sedes de la empresa',
+    description: 'Exporta todas las sedes que cumplen los filtros en CSV o Excel. Requiere permiso branches:read.',
+  })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiResponse({ status: 200, description: 'Archivo CSV o XLSX' })
+  @ApiResponse({ status: 403, description: 'Permiso denegado' })
+  @ApiResponse({ status: 413, description: 'El resultado supera el límite de filas' })
+  async exportBranches(
+    @Headers('x-company-id') companyId: string,
+    @Query() query: BranchExportQueryDto,
+  ) {
+    const { sortBy, sortDir } = normalizeSort(query);
+    const file = await this.branchService.exportBranches(
+      companyId,
+      { search: query.search, status: query.status },
+      { sortBy, sortDir },
+      query.format ?? 'csv',
+      query.columns,
+    );
+
+    return exportFileToStreamable(file);
   }
 
   @Post()

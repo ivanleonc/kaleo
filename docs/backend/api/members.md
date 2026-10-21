@@ -51,6 +51,34 @@ Lista paginada de miembros de la empresa activa.
 
 ---
 
+## `GET /api/companies/users/export`
+
+Exporta **todos** los miembros que cumplen los filtros (no solo la página actual) como archivo CSV o Excel.
+
+**Permiso:** `users:read`
+
+**Query params:** los mismos que `GET /api/companies/users` (sin `page` ni `limit`), más:
+
+| Param | Valores | Descripción |
+|---|---|---|
+| `format` | `csv` (default) \| `xlsx` | Formato del archivo |
+| `columns` | ids separados por coma | Columnas a exportar. Sin valor: todas |
+
+Columnas disponibles: `name`, `email`, `roles`, `status`.
+
+**Respuesta:**
+
+```http
+Content-Type: text/csv
+Content-Disposition: attachment; filename="miembros_2026-01-01.csv"
+```
+
+::: warning Límite de filas
+Máximo **10.000 filas** por exportación. Si se supera, responde `413` con un mensaje para aplicar filtros.
+:::
+
+---
+
 ## `POST /api/companies/users`
 
 Agrega un miembro a la empresa. Si el email no existe, crea la cuenta con contraseña temporal y la envía por email.

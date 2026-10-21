@@ -4,6 +4,12 @@ import { parseEnergyResult } from './validators/energy-result.validator.js';
 import type { CreateAnalysisDto } from './dto/create-analysis.dto.js';
 import type { AnalysisRow } from '../common/types/db-rows.js';
 import type { SortSpec } from '../common/dto/pagination-query.dto.js';
+import type { ExportFile, ExportFormat } from '../common/export/export.types.js';
+import { TabularExportService } from '../common/export/tabular-export.service.js';
+import {
+  ANALYSIS_EXPORT_COLUMNS,
+  CRITICAL_ZONE_EXPORT_COLUMNS,
+} from './analysis-export.columns.js';
 import type {
   AnalysisType,
   EnergyAnalysisResult,
@@ -12,7 +18,10 @@ import type {
 
 @Injectable()
 export class AnalysesService {
-  constructor(private readonly analysisRepository: AnalysisRepository) {}
+  constructor(
+    private readonly analysisRepository: AnalysisRepository,
+    private readonly exportService: TabularExportService,
+  ) {}
 
   async getAnalyses(
     companyId: string,
@@ -29,6 +38,49 @@ export class AnalysesService {
       sort,
     );
     return { ...result, data: result.data.map((item) => this.toSummary(item)) };
+  }
+
+  async exportAnalyses(
+    companyId: string,
+    filters: { search?: string; analysis_type?: AnalysisType },
+    sort: SortSpec,
+    format: ExportFormat,
+    columns?: string[],
+  ): Promise<ExportFile> {
+    const rows = await this.analysisRepository.findForExport(companyId, filters, sort);
+    const selected = this.exportService.resolveColumns(ANALYSIS_EXPORT_COLUMNS, columns);
+
+    return this.exportService.generate(format, selected, rows, {
+      filename: `analisis_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Análisis',
+    });
+  }
+
+  async exportCriticalZones(
+    companyId: string,
+    analysisId: string,
+    format: ExportFormat,
+    columns?: string[],
+  ): Promise<ExportFile> {
+    const analysis = await this.getAnalysisById(companyId, analysisId);
+    if (analysis.analysis_type !== 'energy') {
+      throw new BadRequestException('Solo los análisis de energía tienen zonas críticas');
+    }
+
+    const result = parseEnergyResult(analysis.result);
+    if (result.criticalZones.length === 0) {
+      throw new NotFoundException('El análisis no tiene zonas críticas para exportar');
+    }
+
+    const selected = this.exportService.resolveColumns(
+      CRITICAL_ZONE_EXPORT_COLUMNS,
+      columns,
+    );
+
+    return this.exportService.generate(format, selected, result.criticalZones, {
+      filename: `${analysis.name}-zonas-criticas`,
+      sheetName: 'Zonas críticas',
+    });
   }
 
   async getAnalysisById(companyId: string, analysisId: string) {

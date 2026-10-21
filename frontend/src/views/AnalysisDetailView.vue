@@ -32,13 +32,16 @@
               <IconLink :size="14" stroke-width="1.8" />
               <span>Copiar enlace</span>
             </UiDropdownItem>
-            <UiDropdownItem
-              v-if="energyDashboard?.criticalZones.length"
-              @click="exportCriticalZonesCsv"
-            >
-              <IconDownload :size="14" stroke-width="1.8" />
-              <span>Exportar zonas en CSV</span>
-            </UiDropdownItem>
+            <template v-if="energyDashboard?.criticalZones.length">
+              <UiDropdownItem @click="exportCriticalZones('csv')">
+                <IconDownload :size="14" stroke-width="1.8" />
+                <span>Exportar zonas en CSV</span>
+              </UiDropdownItem>
+              <UiDropdownItem @click="exportCriticalZones('xlsx')">
+                <IconFileSpreadsheet :size="14" stroke-width="1.8" />
+                <span>Exportar zonas en Excel</span>
+              </UiDropdownItem>
+            </template>
             <UiDropdownItem @click="printAnalysis">
               <IconPrinter :size="14" stroke-width="1.8" />
               <span>Imprimir o guardar PDF</span>
@@ -178,6 +181,8 @@ import UiStatList from '@/components/ui/UiStatList.vue';
 import type { StatItem } from '@/components/ui/UiStatList.vue';
 import { useAnalysisStore } from '@/stores/analysis.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { analysisService } from '@/services/analysis.service';
+import type { ExportFormat } from '@/api/export';
 import { useAsyncData } from '@/composables/useAsyncData';
 import { useClipboard } from '@/composables/useClipboard';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -188,8 +193,8 @@ import {
   energySummaryOf,
   isEnergyResult,
 } from '@/types/analysis';
-import type { EnergyZoneStatus } from '@/types/energy';
-import { createCsvBlob, downloadBlob, sanitizeFilename } from '@/utils/csv';
+import { downloadBlob } from '@/utils/csv';
+import { apiErrorMessage } from '@/utils/error';
 import { formatDate, formatDateTime } from '@/utils/date';
 import { formatFileSize, formatInteger } from '@/utils/number';
 
@@ -309,33 +314,24 @@ async function copyLink() {
   await copyToClipboard(window.location.href, 'Enlace copiado');
 }
 
-const ZONE_STATUS_LABELS: Record<EnergyZoneStatus, string> = {
-  critical: 'Crítica',
-  warning: 'En observación',
-  normal: 'Normal',
-};
-
-function exportCriticalZonesCsv() {
+async function exportCriticalZones(format: ExportFormat) {
   const zones = energyDashboard.value?.criticalZones ?? [];
-  if (!zones.length) {
+  if (!analysis.value || !zones.length) {
     toast.warning('Este análisis no tiene zonas críticas para exportar');
     return;
   }
 
-  const rows = [
-    ['Zona', 'Municipio', 'Clientes', 'Consumo kWh', 'Pérdidas kWh', '% Pérdida', 'Estado'],
-    ...zones.map((zone) => [
-      zone.zone,
-      zone.municipality,
-      zone.clients,
-      zone.consumptionKwh,
-      zone.lossesKwh,
-      zone.lossesPct,
-      ZONE_STATUS_LABELS[zone.status] ?? zone.status,
-    ]),
-  ];
-  const baseName = sanitizeFilename(analysis.value?.name || 'analisis');
-  downloadBlob(createCsvBlob(rows), `${baseName}-zonas-criticas.csv`);
+  toast.info('Preparando exportación…');
+  try {
+    const { blob, filename } = await analysisService.exportCriticalZones(
+      analysis.value.id,
+      { format },
+    );
+    downloadBlob(blob, filename);
+    toast.success('Archivo exportado correctamente');
+  } catch (error) {
+    toast.error(apiErrorMessage(error, 'No se pudo exportar el archivo'));
+  }
 }
 
 function printAnalysis() {

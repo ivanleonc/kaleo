@@ -29,6 +29,7 @@ export function useAnalysisColumns(): AppColumnDef<Analysis>[] {
       id: 'actions',
       header: '',
       meta: { label: '', align: 'right' },
+      enableHiding: false,
     }),
   ];
 }

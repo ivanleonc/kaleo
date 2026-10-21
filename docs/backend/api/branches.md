@@ -57,6 +57,34 @@ Lista paginada de sedes de la empresa activa.
 
 ---
 
+## `GET /api/companies/branches/export`
+
+Exporta **todas** las sedes que cumplen los filtros (no solo la página actual) como archivo CSV o Excel.
+
+**Permiso:** `branches:read`
+
+**Query params:** los mismos que `GET /api/companies/branches` (sin `page` ni `limit`), más:
+
+| Param | Valores | Descripción |
+|---|---|---|
+| `format` | `csv` (default) \| `xlsx` | Formato del archivo |
+| `columns` | ids separados por coma | Columnas a exportar. Sin valor: todas |
+
+Columnas disponibles: `name`, `location`, `contact`, `status`.
+
+**Respuesta:**
+
+```http
+Content-Type: text/csv
+Content-Disposition: attachment; filename="sedes_2026-01-01.csv"
+```
+
+::: warning Límite de filas
+Máximo **10.000 filas** por exportación. Si se supera, responde `413` con un mensaje para aplicar filtros.
+:::
+
+---
+
 ## `POST /api/companies/branches`
 
 Crea una nueva sede.

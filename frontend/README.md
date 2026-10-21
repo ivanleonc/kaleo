@@ -137,7 +137,8 @@ Todos en `src/components/ui/`. Importar con `@/components/ui/NombreComponente.vu
 | `UiDualListbox` | Asignar/desasignar listas (ej: roles a miembro) |
 | `UiEmptyState` | Estado vacío con icono, título, descripción y acción |
 | `UiErrorState` | Estado de error con retry |
-| `UiExportButton` | Botón de descarga CSV con loading |
+| `UiExportButton` | Botón de descarga de un archivo con loading |
+| `UiExportMenu` | Menú de exportación a CSV o Excel (el archivo lo genera el backend) |
 | `UiFieldError` | Error inline debajo de un campo |
 | `UiFormModal` | Modal de formulario con confirm-on-dirty |
 | `UiInfoRow` | Par label/valor con borde inferior (dentro de UiDetailGrid) |
@@ -151,6 +152,7 @@ Todos en `src/components/ui/`. Importar con `@/components/ui/NombreComponente.vu
 | `UiSearchInput` | Input de búsqueda con icono y clear |
 | `UiSelect` | Select con label y aria-label |
 | `UiSkeleton` | Placeholder de carga animado |
+| `UiTableColumnMenu` | Menú mostrar/ocultar columnas (persiste en localStorage) |
 | `UiTableFilters` | Barra de filtros declarativa + v-model + slot escape |
 | `UiTimezoneSelect` | Selector de zona horaria IANA con búsqueda |
 | `UiToast` | Toasts (éxito, error, info, warning, con acción deshacer) |

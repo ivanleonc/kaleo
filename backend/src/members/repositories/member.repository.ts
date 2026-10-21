@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, ForbiddenException, I
 import { DataSource } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
+import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
 import { assertMember, insertUserContexts } from '../../common/utils/membership.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
 
@@ -82,6 +83,52 @@ export class MemberRepository {
     );
 
     return { data, total, page: safePage, limit: safeLimit };
+  }
+
+  /**
+   * Misma consulta que `getMembersByCompany`, sin paginación y con un tope
+   * duro de filas para exportación. Se pide una fila extra para que el
+   * servicio pueda detectar que el resultado supera el límite.
+   */
+  async findForExport(
+    companyId: string,
+    filters: { search?: string; status?: string; roleId?: string } = {},
+    sort: SortSpec = {},
+  ) {
+    const { where, values, nextIndex } = buildWhere(
+      [
+        { clause: 'uc.company_id = $?', value: companyId },
+        { clause: 'u.deleted_at IS NULL' },
+        filters.search
+          ? { clause: '(u.name ILIKE $? OR u.email ILIKE $?)', value: `%${filters.search}%`, reuse: true }
+          : undefined,
+        filters.status === 'inactive'
+          ? { clause: 'u.locked_until IS NOT NULL AND u.locked_until > NOW()' }
+          : filters.status === 'active'
+            ? { clause: '(u.locked_until IS NULL OR u.locked_until <= NOW())' }
+            : undefined,
+        filters.roleId ? { clause: 'EXISTS (SELECT 1 FROM user_contexts ucr WHERE ucr.user_id = u.id AND ucr.company_id = uc.company_id AND ucr.role_id = $?)', value: filters.roleId } : undefined,
+      ],
+      1,
+    );
+
+    const statusExpr = `CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW() THEN 'inactive' ELSE 'active' END`;
+    const orderBy = buildOrderBy(MEMBER_SORT_COLUMNS, sort, 'name');
+
+    return this.dataSource.query(
+      `SELECT
+         u.id, u.email, u.name,
+         COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
+         ${statusExpr} as status
+       FROM users u
+       INNER JOIN user_contexts uc ON u.id = uc.user_id
+       LEFT JOIN roles r ON uc.role_id = r.id
+       WHERE ${where}
+       GROUP BY u.id, u.email, u.name, u.locked_until
+       ORDER BY ${orderBy}, u.name, u.email
+       LIMIT $${nextIndex}`,
+      [...values, EXPORT_MAX_ROWS + 1],
+    );
   }
 
   async isAlreadyMember(userId: string, companyId: string): Promise<boolean> {

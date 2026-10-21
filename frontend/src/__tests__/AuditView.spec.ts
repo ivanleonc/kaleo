@@ -5,17 +5,18 @@ import { createPinia, setActivePinia } from 'pinia';
 import AuditView from '@/views/AuditView.vue';
 import { useAuthStore } from '@/stores/auth.store';
 
-const { mockGetLogs, mockGetEntityTypes, mockPush } = vi.hoisted(() => ({
+const { mockGetLogs, mockGetEntityTypes, mockPush, mockExportLogs } = vi.hoisted(() => ({
   mockGetLogs: vi.fn(),
   mockGetEntityTypes: vi.fn(),
   mockPush: vi.fn(),
+  mockExportLogs: vi.fn(),
 }));
 
 vi.mock('@/services/audit.service', () => ({
   auditService: {
     getLogs: mockGetLogs,
     getEntityTypes: mockGetEntityTypes,
-    fetchCsvBlob: vi.fn(),
+    exportLogs: mockExportLogs,
   },
 }));
 
@@ -68,6 +69,11 @@ beforeEach(() => {
   mockGetLogs.mockReset();
   mockGetEntityTypes.mockReset();
   mockPush.mockClear();
+  mockExportLogs.mockReset();
+  mockExportLogs.mockResolvedValue({
+    blob: new Blob(['contenido'], { type: 'text/csv' }),
+    filename: 'auditoria.csv',
+  });
 
   mockGetLogs.mockResolvedValue({ success: true, data: [{ ...LOG }], hasNext: false, nextCursor: null });
   mockGetEntityTypes.mockResolvedValue({ success: true, data: ['Member', 'Branch'] });
@@ -136,5 +142,30 @@ describe('AuditView — filtros (regresión)', () => {
     const last = calls[calls.length - 1]?.[0] as Record<string, unknown>;
     expect(last.entityType).toBeUndefined();
     expect(last.action).toBeUndefined();
+  });
+});
+
+describe('AuditView — exportación', () => {
+  it('el menú de exportación pide el formato chosen al servicio', async () => {
+    await mountView();
+
+    const trigger = wrapper!.findAll('button').find((button) =>
+      button.text().includes('Exportar'),
+    );
+    expect(trigger).toBeDefined();
+    await trigger!.trigger('click');
+    await nextTick();
+    await nextTick();
+
+    const option = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ).find((item) => item.textContent?.trim() === 'Excel (.xlsx)');
+    expect(option).toBeDefined();
+    option!.click();
+    await flushPromises();
+
+    expect(mockExportLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ format: 'xlsx' }),
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/axios';
+import { fetchExportFile, type ExportedFile, type ExportFormat } from '@/api/export';
 import type { AuditLogResponse } from '@/types/audit';
 
 export const auditService = {
@@ -29,26 +30,18 @@ export const auditService = {
     return response.data;
   },
 
-  async fetchCsvBlob(params: {
+  async exportLogs(params: {
     entityType?: string;
     action?: string;
     userId?: string;
     from?: string;
     to?: string;
-  }): Promise<{ blob: Blob; filename: string }> {
-    const query = new URLSearchParams();
-    if (params.entityType) query.set('entityType', params.entityType);
-    if (params.action) query.set('action', params.action);
-    if (params.userId) query.set('userId', params.userId);
-    if (params.from) query.set('from', params.from);
-    if (params.to) query.set('to', params.to);
-
-    const response = await apiClient.get(`/audit/logs/export?${query.toString()}`, {
-      responseType: 'blob',
+    format: ExportFormat;
+    columns?: string[];
+  }): Promise<ExportedFile> {
+    return fetchExportFile('/audit/logs/export', {
+      ...params,
+      columns: params.columns?.join(','),
     });
-
-    const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-    const filename = `auditoria_${new Date().toISOString().split('T')[0]}.csv`;
-    return { blob, filename };
   },
 };

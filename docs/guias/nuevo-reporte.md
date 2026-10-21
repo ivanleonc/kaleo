@@ -94,36 +94,44 @@ const filterDefs: TableFilterDef[] = [
 ];
 ```
 
-### Exportación CSV
+### Exportación CSV o Excel
 
-1. El servicio tiene un método que retorna un `Blob`:
+1. Usa el helper `fetchExportFile` de `@/api/export`: pide el archivo al backend y devuelve `{ blob, filename }` (el nombre sale del `Content-Disposition`):
 
 ```ts
-async fetchCsvBlob(filters: SaleReportFilters): Promise<Blob> {
-  const res = await apiClient.get('/companies/sale-reports/export', {
-    params: filters,
-    responseType: 'blob',
+async exportReports(params: {
+  from?: string;
+  to?: string;
+  format: ExportFormat;
+}): Promise<ExportedFile> {
+  return fetchExportFile('/companies/sale-reports/export', {
+    ...params,
+    columns: params.columns?.join(','),
   });
-  return res.data as Blob;
 }
 ```
 
-2. En la view, pasa el fetcher a `UiExportButton`:
+2. En la view, pasa el fetcher a `UiExportMenu` (ofrece CSV y Excel):
 
 ```html
-<UiExportButton label="Exportar CSV" :fetcher="fetchExportBlob" />
+<UiExportMenu :fetcher="exportReports" />
 ```
 
 ```ts
-function fetchExportBlob() {
-  return saleReportService.fetchCsvBlob({
+function exportReports(format: ExportFormat) {
+  return saleReportService.exportReports({
     from: filterValues.value.from || undefined,
     to:   filterValues.value.to   || undefined,
+    format,
   });
 }
 ```
 
-`UiExportButton` maneja internamente la descarga (Blob → `<a>` click → revoke URL).
+`UiExportMenu` maneja internamente la descarga (Blob → `<a>` click → revoke URL) y los toasts.
+
+::: tip Columnas visibles
+Si la tabla es TanStack, agrega también `UiTableColumnMenu` y envía `visibleColumnIds` en el parámetro `columns`: el archivo contendrá exactamente las columnas que el usuario está viendo. Ver [Exportaciones](/backend/api/exportaciones).
+:::
 
 ### Estructura de la view
 
@@ -132,7 +140,8 @@ function fetchExportBlob() {
   <AuthenticatedLayout>
     <UiPageHeader title="Reporte de Ventas">
       <template #actions>
-        <UiExportButton label="Exportar CSV" :fetcher="fetchExportBlob" />
+        <UiTableColumnMenu :table="reportTable" />
+        <UiExportMenu :fetcher="exportReports" />
       </template>
     </UiPageHeader>
 
@@ -161,15 +170,35 @@ function fetchExportBlob() {
 
 ## Backend — endpoint de exportación
 
+Usa el servicio compartido `TabularExportService` (`backend/src/common/export`): resuelve columnas, aplica el tope de filas y genera CSV o XLSX.
+
 ```ts
 @Get('export')
+@UseGuards(PermissionsGuard)
 @RequirePermissions(Permissions.REPORTS.READ)
-@Header('Content-Type', 'text/csv')
-@Header('Content-Disposition', 'attachment; filename="report.csv"')
-async exportCsv(@Query() query: ReportFiltersDto, @Headers('x-company-id') companyId: string, @Res() res: Response) {
-  const csv = await this.reportService.generateCsv(companyId, query);
-  res.send(csv);
+async exportReports(
+  @Headers('x-company-id') companyId: string,
+  @Query() query: ReportExportQueryDto,
+) {
+  const file = await this.reportService.exportReports(
+    companyId,
+    { from: query.from, to: query.to },
+    { sortBy, sortDir },
+    query.format ?? 'csv',
+    query.columns,
+  );
+
+  return exportFileToStreamable(file);
 }
+```
+
+Las columnas exportables se declaran en un archivo de dominio (p. ej. `report-export.columns.ts`) con el tipo `ExportColumn<T>`:
+
+```ts
+export const REPORT_EXPORT_COLUMNS: ExportColumn<ReportRow>[] = [
+  { id: 'name', header: 'Reporte', value: (row) => row.name },
+  { id: 'total', header: 'Total', value: (row) => row.total, numFmt: '#,##0.00' },
+];
 ```
 
 ---
@@ -180,5 +209,7 @@ async exportCsv(@Query() query: ReportFiltersDto, @Headers('x-company-id') compa
 - [ ] El endpoint de exportación aplica los mismos filtros que la lista
 - [ ] El store NO tiene métodos create/update/delete
 - [ ] Los filtros de fecha se validan en el DTO (`@IsISO8601`, `@IsOptional`)
-- [ ] `UiExportButton` recibe el fetcher sin llamarlo directamente
+- [ ] `UiExportMenu` recibe el fetcher sin llamarlo directamente
+- [ ] Las columnas exportables están declaradas en un `*-export.columns.ts` del dominio
+
 

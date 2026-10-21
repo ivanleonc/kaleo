@@ -531,7 +531,11 @@ const invoiceStore = useInvoiceStore();
 const { companyId } = useCompanyPath();
 
 // Tabla con sort conectado en 1 línea
-const { table, isInitialLoading } = useTableView(useInvoiceColumns(), invoiceStore);
+// El tercer argumento son las opciones: sort inicial + persistencia de columnas
+const { table, isInitialLoading } = useTableView(useInvoiceColumns(), invoiceStore, {
+  initialSort: { sortBy: 'created_at', sortDir: 'desc' },
+  columnVisibilityKey: 'invoices',
+});
 
 // Filtros
 const filterValues = ref({ search: '', status: '' });

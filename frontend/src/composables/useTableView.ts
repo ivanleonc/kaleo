@@ -1,4 +1,9 @@
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
+import {
+  functionalUpdate,
+  type ColumnVisibilityState,
+  type RowData,
+} from '@tanstack/vue-table';
 import {
   useAppTable,
   useSortingState,
@@ -7,8 +12,14 @@ import {
   serverToSortingState,
   type AppColumnDef,
 } from '@/composables/useAppTable';
-import type { RowData } from '@tanstack/vue-table';
 import type { ServerSort } from '@/composables/useAppTable';
+import { STORAGE_KEYS } from '@/utils/storage-keys';
+
+export interface TableViewOptions {
+  initialSort?: ServerSort;
+  /** Id estable de la tabla para persistir columnas visibles (ej. `members`). */
+  columnVisibilityKey?: string;
+}
 
 /**
  * Store mínimo que useTableView necesita para conectar sort y datos.
@@ -23,6 +34,61 @@ export interface TableViewStore<T> {
   isLoading: boolean;
   /** Callback que el store usa para aplicar sort server-side. */
   setSort: (sort: ServerSort) => Promise<void>;
+}
+
+function readColumnVisibility(key?: string): ColumnVisibilityState {
+  if (!key) return {};
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.tableColumns(key));
+    if (!raw) return {};
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, value]) => typeof value === 'boolean'),
+    ) as ColumnVisibilityState;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Id con el que TanStack registra la columna: el `id` explícito si existe y,
+ * si no, el `accessorKey` (las columnas de accessor function ya traen `id`).
+ */
+function columnKey(column: AppColumnDef<any>): string | undefined {
+  const def = column as { id?: string; accessorKey?: string };
+  if (def.id) return def.id;
+  return typeof def.accessorKey === 'string' ? def.accessorKey : undefined;
+}
+
+function normalizeVisibility<T extends RowData>(
+  columns: AppColumnDef<T>[],
+  stored: ColumnVisibilityState,
+): ColumnVisibilityState {
+  if (Object.keys(stored).length === 0) return stored;
+
+  const hideableIds = columns
+    .map(columnKey)
+    .filter((id): id is string => Boolean(id) && id !== 'actions');
+
+  if (hideableIds.length === 0) return stored;
+  if (hideableIds.some((id) => stored[id] !== false)) return stored;
+
+  return {
+    ...stored,
+    ...Object.fromEntries(hideableIds.map((id) => [id, true])),
+  };
+}
+
+function persistColumnVisibility(key: string, state: ColumnVisibilityState): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.tableColumns(key), JSON.stringify(state));
+  } catch {
+    // Almacenamiento lleno o bloqueado: la tabla sigue funcionando sin persistir.
+  }
 }
 
 /**
@@ -53,16 +119,26 @@ export interface TableViewStore<T> {
  *
  * @param columns - Definiciones de columna creadas con `createAppColumnHelper`
  * @param store   - Store con `items`, `isLoading` y `setSort`
+ * @param options - `initialSort` y `columnVisibilityKey` (persistencia local)
  *
  * @returns `table` — instancia de TanStack Vue Table lista para pasar a UiDataTable o a un feature table component
  * @returns `isInitialLoading` — `true` solo en la primera carga (sin datos previos); false en re-fetches con datos
+ * @returns `visibleColumnIds` — ids de las columnas visibles (sin `actions`), para exportar lo que el usuario ve
  */
 export function useTableView<T extends RowData>(
   columns: AppColumnDef<T>[],
   store: TableViewStore<T>,
-  initialSort: ServerSort = {},
+  options: TableViewOptions = {},
 ) {
-  const sorting = useSortingState(serverToSortingState(initialSort));
+  const sorting = useSortingState(serverToSortingState(options.initialSort ?? {}));
+
+  const columnVisibility = ref<ColumnVisibilityState>(
+    normalizeVisibility(columns, readColumnVisibility(options.columnVisibilityKey)),
+  );
+
+  const controlledSorting = useControlledSorting(sorting, (s) => {
+    store.setSort(sortingStateToServer(s)).catch(() => {});
+  });
 
   const table = useAppTable<T>({
     columns,
@@ -73,10 +149,22 @@ export function useTableView<T extends RowData>(
     manualSorting: true,
     manualPagination: true,
     autoResetPageIndex: false,
-    ...useControlledSorting(sorting, (s) => {
-      store.setSort(sortingStateToServer(s)).catch(() => {});
-    }),
+    ...controlledSorting,
+    state: computed(() => ({
+      ...controlledSorting.state.value,
+      columnVisibility: columnVisibility.value,
+    })),
+    onColumnVisibilityChange: (updater) => {
+      columnVisibility.value = functionalUpdate(updater, columnVisibility.value);
+    },
   });
+
+  if (options.columnVisibilityKey) {
+    const key = options.columnVisibilityKey;
+    watch(columnVisibility, (state) => persistColumnVisibility(key, state), {
+      deep: true,
+    });
+  }
 
   /**
    * `true` solo en la carga inicial (tabla vacía + loading).
@@ -87,5 +175,12 @@ export function useTableView<T extends RowData>(
     () => store.isLoading && store.items.length === 0,
   );
 
-  return { table, isInitialLoading };
+  const visibleColumnIds = computed(() =>
+    table
+      .getVisibleLeafColumns()
+      .map((column) => column.id)
+      .filter((id) => id !== 'actions'),
+  );
+
+  return { table, isInitialLoading, visibleColumnIds };
 }

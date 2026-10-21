@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/axios';
+import { fetchExportFile, type ExportedFile, type ExportFormat } from '@/api/export';
 import type { BranchesResponse, BranchResponse, CreateBranchPayload, UpdateBranchPayload } from '@/types/branch';
 
 export const branchService = {
@@ -27,5 +28,19 @@ export const branchService = {
   async deleteBranch(branchId: string) {
     const response = await apiClient.delete(`/companies/branches/${branchId}`);
     return response.data;
+  },
+
+  async exportBranches(params: {
+    search?: string;
+    status?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+    format: ExportFormat;
+    columns?: string[];
+  }): Promise<ExportedFile> {
+    return fetchExportFile('/companies/branches/export', {
+      ...params,
+      columns: params.columns?.join(','),
+    });
   },
 };

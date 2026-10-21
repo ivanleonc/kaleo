@@ -6,6 +6,8 @@
         subtitle="Historial de análisis de tu empresa. Procesa un Excel y consulta sus resultados cuando quieras."
       >
         <template #actions>
+          <UiTableColumnMenu :table="analysisTable" />
+          <UiExportMenu :fetcher="exportAnalyses" />
           <UiButton
             v-permission="Permissions.ANALYSES.CREATE"
             width="auto"
@@ -99,9 +101,13 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import UiTableColumnMenu from '@/components/ui/UiTableColumnMenu.vue';
+import UiExportMenu from '@/components/ui/UiExportMenu.vue';
 import AnalysisTable from '@/components/features/analyses/AnalysisTable.vue';
 import AnalysisCreateModal from '@/components/features/analyses/AnalysisCreateModal.vue';
 import AnalysisRenameModal from '@/components/features/analyses/AnalysisRenameModal.vue';
+import { analysisService } from '@/services/analysis.service';
+import type { ExportFormat } from '@/api/export';
 import { useAnalysisStore } from '@/stores/analysis.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useCreateAction } from '@/composables/useCreateAction';
@@ -188,11 +194,25 @@ useFilterSync(filterValues, (values) =>
   }),
 );
 
-const { table: analysisTable, isInitialLoading } = useTableView(
+const {
+  table: analysisTable,
+  isInitialLoading,
+  visibleColumnIds,
+} = useTableView(
   useAnalysisColumns(),
   analysisStore,
-  initialSort,
+  { initialSort, columnVisibilityKey: 'analyses' },
 );
+
+const exportAnalyses = (format: ExportFormat) =>
+  analysisService.exportAnalyses({
+    search: emptyToUndefined(filterValues.value.search),
+    analysis_type: emptyToUndefined(filterValues.value.analysis_type),
+    sortBy: analysisStore.sortBy ?? undefined,
+    sortDir: analysisStore.sortDir,
+    format,
+    columns: visibleColumnIds.value,
+  });
 
 const queryState = computed<ListQueryState>(() => ({
   filters: filterValues.value,

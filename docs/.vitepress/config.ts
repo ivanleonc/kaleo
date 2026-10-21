@@ -105,6 +105,8 @@ export default defineConfig({
               text: 'Datos',
               items: [
                 { text: 'UiDataTable', link: '/frontend/componentes/datos/ui-data-table' },
+                { text: 'UiTableColumnMenu', link: '/frontend/componentes/datos/ui-table-column-menu' },
+                { text: 'UiExportMenu', link: '/frontend/componentes/datos/ui-export-menu' },
                 { text: 'UiTableFilters', link: '/frontend/componentes/datos/ui-table-filters' },
                 { text: 'UiPagination', link: '/frontend/componentes/datos/ui-pagination' },
                 { text: 'UiCursorPagination', link: '/frontend/componentes/datos/ui-cursor-pagination' },
@@ -165,6 +167,7 @@ export default defineConfig({
             { text: 'Sedes', link: '/backend/api/branches' },
             { text: 'Roles y Permisos', link: '/backend/api/roles' },
             { text: 'Auditoría', link: '/backend/api/audit' },
+            { text: 'Exportaciones', link: '/backend/api/exportaciones' },
           ],
         },
       ],

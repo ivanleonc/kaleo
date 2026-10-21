@@ -2,23 +2,27 @@
 
 Botón de descarga de archivos que gestiona todo el proceso de Blob → archivo.
 
+::: tip ¿CSV o Excel?
+Para las tablas de la app se usa [UiExportMenu](/frontend/componentes/datos/ui-export-menu), que ofrece CSV **y** Excel y reutiliza el servicio de exportación del backend. `UiExportButton` sigue disponible para descargas de un solo formato.
+:::
+
 ## Props
 
 | Prop | Tipo | Requerido | Descripción |
 |---|---|---|---|
-| `label` | string | ✅ | Texto del botón |
-| `fetcher` | `() => Promise<Blob>` | ✅ | Función que retorna el Blob a descargar |
+| `label` | string | ❌ | Texto del botón (por defecto `Exportar CSV`) |
+| `disabled` | boolean | ❌ | Deshabilita el botón |
+| `fetcher` | `() => Promise<{ blob: Blob; filename: string }>` | ✅ | Función que retorna el blob **y** el nombre del archivo |
 
 ## Comportamiento
 
 1. El usuario hace clic
 2. Se muestra estado de loading
 3. Se llama a `fetcher()`
-4. Con el Blob resultante: crea URL temporal → `<a>.click()` → revoca la URL
+4. Con el resultado: crea URL temporal → `<a>.click()` → revoca la URL
 5. El loading desaparece
 
 ```vue
-<!-- En AuditView -->
 <UiExportButton
   label="Exportar CSV"
   :fetcher="fetchExportBlob"
@@ -26,11 +30,12 @@ Botón de descarga de archivos que gestiona todo el proceso de Blob → archivo.
 
 <script setup>
 function fetchExportBlob() {
-  return auditService.fetchCsvBlob({
+  return auditService.exportLogs({
     entityType: filterValues.value.entityType || undefined,
     action: filterValues.value.action || undefined,
     from: filterValues.value.from || undefined,
     to: filterValues.value.to || undefined,
+    format: 'csv',
   })
 }
 </script>
@@ -39,5 +44,5 @@ function fetchExportBlob() {
 ## Notas
 
 - El `fetcher` recibe los filtros actuales en el momento del clic — siempre exporta lo que se está viendo
-- El nombre del archivo lo controla el backend vía `Content-Disposition: attachment; filename="..."`
+- El `filename` lo controla el backend vía `Content-Disposition: attachment; filename="..."` (el helper `fetchExportFile` de `@/api/export` lo extrae)
 - Si `fetcher()` lanza un error, se muestra un toast de error automáticamente

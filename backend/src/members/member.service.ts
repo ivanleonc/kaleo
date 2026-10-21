@@ -2,6 +2,9 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { randomBytes } from 'crypto';
 import { MemberRepository } from './repositories/member.repository.js';
 import type { SortSpec } from '../common/dto/pagination-query.dto.js';
+import { TabularExportService } from '../common/export/tabular-export.service.js';
+import type { ExportFile, ExportFormat } from '../common/export/export.types.js';
+import { MEMBER_EXPORT_COLUMNS, type MemberExportRow } from './member-export.columns.js';
 import { PasswordService } from '../auth/password.service.js';
 import { RefreshTokenRepository } from '../auth/repositories/refresh-token.repository.js';
 import { EmailService } from '../email/email.service.js';
@@ -13,6 +16,7 @@ export class MemberService {
     private readonly passwordService: PasswordService,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly emailService: EmailService,
+    private readonly exportService: TabularExportService,
   ) {}
 
   async getMembers(
@@ -23,6 +27,26 @@ export class MemberService {
     sort: SortSpec = {},
   ) {
     return this.memberRepository.getMembersByCompany(companyId, page, limit, filters, sort);
+  }
+
+  async exportMembers(
+    companyId: string,
+    filters: { search?: string; status?: string; roleId?: string },
+    sort: SortSpec,
+    format: ExportFormat,
+    columns?: string[],
+  ): Promise<ExportFile> {
+    const rows = (await this.memberRepository.findForExport(
+      companyId,
+      filters,
+      sort,
+    )) as MemberExportRow[];
+    const selected = this.exportService.resolveColumns(MEMBER_EXPORT_COLUMNS, columns);
+
+    return this.exportService.generate(format, selected, rows, {
+      filename: `miembros_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Miembros',
+    });
   }
 
   async addMember(

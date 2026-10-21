@@ -2,7 +2,9 @@ import { Controller, Get, Query, Headers, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { AuditLogService } from './audit-log.service.js';
 import { AuditQueryDto } from '../common/dto/audit-query.dto.js';
+import { AuditExportQueryDto } from './dto/audit-export-query.dto.js';
 import { Ok, OkCursor } from '../common/dto/api-response.dto.js';
+import { exportFileToStreamable } from '../common/export/tabular-export.service.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Permissions } from '../common/constants/permissions.js';
@@ -44,7 +46,7 @@ export class AuditController {
   }
 
   @Get('logs/export')
-  @ApiOperation({ summary: 'Exportar logs de auditoria como CSV' })
+  @ApiOperation({ summary: 'Exportar logs de auditoría como CSV o Excel' })
   @ApiHeader({ name: 'x-company-id', required: true })
   @ApiQuery({ name: 'entityType', required: false, type: String })
   @ApiQuery({ name: 'action', required: false, type: String })
@@ -53,20 +55,20 @@ export class AuditController {
   @ApiQuery({ name: 'to', required: false, type: String })
   async exportLogs(
     @Headers('x-company-id') companyId: string,
-    @Query('entityType') entityType?: string,
-    @Query('action') action?: string,
-    @Query('userId') userId?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
+    @Query() query: AuditExportQueryDto,
   ) {
-    return this.auditLogService.exportCsv({
+    const file = await this.auditLogService.exportLogs({
       companyId,
-      entityType,
-      action,
-      userId,
-      from,
-      to,
+      entityType: query.entityType,
+      action: query.action,
+      userId: query.userId,
+      from: query.from,
+      to: query.to,
+      format: query.format ?? 'csv',
+      columns: query.columns,
     });
+
+    return exportFileToStreamable(file);
   }
 
   @Get('entity-types')

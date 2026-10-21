@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MemberService } from './member.service.js';
+import { TabularExportService } from '../common/export/tabular-export.service.js';
 
 /**
  * attachMember: asignar usuarios a una empresa explícita.
@@ -20,6 +21,10 @@ describe('MemberService.attachMember', () => {
   const passwordService: any = { hashPassword: vi.fn(async () => 'hash') };
   const refreshTokenRepository: any = { revokeAllForUser: vi.fn(async () => {}) };
   const emailService: any = { sendTemporaryPassword: vi.fn(async () => {}) };
+  const exportService: any = {
+    resolveColumns: vi.fn((columns) => columns),
+    generate: vi.fn(async () => ({ buffer: Buffer.from(''), filename: 'x.csv', contentType: 'text/csv' })),
+  };
 
   let service: MemberService;
 
@@ -31,6 +36,7 @@ describe('MemberService.attachMember', () => {
       passwordService,
       refreshTokenRepository,
       emailService,
+      exportService,
     );
   });
 
@@ -126,5 +132,57 @@ describe('MemberService.attachMember', () => {
     memberRepository.searchUsers = vi.fn(async () => []);
     await service.searchUsers('an');
     expect(memberRepository.searchUsers).toHaveBeenCalledWith('an');
+  });
+});
+
+describe('MemberService.exportMembers', () => {
+  const memberRepository: any = {
+    findForExport: vi.fn(),
+  };
+
+  let service: MemberService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new MemberService(
+      memberRepository,
+      { hashPassword: vi.fn() } as any,
+      { revokeAllForUser: vi.fn() } as any,
+      { sendTemporaryPassword: vi.fn() } as any,
+      new TabularExportService() as any,
+    );
+  });
+
+  it('exporta solo las columnas visibles en CSV', async () => {
+    memberRepository.findForExport.mockResolvedValue([
+      {
+        id: 'u-1',
+        name: 'Ana',
+        email: 'ana@x.co',
+        roles: 'Admin',
+        status: 'active',
+      },
+    ]);
+
+    const file = await service.exportMembers(
+      'company-1',
+      {},
+      { sortBy: 'name', sortDir: 'asc' },
+      'csv',
+      ['name', 'email'],
+    );
+
+    const text = file.buffer.toString('utf-8');
+    expect(text).toContain('"Nombre","Email"');
+    expect(text).not.toContain('"Rol"');
+    expect(file.filename).toMatch(/^miembros_.*\.csv$/);
+  });
+
+  it('rechaza columnas que no existen en el dominio', async () => {
+    memberRepository.findForExport.mockResolvedValue([]);
+
+    await expect(
+      service.exportMembers('company-1', {}, {}, 'csv', ['columna_fantasma']),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

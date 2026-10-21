@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
+import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
 import { rows, row } from '../../common/utils/db.js';
 import type { AnalysisRow } from '../../common/types/db-rows.js';
 import type { AnalysisType } from '../types/analysis.types.js';
@@ -89,6 +90,48 @@ export class AnalysisRepository {
       page: safePage,
       limit: safeLimit,
     };
+  }
+
+  /**
+   * Misma consulta que `findPagedByCompany`, sin paginación y con tope duro
+   * de filas para exportación. La fila extra permite detectar el exceso.
+   */
+  async findForExport(
+    companyId: string,
+    filters: { search?: string; analysis_type?: AnalysisType } = {},
+    sort: SortSpec = {},
+  ) {
+    const { where, values, nextIndex } = buildWhere(
+      [
+        { clause: 'a.company_id = $?', value: companyId },
+        { clause: 'a.deleted_at IS NULL' },
+        filters.search
+          ? { clause: '(a.name ILIKE $? OR a.file_name ILIKE $?)', value: `%${filters.search}%`, reuse: true }
+          : undefined,
+        filters.analysis_type
+          ? { clause: 'a.analysis_type = $?', value: filters.analysis_type }
+          : undefined,
+      ],
+      1,
+    );
+
+    const orderBy = buildOrderBy(
+      ANALYSIS_SORT_COLUMNS,
+      { sortBy: sort.sortBy, sortDir: sort.sortBy ? sort.sortDir : 'desc' },
+      'created_at',
+    );
+
+    const result = await this.dataSource.query(
+      `SELECT ${ANALYSIS_LIST_FIELDS}
+       FROM analyses a
+       LEFT JOIN users u ON u.id = a.created_by AND u.deleted_at IS NULL
+       WHERE ${where}
+       ORDER BY ${orderBy}, a.id
+       LIMIT $${nextIndex}`,
+      [...values, EXPORT_MAX_ROWS + 1],
+    );
+
+    return rows<AnalysisRow>(result);
   }
 
   async findById(analysisId: string, companyId: string) {

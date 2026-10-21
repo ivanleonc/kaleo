@@ -49,10 +49,34 @@ interface TableViewStore<T> {
 function useTableView<T extends RowData>(
   columns: AppColumnDef<T>[],
   store: TableViewStore<T>,
+  options?: {
+    initialSort?: ServerSort
+    columnVisibilityKey?: string
+  },
 ): {
   table: AppVueTable<AppFeatures, T, {}, {}, {}>
   isInitialLoading: ComputedRef<boolean>
+  visibleColumnIds: ComputedRef<string[]>
 }
+```
+
+### Opciones
+
+| Opción | Qué hace |
+| --- | --- |
+| `initialSort` | Sort inicial server-side (`{ sortBy, sortDir }`). |
+| `columnVisibilityKey` | Id estable de la tabla (ej. `members`). Activa la persistencia de columnas visibles en `localStorage` bajo `kaleo:table-columns:{key}`. Sin esta opción la tabla no persiste nada. |
+
+### `visibleColumnIds`
+
+Ids de las columnas **visibles** (excluye `actions`). Es lo que se envía al backend al exportar, para que el archivo contenga exactamente lo que el usuario ve:
+
+```ts
+const { table, isInitialLoading, visibleColumnIds } = useTableView(
+  useMemberColumns(),
+  memberStore,
+  { initialSort, columnVisibilityKey: 'members' },
+)
 ```
 
 ### `isInitialLoading`
@@ -86,7 +110,7 @@ Si ves que la tabla no actualiza al cambiar de página o filtrar, este es el bug
 
 ## Los filtros son separados
 
-`useTableView` maneja **sort** y **datos**, pero **no filtros**. Los filtros siguen siendo responsabilidad de la view via `useFilterSync`. Esta separación permite que:
+`useTableView` maneja **sort**, **datos** y **visibilidad de columnas**, pero **no filtros**. Los filtros siguen siendo responsabilidad de la view via `useFilterSync`. Esta separación permite que:
 
 1. La view decida qué filtros mostrar y cómo mapearlos
 2. El sort y la tabla estén siempre configurados correctamente sin código repetido
@@ -128,6 +152,8 @@ onMounted(() => invoiceStore.fetchInvoices())
 </script>
 
 <template>
+  <UiTableColumnMenu :table="table" />
+  <UiExportMenu :fetcher="(format) => invoiceService.exportInvoices({ format, columns: visibleColumnIds })" />
   <InvoiceTable
     :table="table"
     :loading="isInitialLoading"

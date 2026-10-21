@@ -5,10 +5,11 @@ import { AuditLogRepository } from './audit-log.repository.js';
 import { AuditLogInterceptor } from './audit-log.interceptor.js';
 import { AuditController } from './audit.controller.js';
 import { AuditRetentionService } from './audit-retention.service.js';
+import { ExportModule } from '../common/export/export.module.js';
 
 @Global()
 @Module({
-  imports: [TypeOrmModule],
+  imports: [TypeOrmModule, ExportModule],
   controllers: [AuditController],
   providers: [AuditLogService, AuditLogRepository, AuditLogInterceptor, AuditRetentionService],
   exports: [AuditLogService, AuditLogInterceptor],

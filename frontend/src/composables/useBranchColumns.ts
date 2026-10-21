@@ -24,6 +24,11 @@ export function useBranchColumns(): AppColumnDef<Branch>[] {
       header: 'Estado',
       meta: { label: 'Estado' },
     }),
-    branchColumnHelper.display({ id: 'actions', header: '', meta: { label: '', align: 'right' } }),
+    branchColumnHelper.display({
+      id: 'actions',
+      header: '',
+      meta: { label: '', align: 'right' },
+      enableHiding: false,
+    }),
   ];
 }
