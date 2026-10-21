@@ -98,10 +98,10 @@ export function usePaginatedSetup<T, F extends Record<string, unknown>>(
   // --- Fetch principal ---
   const fetch = async (targetPage = page.value) => {
     if (!companyId.value) return;
-    if (companyId.value !== lastCompanyId.value) {
+    if (lastCompanyId.value !== undefined && companyId.value !== lastCompanyId.value) {
       resetState();
-      lastCompanyId.value = companyId.value;
     }
+    lastCompanyId.value = companyId.value;
     await withLoading(async () => {
       const params = {
         page: targetPage,
@@ -150,6 +150,25 @@ export function usePaginatedSetup<T, F extends Record<string, unknown>>(
     await fetch(page.value > totalPages.value ? 1 : page.value);
   };
 
+  /** Restaura filtros, página, límite y orden en un solo fetch (deep links). */
+  const initialize = async (state: {
+    filters?: Partial<F>;
+    page?: number;
+    limit?: number;
+    sort?: ServerSort;
+  } = {}) => {
+    if (lastCompanyId.value !== undefined && companyId.value !== lastCompanyId.value) {
+      items.value = [];
+      total.value = 0;
+    }
+    lastCompanyId.value = companyId.value;
+    filters.value = { ...config.defaultFilters, ...state.filters } as F;
+    limit.value = state.limit ?? config.defaultLimit ?? 20;
+    sortBy.value = state.sort?.sortBy;
+    sortDir.value = state.sort?.sortDir ?? 'asc';
+    await fetch(state.page ?? 1);
+  };
+
   return {
     items,
     isLoading,
@@ -171,6 +190,7 @@ export function usePaginatedSetup<T, F extends Record<string, unknown>>(
     clearFilters,
     setSort,
     refresh,
+    initialize,
     // Expuesto para que los stores que extienden puedan reutilizar el mismo
     // estado de loading/error para sus operaciones CRUD (create/update/delete).
     // Así hay un único `isLoading` y `error` para toda la vista del módulo.

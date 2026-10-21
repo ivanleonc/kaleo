@@ -142,4 +142,54 @@ describe('AnalysesView', () => {
     expect(wrapper!.text()).toContain('No hay análisis todavía');
     expect(wrapper!.text()).toContain('Nuevo análisis');
   });
+
+  it('restaura filtros, página, límite y orden desde la URL', async () => {
+    routeState.query = {
+      search: 'enero',
+      page: '2',
+      limit: '10',
+      sortBy: 'created_at',
+      sortDir: 'desc',
+    };
+    mockGetAnalyses.mockResolvedValue({
+      success: true,
+      data: [ANALYSIS],
+      total: 11,
+      page: 2,
+      limit: 10,
+    });
+    await mountView();
+
+    expect(mockGetAnalyses).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: 'enero',
+        page: 2,
+        limit: 10,
+        sortBy: 'created_at',
+        sortDir: 'desc',
+      }),
+    );
+    expect(wrapper!.find('.active-filters').text()).toContain('enero');
+  });
+
+  it('distingue entre historial vacío y búsqueda sin resultados', async () => {
+    routeState.query = { search: 'no existe' };
+    mockGetAnalyses.mockResolvedValue(pageOf([], 0));
+    await mountView();
+
+    expect(wrapper!.text()).toContain('Sin resultados');
+    expect(wrapper!.text()).not.toContain('No hay análisis todavía');
+    expect(wrapper!.text()).toContain('Limpiar filtros');
+  });
+
+  it('sincroniza la búsqueda con la URL', async () => {
+    await mountView();
+
+    const input = wrapper!.find('.ui-search-input');
+    await input.setValue('enero');
+
+    expect(mockReplace).toHaveBeenCalledWith({
+      query: expect.objectContaining({ search: 'enero' }),
+    });
+  });
 });

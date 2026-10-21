@@ -721,3 +721,59 @@ button, a, [role='button'] {
     font-size: 1rem;
   }
 }
+
+/* Impresión de análisis: solo el contenido consultado */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  .sidebar,
+  .topbar,
+  .mobile-backdrop,
+  .skip-link,
+  .page-header-actions,
+  .filters-bar,
+  .ui-pagination,
+  .back-link,
+  .ui-dropdown-trigger,
+  .ui-toast-stack {
+    display: none !important;
+  }
+
+  .layout-container,
+  .layout-body,
+  .main-content,
+  .content-area {
+    display: block !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .view-transition {
+    animation: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .analysis-context,
+  .ui-card,
+  .ui-metric-card {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .energy-dashboard {
+    gap: var(--space-4);
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}

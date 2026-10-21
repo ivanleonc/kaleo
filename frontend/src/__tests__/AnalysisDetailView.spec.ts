@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import AnalysisDetailView from '@/views/AnalysisDetailView.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { buildMockEnergyDashboard } from '@/services/energy.mock';
+import { formatInteger } from '@/utils/number';
 import type { AnalysisDetail } from '@/types/analysis';
 
 const { mockGetAnalysis, mockPush, detailState } = vi.hoisted(() => ({
@@ -110,9 +111,25 @@ describe('AnalysisDetailView', () => {
     expect(wrapper!.text()).toContain('enero.xlsx');
     expect(wrapper!.text()).toContain('2,0 KB');
     expect(wrapper!.text()).toContain('Energía');
-    expect(wrapper!.text()).toContain('Datos de la API');
+    expect(wrapper!.find('.analysis-context').text()).toContain('Periodo');
+    expect(wrapper!.find('.analysis-context').text()).toContain('Registros');
+    expect(wrapper!.find('.analysis-context').text()).toContain(
+      formatInteger(DASHBOARD.meta.rowsProcessed),
+    );
+    expect(wrapper!.find('.analysis-context').text()).not.toContain('Datos de ejemplo');
     expect(wrapper!.text()).toContain('Ana');
     expect(wrapper!.find('.dashboard-stub').exists()).toBe(true);
+  });
+
+  it('identifica los datos de ejemplo sin exponer el origen técnico', async () => {
+    mockGetAnalysis.mockResolvedValue({
+      success: true,
+      data: { ...DETAIL, source: 'mock' },
+    });
+    await mountView();
+
+    expect(wrapper!.find('.analysis-context').text()).toContain('Datos de ejemplo');
+    expect(wrapper!.find('.analysis-context').text()).not.toContain('Datos de la API');
   });
 
   it('muestra un fallback para tipos de análisis sin visualización', async () => {
@@ -128,7 +145,7 @@ describe('AnalysisDetailView', () => {
     await mountView();
 
     expect(wrapper!.text()).toContain('Visualización no disponible');
-    expect(wrapper!.text()).toContain('inventory');
+    expect(wrapper!.text()).toContain('no existe un tablero para este tipo de análisis');
     expect(wrapper!.find('.dashboard-stub').exists()).toBe(false);
   });
 

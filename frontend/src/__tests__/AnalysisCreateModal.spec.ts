@@ -149,6 +149,35 @@ describe('AnalysisCreateModal', () => {
     expect(document.body.textContent).toContain('Análisis guardado');
   });
 
+  it('permite cancelar el procesamiento sin guardar el análisis', async () => {
+    let finishUpload: ((value: typeof DASHBOARD) => void) | undefined;
+    mockUploadExcel.mockImplementationOnce(
+      () => new Promise<typeof DASHBOARD>((resolve) => {
+        finishUpload = resolve;
+      }),
+    );
+
+    await mountModal();
+    await selectFile();
+    await submitForm();
+
+    const cancel = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Cancelar procesamiento'),
+    );
+    expect(cancel).toBeDefined();
+
+    cancel!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flushPromises();
+
+    finishUpload!(DASHBOARD);
+    await flushPromises();
+    await flushPromises();
+
+    expect(mockCreateAnalysis).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain('Cancelar procesamiento');
+    expect(document.body.textContent).not.toContain('Análisis guardado');
+  });
+
   it('reintenta solo el guardado cuando falla la persistencia', async () => {
     mockCreateAnalysis
       .mockRejectedValueOnce(new Error('No se pudo guardar en la base de datos'))

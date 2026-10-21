@@ -5,15 +5,13 @@
         <h2 class="section-title">Consumo vs facturación</h2>
         <p class="section-subtitle">Energía consumida y facturada por periodo.</p>
       </template>
-      <UiChart :option="consumptionOption" height="320px" />
-    </UiCard>
-
-    <UiCard class="chart-card">
-      <template #header>
-        <h2 class="section-title">Clientes por segmento</h2>
-        <p class="section-subtitle">Distribución de la base de clientes.</p>
-      </template>
-      <UiChart :option="segmentsOption" height="320px" />
+      <UiChart
+        :option="consumptionOption"
+        height="320px"
+        label="Consumo y facturación por periodo"
+        :summary="consumptionSummary"
+        :data-table="consumptionData"
+      />
     </UiCard>
 
     <UiCard class="chart-card">
@@ -21,7 +19,13 @@
         <h2 class="section-title">Pérdidas por zona</h2>
         <p class="section-subtitle">Porcentaje de pérdidas no técnicas.</p>
       </template>
-      <UiChart :option="lossesOption" height="320px" />
+      <UiChart
+        :option="lossesOption"
+        height="320px"
+        label="Porcentaje de pérdidas no técnicas por zona"
+        :summary="lossesSummary"
+        :data-table="lossesData"
+      />
     </UiCard>
 
     <UiCard class="chart-card chart-trend">
@@ -29,7 +33,27 @@
         <h2 class="section-title">Tendencia de pérdidas</h2>
         <p class="section-subtitle">Evolución mensual del porcentaje de pérdida.</p>
       </template>
-      <UiChart :option="trendOption" height="320px" />
+      <UiChart
+        :option="trendOption"
+        height="320px"
+        label="Tendencia mensual de pérdidas no técnicas"
+        :summary="trendSummary"
+        :data-table="trendData"
+      />
+    </UiCard>
+
+    <UiCard class="chart-card">
+      <template #header>
+        <h2 class="section-title">Clientes por segmento</h2>
+        <p class="section-subtitle">Distribución de la base de clientes.</p>
+      </template>
+      <UiChart
+        :option="segmentsOption"
+        height="320px"
+        label="Distribución de clientes por segmento"
+        :summary="segmentsSummary"
+        :data-table="segmentsData"
+      />
     </UiCard>
   </div>
 </template>
@@ -276,6 +300,75 @@ const lossesOption = computed<EChartsCoreOption>(() => {
       },
     ],
   };
+});
+
+const consumptionData = computed(() => ({
+  caption: 'Consumo y facturación por periodo',
+  headers: ['Periodo', 'Consumo', 'Facturado'],
+  rows: props.dashboard.consumptionByPeriod.map((point) => [
+    periodLabel(point.period),
+    formatEnergyKwh(point.consumptionKwh),
+    formatEnergyKwh(point.billedKwh),
+  ]),
+}));
+
+const consumptionSummary = computed(() => {
+  const points = props.dashboard.consumptionByPeriod;
+  if (!points.length) return 'No hay datos de consumo para el periodo analizado.';
+  const total = points.reduce((sum, point) => sum + point.consumptionKwh, 0);
+  return `Consumo total de ${formatEnergyKwh(total)} distribuido en ${points.length} periodos.`;
+});
+
+const segmentsData = computed(() => ({
+  caption: 'Clientes por segmento',
+  headers: ['Segmento', 'Clientes'],
+  rows: props.dashboard.clientsBySegment.map((segment) => [
+    segment.label,
+    formatInteger(segment.value),
+  ]),
+}));
+
+const segmentsSummary = computed(() => {
+  const segments = props.dashboard.clientsBySegment;
+  if (!segments.length) return 'No hay segmentos de clientes para mostrar.';
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+  return `${formatInteger(total)} clientes distribuidos en ${segments.length} segmentos.`;
+});
+
+const lossesData = computed(() => ({
+  caption: 'Pérdidas no técnicas por zona',
+  headers: ['Zona', 'Pérdidas', '% Pérdida'],
+  rows: props.dashboard.lossesByZone.map((zone) => [
+    zone.zone,
+    formatEnergyKwh(zone.lossesKwh),
+    formatPercent(zone.lossesPct),
+  ]),
+}));
+
+const lossesSummary = computed(() => {
+  const zones = props.dashboard.lossesByZone;
+  if (!zones.length) return 'No hay zonas con pérdidas para mostrar.';
+  const highest = zones.reduce((max, zone) =>
+    zone.lossesPct > max.lossesPct ? zone : max,
+  );
+  return `Se comparan ${zones.length} zonas; la mayor pérdida es ${formatPercent(highest.lossesPct)} en ${highest.zone}.`;
+});
+
+const trendData = computed(() => ({
+  caption: 'Tendencia mensual de pérdidas no técnicas',
+  headers: ['Periodo', '% Pérdida'],
+  rows: props.dashboard.lossTrend.map((point) => [
+    periodLabel(point.period),
+    formatPercent(point.lossesPct),
+  ]),
+}));
+
+const trendSummary = computed(() => {
+  const points = props.dashboard.lossTrend;
+  if (!points.length) return 'No hay datos de tendencia para el periodo.';
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
+  return `La pérdida pasa de ${formatPercent(first.lossesPct)} a ${formatPercent(last.lossesPct)} entre ${periodLabel(first.period)} y ${periodLabel(last.period)}.`;
 });
 
 const trendOption = computed<EChartsCoreOption>(() => {

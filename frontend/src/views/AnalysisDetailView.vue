@@ -1,10 +1,10 @@
 <template>
   <AuthenticatedLayout>
     <div class="analysis-detail-container">
-      <router-link :to="companyPath('/analyses')" class="back-link">
+      <button type="button" class="back-link" @click="goBackToList">
         <IconArrowLeft :size="16" stroke-width="1.8" />
         Volver a Analítica
-      </router-link>
+      </button>
 
       <UiPageHeader
         :title="analysis?.name || 'Análisis'"
@@ -27,14 +27,43 @@
           >
             <IconPencil :size="16" /> Renombrar
           </UiButton>
-          <UiButton
-            v-permission="Permissions.ANALYSES.DELETE"
-            variant="danger"
-            width="auto"
-            @click="openDeleteModal"
-          >
-            <IconTrash :size="16" /> Eliminar
-          </UiButton>
+          <UiDropdown label="Más acciones del análisis">
+            <template #trigger="{ toggle, triggerAria }">
+              <button
+                class="more-actions-btn"
+                type="button"
+                aria-label="Más acciones del análisis"
+                @click="toggle"
+                v-bind="triggerAria"
+              >
+                <IconDotsVertical :size="18" stroke-width="1.8" />
+              </button>
+            </template>
+            <template #default>
+              <UiDropdownItem @click="copyLink">
+                <IconLink :size="14" stroke-width="1.8" />
+                <span>Copiar enlace</span>
+              </UiDropdownItem>
+              <UiDropdownItem
+                v-if="energyDashboard?.criticalZones.length"
+                @click="exportCriticalZonesCsv"
+              >
+                <IconDownload :size="14" stroke-width="1.8" />
+                <span>Exportar zonas en CSV</span>
+              </UiDropdownItem>
+              <UiDropdownItem @click="printAnalysis">
+                <IconPrinter :size="14" stroke-width="1.8" />
+                <span>Imprimir o guardar PDF</span>
+              </UiDropdownItem>
+              <template v-if="canDelete">
+                <div class="ui-dropdown-divider" role="separator"></div>
+                <UiDropdownItem danger @click="openDeleteModal">
+                  <IconTrash :size="14" stroke-width="1.8" />
+                  <span>Eliminar análisis</span>
+                </UiDropdownItem>
+              </template>
+            </template>
+          </UiDropdown>
         </template>
       </UiPageHeader>
 
@@ -58,34 +87,46 @@
       />
 
       <template v-else-if="analysis">
-        <section class="analysis-overview" aria-label="Datos del análisis">
-          <div class="overview-file">
-            <div class="overview-icon">
+        <section class="analysis-context" aria-label="Datos del análisis">
+          <div class="context-file">
+            <div class="context-icon">
               <IconFileSpreadsheet :size="22" stroke-width="1.8" />
             </div>
-            <div class="overview-file-text">
-              <span class="overview-file-name" :title="analysis.file_name || undefined">
+            <div class="context-file-text">
+              <span class="context-file-name" :title="analysis.file_name || undefined">
                 {{ analysis.file_name || 'Sin archivo' }}
               </span>
-              <span class="overview-file-size">
+              <span class="context-file-meta">
                 {{ analysis.file_size ? formatFileSize(analysis.file_size) : 'Tamaño no informado' }}
                 · {{ formatDateTime(analysis.created_at) }}
               </span>
             </div>
           </div>
 
-          <div class="overview-meta">
+          <dl class="context-stats">
+            <div v-if="energySummary || energyDashboard" class="context-stat">
+              <dt>Periodo</dt>
+              <dd>{{ periodRange }}</dd>
+            </div>
+            <div v-if="rowsProcessed !== null" class="context-stat">
+              <dt>Registros</dt>
+              <dd>{{ formatInteger(rowsProcessed) }}</dd>
+            </div>
+            <div class="context-stat">
+              <dt>Autor</dt>
+              <dd>{{ analysis.created_by_name || 'Usuario' }}</dd>
+            </div>
+          </dl>
+
+          <div class="context-tags">
             <AnalysisTypeBadge :type="analysis.analysis_type" />
             <UiBadge
-              v-if="analysis.source"
-              :variant="analysis.source === 'mock' ? 'warning' : 'success'"
+              v-if="analysis.source === 'mock'"
+              variant="warning"
               size="sm"
             >
-              {{ analysis.source === 'mock' ? 'Datos de demostración' : 'Datos de la API' }}
+              Datos de ejemplo
             </UiBadge>
-            <span class="overview-author">
-              Creado por {{ analysis.created_by_name || 'Usuario' }}
-            </span>
           </div>
         </section>
 
@@ -105,8 +146,8 @@
           <div>
             <h2 class="unsupported-title">Visualización no disponible</h2>
             <p class="unsupported-text">
-              Este análisis fue guardado correctamente, pero todavía no existe un tablero para su tipo
-              ({{ analysis.analysis_type }}).
+              Este análisis fue guardado correctamente, pero todavía no existe un tablero para este
+              tipo de análisis.
             </p>
           </div>
         </section>
@@ -139,9 +180,13 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   IconArrowLeft,
   IconChartHistogram,
+  IconDotsVertical,
+  IconDownload,
   IconFileSpreadsheet,
+  IconLink,
   IconPencil,
   IconPlus,
+  IconPrinter,
   IconTrash,
 } from '@tabler/icons-vue';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
@@ -149,27 +194,32 @@ import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
+import UiDropdown from '@/components/ui/UiDropdown.vue';
+import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import AnalysisTypeBadge from '@/components/features/analyses/AnalysisTypeBadge.vue';
 import AnalysisRenameModal from '@/components/features/analyses/AnalysisRenameModal.vue';
 import EnergyDashboard from '@/components/features/energy/EnergyDashboard.vue';
 import { useAnalysisStore } from '@/stores/analysis.store';
+import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
 import type { Analysis, AnalysisDetail } from '@/types/analysis';
 import {
-  analysisTypeLabel,
+  energySummaryOf,
   isEnergyResult,
 } from '@/types/analysis';
-import { formatDateTime } from '@/utils/date';
-import { formatFileSize } from '@/utils/number';
+import type { EnergyZoneStatus } from '@/types/energy';
+import { formatDate, formatDateTime } from '@/utils/date';
+import { formatFileSize, formatInteger } from '@/utils/number';
 import { apiErrorMessage } from '@/utils/error';
 
 const route = useRoute();
 const router = useRouter();
 const analysisStore = useAnalysisStore();
+const authStore = useAuthStore();
 const toast = useToast();
 const { companyId, companyPath } = useCompanyPath();
 
@@ -183,15 +233,34 @@ const analysisId = computed(() =>
   typeof route.params.analysisId === 'string' ? route.params.analysisId : '',
 );
 
-const subtitle = computed(() => {
-  if (!analysis.value) return 'Consulta el resultado guardado de tu análisis.';
-  return `${analysisTypeLabel(analysis.value.analysis_type)} · ${analysis.value.file_name || 'Sin archivo'} · ${formatDateTime(analysis.value.created_at)}`;
-});
+const subtitle = computed(() =>
+  analysis.value
+    ? 'Consulta los indicadores y zonas críticas del periodo.'
+    : 'Cargando el resultado guardado de tu análisis.',
+);
 
 const energyDashboard = computed(() => {
   if (!analysis.value || analysis.value.analysis_type !== 'energy') return null;
   return isEnergyResult(analysis.value.result) ? analysis.value.result : null;
 });
+
+const energySummary = computed(() =>
+  analysis.value ? energySummaryOf(analysis.value.summary) : null,
+);
+
+const rowsProcessed = computed(
+  () => energySummary.value?.rowsProcessed ?? energyDashboard.value?.meta.rowsProcessed ?? null,
+);
+
+const periodRange = computed(() => {
+  const from = energySummary.value?.periodFrom ?? energyDashboard.value?.meta.periodFrom;
+  const to = energySummary.value?.periodTo ?? energyDashboard.value?.meta.periodTo;
+  if (!from && !to) return 'No informado';
+  if (from && to) return `${formatDate(from)} – ${formatDate(to)}`;
+  return formatDate(from || to || '');
+});
+
+const canDelete = computed(() => authStore.hasPermission(Permissions.ANALYSES.DELETE));
 
 async function loadAnalysis() {
   if (!analysisId.value) return;
@@ -212,6 +281,14 @@ watch([analysisId, companyId], ([id, currentCompanyId], [previousId, previousCom
   if (!id) return;
   if (id !== previousId || currentCompanyId !== previousCompanyId) loadAnalysis();
 });
+
+function goBackToList() {
+  if (window.history.state?.back) {
+    router.back();
+    return;
+  }
+  router.push(companyPath('/analyses'));
+}
 
 function openNewAnalysis() {
   router.push({ path: companyPath('/analyses'), query: { crear: '1' } });
@@ -241,6 +318,81 @@ async function confirmDelete() {
   }
 }
 
+async function copyLink() {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(window.location.href);
+    } else {
+      const field = document.createElement('textarea');
+      field.value = window.location.href;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('No se pudo copiar');
+    }
+    toast.success('Enlace copiado');
+  } catch {
+    toast.error('No pudimos copiar el enlace');
+  }
+}
+
+const ZONE_STATUS_LABELS: Record<EnergyZoneStatus, string> = {
+  critical: 'Crítica',
+  warning: 'En observación',
+  normal: 'Normal',
+};
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+function exportCriticalZonesCsv() {
+  const zones = energyDashboard.value?.criticalZones ?? [];
+  if (!zones.length) {
+    toast.warning('Este análisis no tiene zonas críticas para exportar');
+    return;
+  }
+
+  const rows = [
+    ['Zona', 'Municipio', 'Clientes', 'Consumo kWh', 'Pérdidas kWh', '% Pérdida', 'Estado'],
+    ...zones.map((zone) => [
+      zone.zone,
+      zone.municipality,
+      zone.clients,
+      zone.consumptionKwh,
+      zone.lossesKwh,
+      zone.lossesPct,
+      ZONE_STATUS_LABELS[zone.status] ?? zone.status,
+    ]),
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const baseName = (analysis.value?.name || 'analisis')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+  link.href = url;
+  link.download = `${baseName || 'analisis'}-zonas-criticas.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function printAnalysis() {
+  window.print();
+}
+
 onMounted(loadAnalysis);
 </script>
 
@@ -256,21 +408,54 @@ onMounted(loadAnalysis);
   align-items: center;
   gap: var(--space-2);
   width: fit-content;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  text-decoration: none;
+  cursor: pointer;
 }
 
 .back-link:hover {
   color: var(--text-main);
 }
 
-.analysis-overview {
-  display: flex;
+.back-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.more-actions-btn {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.more-actions-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--text-light);
+  color: var(--text-main);
+}
+
+.more-actions-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.analysis-context {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  flex-wrap: wrap;
+  gap: var(--space-6);
   padding: var(--space-4) var(--space-5);
   background-color: var(--bg-card);
   border: 1px solid var(--border);
@@ -278,14 +463,14 @@ onMounted(loadAnalysis);
   box-shadow: var(--shadow-sm);
 }
 
-.overview-file {
+.context-file {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
 }
 
-.overview-icon {
+.context-icon {
   display: grid;
   place-items: center;
   width: 42px;
@@ -296,13 +481,14 @@ onMounted(loadAnalysis);
   color: var(--accent-green);
 }
 
-.overview-file-text {
+.context-file-text {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 2px;
 }
 
-.overview-file-name {
+.context-file-name {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-main);
@@ -311,21 +497,45 @@ onMounted(loadAnalysis);
   white-space: nowrap;
 }
 
-.overview-file-size {
+.context-file-meta {
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
-.overview-meta {
+.context-stats {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin: 0;
 }
 
-.overview-author {
+.context-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.context-stat dt {
   font-size: var(--text-xs);
   color: var(--text-muted);
+}
+
+.context-stat dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.context-tags {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .unsupported-analysis {
@@ -390,13 +600,45 @@ onMounted(loadAnalysis);
   width: 60%;
 }
 
-@media (max-width: 640px) {
-  .analysis-overview {
+@media (max-width: 960px) {
+  .analysis-context {
+    grid-template-columns: 1fr;
     align-items: flex-start;
+    gap: var(--space-4);
   }
 
-  .overview-meta {
-    gap: var(--space-2);
+  .context-tags {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .context-stats {
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .context-file-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (pointer: coarse) {
+  .more-actions-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media print {
+  .back-link {
+    display: none;
+  }
+
+  .analysis-context {
+    box-shadow: none;
   }
 }
 </style>

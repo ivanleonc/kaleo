@@ -4,6 +4,7 @@ import {
   useSortingState,
   useControlledSorting,
   sortingStateToServer,
+  serverToSortingState,
   type AppColumnDef,
 } from '@/composables/useAppTable';
 import type { RowData } from '@tanstack/vue-table';
@@ -59,8 +60,9 @@ export interface TableViewStore<T> {
 export function useTableView<T extends RowData>(
   columns: AppColumnDef<T>[],
   store: TableViewStore<T>,
+  initialSort: ServerSort = {},
 ) {
-  const sorting = useSortingState();
+  const sorting = useSortingState(serverToSortingState(initialSort));
 
   const table = useAppTable<T>({
     columns,

@@ -11,19 +11,59 @@
     @submit="handleSubmit"
   >
     <div v-if="isSuccess" class="success-block" role="status" aria-live="polite">
-      <div class="success-icon">
-        <IconCircleCheck :size="34" stroke-width="1.7" />
+      <div class="success-heading">
+        <div class="success-icon">
+          <IconCircleCheck :size="34" stroke-width="1.7" />
+        </div>
+        <div>
+          <h3 class="success-title">Análisis guardado</h3>
+          <p class="success-text">
+            <strong>{{ savedAnalysis?.name }}</strong> ya está disponible en el historial de la empresa.
+          </p>
+        </div>
       </div>
-      <div>
-        <h3 class="success-title">Análisis guardado</h3>
-        <p class="success-text">
-          <strong>{{ savedAnalysis?.name }}</strong> ya está disponible en el historial de la empresa.
-        </p>
-      </div>
+      <dl v-if="lastResult" class="success-kpis">
+        <div>
+          <dt>Registros procesados</dt>
+          <dd>{{ formatInteger(lastResult.meta.rowsProcessed) }}</dd>
+        </div>
+        <div>
+          <dt>Pérdidas no técnicas</dt>
+          <dd>{{ formatPercent(lastResult.kpis.nonTechnicalLossesPct) }}</dd>
+        </div>
+        <div>
+          <dt>Zonas críticas</dt>
+          <dd>{{ formatInteger(lastResult.criticalZones.length) }}</dd>
+        </div>
+      </dl>
     </div>
 
     <template v-else>
+      <ol class="upload-steps" aria-label="Pasos para guardar el análisis">
+        <li
+          v-for="step in STEPS"
+          :key="step.number"
+          class="upload-step"
+          :class="stepClass(step.number)"
+          :aria-current="currentStep === step.number ? 'step' : undefined"
+        >
+          <span class="step-number">
+            <IconCheck v-if="stepClass(step.number) === 'is-done'" :size="14" stroke-width="2.2" />
+            <template v-else>{{ step.number }}</template>
+          </span>
+          <span class="step-label">{{ step.label }}</span>
+        </li>
+      </ol>
+
       <UiAlert v-if="displayError" type="error">{{ displayError }}</UiAlert>
+      <p v-if="displayError" class="error-hint">
+        <template v-if="phase === 'save-error'">
+          El archivo se procesó correctamente. Puedes reintentar el guardado sin volver a cargarlo.
+        </template>
+        <template v-else>
+          Verifica que el Excel conserve sus columnas, no esté protegido y pese menos de 10 MB.
+        </template>
+      </p>
 
       <UiInput
         v-model="name"
@@ -118,7 +158,21 @@
         </UiButton>
       </div>
       <div v-else class="modal-footer">
-        <UiButton variant="outline" width="auto" :disabled="isBusy" @click="requestClose">
+        <UiButton
+          v-if="phase === 'processing'"
+          variant="outline"
+          width="auto"
+          @click="cancelProcessing"
+        >
+          Cancelar procesamiento
+        </UiButton>
+        <UiButton
+          v-else
+          variant="outline"
+          width="auto"
+          :disabled="isBusy"
+          @click="requestClose"
+        >
           Cancelar
         </UiButton>
         <UiButton type="submit" width="auto" :disabled="!canSubmit" :loading="isBusy">
@@ -132,6 +186,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import {
+  IconCheck,
   IconCircleCheck,
   IconFileSpreadsheet,
   IconX,
@@ -144,12 +199,18 @@ import { useAnalysisStore } from '@/stores/analysis.store';
 import { useEnergyStore } from '@/stores/energy.store';
 import { useToast } from '@/composables/useToast';
 import { ENERGY_FILE_ACCEPT, validateEnergyFile } from '@/utils/energy-file';
-import { formatFileSize } from '@/utils/number';
+import { formatFileSize, formatInteger, formatPercent } from '@/utils/number';
 import { apiErrorMessage } from '@/utils/error';
 import type { Analysis } from '@/types/analysis';
 import type { EnergyDashboard } from '@/types/energy';
 
 type Phase = 'idle' | 'processing' | 'saving' | 'save-error' | 'success';
+
+const STEPS = [
+  { number: 1, label: 'Archivo' },
+  { number: 2, label: 'Procesar' },
+  { number: 3, label: 'Guardar' },
+] as const;
 
 const emit = defineEmits<{
   created: [analysis: Analysis];
@@ -169,9 +230,25 @@ const localError = ref('');
 const phase = ref<Phase>('idle');
 const savedAnalysis = ref<Analysis | null>(null);
 const lastResult = ref<EnergyDashboard | null>(null);
+const wasCanceled = ref(false);
 
 const isBusy = computed(() => phase.value === 'processing' || phase.value === 'saving');
 const isSuccess = computed(() => phase.value === 'success');
+const currentStep = computed(() => {
+  if (phase.value === 'processing') return 2;
+  if (phase.value === 'saving' || phase.value === 'save-error' || phase.value === 'success') {
+    return 3;
+  }
+  return 1;
+});
+
+function stepClass(step: number): string {
+  if (isSuccess.value) return 'is-done';
+  if (phase.value === 'save-error' && step === 3) return 'is-error';
+  if (step < currentStep.value) return 'is-done';
+  if (step === currentStep.value) return 'is-current';
+  return 'is-pending';
+}
 const canSubmit = computed(
   () => !!name.value.trim() && !!selectedFile.value && !isBusy.value,
 );
@@ -200,6 +277,7 @@ function resetState() {
   phase.value = 'idle';
   savedAnalysis.value = null;
   lastResult.value = null;
+  wasCanceled.value = false;
   if (fileInput.value) fileInput.value.value = '';
 }
 
@@ -223,6 +301,7 @@ function selectFile(file: File) {
   if (!name.value.trim()) name.value = suggestedName(file.name);
   energyStore.clearError();
   phase.value = 'idle';
+  wasCanceled.value = false;
 }
 
 function handleInputChange(event: Event) {
@@ -280,10 +359,16 @@ async function handleSubmit() {
   }
 
   localError.value = '';
+  wasCanceled.value = false;
   phase.value = 'processing';
   const result = await energyStore.upload(selectedFile.value);
 
   if (!result) {
+    if (wasCanceled.value) {
+      wasCanceled.value = false;
+      phase.value = 'idle';
+      return;
+    }
     phase.value = 'idle';
     localError.value = energyStore.error || 'No pudimos procesar el archivo.';
     return;
@@ -291,6 +376,13 @@ async function handleSubmit() {
 
   lastResult.value = result;
   await saveResult(result);
+}
+
+function cancelProcessing() {
+  wasCanceled.value = true;
+  energyStore.reset();
+  phase.value = 'idle';
+  toast.info('Procesamiento cancelado');
 }
 
 async function retrySave() {
@@ -312,12 +404,47 @@ function viewSaved() {
 <style scoped>
 .success-block {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-5);
   border: 1px solid var(--color-success-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-success-bg);
+}
+
+.success-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.success-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-success-border);
+}
+
+.success-kpis div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.success-kpis dt {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.success-kpis dd {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
 }
 
 .success-icon {
@@ -341,6 +468,85 @@ function viewSaved() {
 .success-text {
   margin: var(--space-1) 0 0;
   font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.upload-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upload-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.step-number {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.step-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-step.is-current {
+  border-color: var(--primary);
+  background-color: var(--color-primary-light);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.upload-step.is-current .step-number {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.upload-step.is-done {
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+}
+
+.upload-step.is-done .step-number {
+  background-color: var(--color-success);
+  color: #fff;
+}
+
+.upload-step.is-error {
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.upload-step.is-error .step-number {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.error-hint {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -531,6 +737,22 @@ function viewSaved() {
   .dropzone {
     min-height: 140px;
     padding: var(--space-5);
+  }
+
+  .upload-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .success-kpis {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .success-kpis div {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 
   .modal-footer {

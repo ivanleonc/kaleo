@@ -15,7 +15,14 @@
           <IconChartHistogram :size="17" stroke-width="1.8" />
         </div>
         <div class="analysis-name-text">
-          <span class="analysis-name" :title="row.name">{{ row.name }}</span>
+          <button
+            type="button"
+            class="analysis-name"
+            :title="row.name"
+            @click="emit('view', row)"
+          >
+            {{ row.name }}
+          </button>
           <span class="analysis-file" :title="row.file_name || undefined">
             <IconFileSpreadsheet :size="12" stroke-width="1.8" />
             {{ row.file_name || 'Sin archivo' }}
@@ -28,11 +35,11 @@
       <div class="analysis-type-cell">
         <AnalysisTypeBadge :type="row.analysis_type" />
         <UiBadge
-          v-if="row.source"
-          :variant="row.source === 'mock' ? 'warning' : 'success'"
+          v-if="row.source === 'mock'"
+          variant="warning"
           size="sm"
         >
-          {{ row.source === 'mock' ? 'Demo' : 'API' }}
+          Demo
         </UiBadge>
       </div>
     </template>
@@ -182,11 +189,29 @@ function periodLabel(summary: EnergyAnalysisSummary): string {
 }
 
 .analysis-name {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
   font-weight: 500;
   color: var(--text-main);
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.analysis-name:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.analysis-name:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .analysis-file {
