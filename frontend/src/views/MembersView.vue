@@ -20,10 +20,8 @@
           :loading="isInitialLoading"
           :error="memberStore.error"
           error-title="No pudimos cargar los miembros"
-          :empty-title="memberStore.members.length === 0 ? 'No hay miembros todavía' : 'Sin resultados'"
-          :empty-description="memberStore.members.length === 0
-            ? 'Invita a tu primera persona al equipo para empezar.'
-            : 'Prueba con otra búsqueda o limpia los filtros.'"
+          :empty-title="emptyTitle"
+          :empty-description="emptyDescription"
           @retry="memberStore.fetchMembers()"
           @edit="openEditModal"
           @delete="(row) => handleDelete(row.id, row.name)"
@@ -32,7 +30,15 @@
         >
           <template #empty-action>
             <UiButton
-              v-if="memberStore.members.length === 0"
+              v-if="hasActiveFilters"
+              variant="outline"
+              width="auto"
+              @click="clearFilters"
+            >
+              Limpiar filtros
+            </UiButton>
+            <UiButton
+              v-else
               v-permission="Permissions.USERS.CREATE"
               width="auto"
               @click="openAddModal"
@@ -233,6 +239,7 @@
 
 <script setup lang="ts">
 import { reactive, onMounted, ref, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useMemberStore } from '@/stores/member.store';
 import { roleService, type Role } from '@/services/role.service';
 import { useAuthStore } from '@/stores/auth.store';
@@ -257,8 +264,11 @@ import MemberTable from '@/components/features/members/MemberTable.vue';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
 import { useFilterSync } from '@/composables/useFilterSync';
+import { buildListQuery, isSameListQuery, parseListQuery } from '@/composables/useListQueryState';
+import type { ListQueryConfig, ListQueryState } from '@/composables/useListQueryState';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useTableView } from '@/composables/useTableView';
+import type { ServerSort } from '@/composables/useAppTable';
 import type { UserSearchResult } from '@/types/member';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
@@ -267,12 +277,30 @@ import { useCompanyStore } from '@/stores/company.store';
 import { IconPlus } from '@tabler/icons-vue';
 import MemberCompaniesModal from '@/components/MemberCompaniesModal.vue';
 
+const PAGE_SIZES = [10, 20, 50, 100];
+const LIST_QUERY: ListQueryConfig = {
+  filterKeys: ['search', 'roleId', 'status'],
+  allowedFilters: {
+    status: ['', 'active', 'inactive'],
+  },
+  defaultLimit: 20,
+  allowedLimits: PAGE_SIZES,
+  sortable: ['name', 'email', 'status'],
+};
+
+const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 const memberStore = useMemberStore();
 const companyStore = useCompanyStore();
 const toast = useToast();
 const availableRoles = ref<Role[]>([]);
 const { companyId } = useCompanyPath();
+
+const initialQuery = parseListQuery(route.query, LIST_QUERY);
+const initialSort: ServerSort = initialQuery.sortBy
+  ? { sortBy: initialQuery.sortBy, sortDir: initialQuery.sortDir }
+  : {};
 
 const roleItems = computed(() =>
   availableRoles.value.map((r) => ({
@@ -370,10 +398,21 @@ function clearSelectedUser() {
   selectedUser.value = null;
 }
 
-// El filtrado ocurre en el servidor para que page/total sigan siendo
-// coherentes. Un solo watcher profundo (useFilterSync) cubre todas las
-// claves: ningún filtro queda "muerto" sin trigger.
-const memberFilterValues = ref({ search: '', roleId: '', status: '' });
+const memberFilterValues = ref<Record<string, string>>({ ...initialQuery.filters });
+
+const hasActiveFilters = computed(() =>
+  Object.values(memberFilterValues.value).some((value) => value.trim() !== ''),
+);
+
+const emptyTitle = computed(() =>
+  hasActiveFilters.value ? 'Sin resultados' : 'No hay miembros todavía',
+);
+
+const emptyDescription = computed(() =>
+  hasActiveFilters.value
+    ? 'Prueba con otra búsqueda o limpia los filtros para ver todo el equipo.'
+    : 'Invita a tu primera persona al equipo para empezar.',
+);
 
 watch(companyId, (newId, oldId) => {
   if (newId !== oldId && newId) {
@@ -420,7 +459,41 @@ useFilterSync(memberFilterValues, (v) =>
 
 // useTableView unifica el setup de la tabla: sort, data reactiva, isInitialLoading.
 // El store cumple TableViewStore<Member> automáticamente (items, isLoading, setSort).
-const { table: memberTable, isInitialLoading } = useTableView(useMemberColumns(), memberStore);
+const { table: memberTable, isInitialLoading } = useTableView(
+  useMemberColumns(),
+  memberStore,
+  initialSort,
+);
+
+const queryState = computed<ListQueryState>(() => ({
+  filters: memberFilterValues.value,
+  page: memberStore.page,
+  limit: memberStore.limit,
+  sortBy: memberStore.sortBy ?? '',
+  sortDir: memberStore.sortDir,
+}));
+
+function syncQuery() {
+  const query = buildListQuery(queryState.value, route.query, LIST_QUERY);
+  if (isSameListQuery(route.query, query)) return;
+  Promise.resolve(router.replace({ query })).catch(() => {});
+}
+
+watch(
+  [
+    memberFilterValues,
+    () => memberStore.page,
+    () => memberStore.limit,
+    () => memberStore.sortBy,
+    () => memberStore.sortDir,
+  ],
+  syncQuery,
+  { deep: true },
+);
+
+function clearFilters() {
+  memberFilterValues.value = { search: '', roleId: '', status: '' };
+}
 
 const isSelf = (memberId: string): boolean => authStore.user?.id === memberId;
 
@@ -442,12 +515,23 @@ const addEmailError = computed(() =>
 );
 
 onMounted(async () => {
-  if (authStore.activeTenantId) {
-    await Promise.all([
-      memberStore.fetchMembers(),
-      roleService.getRoles().then(r => availableRoles.value = r)
-    ]);
-  }
+  if (!authStore.activeTenantId) return;
+
+  await Promise.all([
+    memberStore.initialize({
+      filters: {
+        search: emptyToUndefined(initialQuery.filters.search),
+        roleId: emptyToUndefined(initialQuery.filters.roleId),
+        status: emptyToUndefined(initialQuery.filters.status),
+      },
+      page: initialQuery.page,
+      limit: initialQuery.limit,
+      sort: initialSort,
+    }).catch(() => {}),
+    roleService.getRoles().then((roles) => {
+      availableRoles.value = roles;
+    }).catch(() => {}),
+  ]);
 });
 
 // Acción rápida de la paleta (Ctrl+K → "Invitar miembro").

@@ -1,5 +1,21 @@
 import { useToast } from './useToast';
 
+function copyWithFallback(text: string): boolean {
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+
+  try {
+    field.select();
+    return document.execCommand('copy');
+  } finally {
+    field.remove();
+  }
+}
+
 /**
  * Copia texto al portapapeles con fallback para contextos sin HTTPS
  * (el portapapeles no está disponible en http:// en algunos navegadores).
@@ -13,15 +29,8 @@ export function useClipboard() {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
+      } else if (!copyWithFallback(text)) {
+        throw new Error('No se pudo copiar');
       }
 
       if (successMessage) toast.success(successMessage);

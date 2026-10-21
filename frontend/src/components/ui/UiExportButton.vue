@@ -15,6 +15,7 @@
 import { ref } from 'vue';
 import { IconDownload } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
+import { downloadBlob } from '@/utils/csv';
 import UiButton from '@/components/ui/UiButton.vue';
 
 const props = withDefaults(defineProps<{
@@ -34,12 +35,7 @@ const handleExport = async () => {
   toast.info('Preparando exportación…');
   try {
     const { blob, filename } = await props.fetcher();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    downloadBlob(blob, filename);
     toast.success('Archivo exportado correctamente');
   } catch {
     // El detalle ya vive en el store/servicio si aplica; aquí mensaje accionable.

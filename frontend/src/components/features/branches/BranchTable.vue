@@ -63,37 +63,28 @@
     <!-- Celda: menú de acciones -->
     <template #cell-actions="{ row }">
       <div class="row-actions" v-permission="Permissions.BRANCHES.UPDATE">
-        <UiDropdown align="end" label="Acciones de la sede">
-          <template #trigger="{ toggle, triggerAria }">
-            <button
-              class="dots-btn"
-              @click.stop="toggle"
-              v-bind="triggerAria"
-              :aria-label="`Acciones para ${row.name}`"
-            >
-              <IconDotsVertical :size="16" stroke-width="1.8" />
-            </button>
-          </template>
-          <template #default>
-            <UiDropdownItem @click="emit('edit', row)">
-              <IconPencil :size="14" stroke-width="1.8" />
-              <span>Editar</span>
-            </UiDropdownItem>
-            <UiDropdownItem @click="emit('toggle-active', row)">
-              <IconSwitchHorizontal :size="14" stroke-width="1.8" />
-              <span>{{ row.is_active ? 'Desactivar' : 'Activar' }}</span>
-            </UiDropdownItem>
-            <div class="ui-dropdown-divider" role="separator"></div>
-            <UiDropdownItem
-              danger
-              @click="emit('delete', row)"
-              v-permission="Permissions.BRANCHES.DELETE"
-            >
-              <IconTrash :size="14" stroke-width="1.8" />
-              <span>Eliminar</span>
-            </UiDropdownItem>
-          </template>
-        </UiDropdown>
+        <UiActionMenu
+          label="Acciones de la sede"
+          :trigger-label="`Acciones para ${row.name}`"
+        >
+          <UiDropdownItem @click="emit('edit', row)">
+            <IconPencil :size="14" stroke-width="1.8" />
+            <span>Editar</span>
+          </UiDropdownItem>
+          <UiDropdownItem @click="emit('toggle-active', row)">
+            <IconSwitchHorizontal :size="14" stroke-width="1.8" />
+            <span>{{ row.is_active ? 'Desactivar' : 'Activar' }}</span>
+          </UiDropdownItem>
+          <div class="ui-dropdown-divider" role="separator"></div>
+          <UiDropdownItem
+            danger
+            @click="emit('delete', row)"
+            v-permission="Permissions.BRANCHES.DELETE"
+          >
+            <IconTrash :size="14" stroke-width="1.8" />
+            <span>Eliminar</span>
+          </UiDropdownItem>
+        </UiActionMenu>
       </div>
     </template>
 
@@ -113,14 +104,13 @@
 import type { AppVueTable } from '@tanstack/vue-table';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
+import UiActionMenu from '@/components/ui/UiActionMenu.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import { Permissions } from '@/constants/permissions';
 import type { Branch } from '@/types/branch';
 import type { AppFeatures } from '@/composables/useAppTable';
 import {
   IconBuildingCommunity,
-  IconDotsVertical,
   IconPencil,
   IconTrash,
   IconSwitchHorizontal,

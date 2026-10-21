@@ -22,38 +22,24 @@
           </p>
         </div>
       </div>
-      <dl v-if="lastResult" class="success-kpis">
-        <div>
-          <dt>Registros procesados</dt>
-          <dd>{{ formatInteger(lastResult.meta.rowsProcessed) }}</dd>
-        </div>
-        <div>
-          <dt>Pérdidas no técnicas</dt>
-          <dd>{{ formatPercent(lastResult.kpis.nonTechnicalLossesPct) }}</dd>
-        </div>
-        <div>
-          <dt>Zonas críticas</dt>
-          <dd>{{ formatInteger(lastResult.criticalZones.length) }}</dd>
-        </div>
-      </dl>
+      <UiStatList
+        v-if="lastResult"
+        class="success-kpis"
+        :items="successStats"
+        layout="grid"
+        :columns="3"
+        label="Resumen del análisis"
+      />
     </div>
 
     <template v-else>
-      <ol class="upload-steps" aria-label="Pasos para guardar el análisis">
-        <li
-          v-for="step in STEPS"
-          :key="step.number"
-          class="upload-step"
-          :class="stepClass(step.number)"
-          :aria-current="currentStep === step.number ? 'step' : undefined"
-        >
-          <span class="step-number">
-            <IconCheck v-if="stepClass(step.number) === 'is-done'" :size="14" stroke-width="2.2" />
-            <template v-else>{{ step.number }}</template>
-          </span>
-          <span class="step-label">{{ step.label }}</span>
-        </li>
-      </ol>
+      <UiSteps
+        :steps="STEPS"
+        :current="currentStep"
+        :complete="isSuccess"
+        :error-at="phase === 'save-error' ? 3 : null"
+        label="Pasos para guardar el análisis"
+      />
 
       <UiAlert v-if="displayError" type="error">{{ displayError }}</UiAlert>
       <p v-if="displayError" class="error-hint">
@@ -73,58 +59,19 @@
         :disabled="isBusy"
       />
 
-      <div class="dropzone-block">
-        <span class="field-label">Archivo de facturación</span>
-        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- el arrastre complementa el input de archivo accesible. -->
-        <label
-          for="analysis-file-input"
-          class="dropzone"
-          :class="{ 'is-dragging': isDragging, 'is-disabled': isBusy }"
-          @dragenter.prevent="isDragging = true"
-          @dragover.prevent="isDragging = true"
-          @dragleave.prevent="isDragging = false"
-          @drop.prevent="handleDrop"
-        >
-          <input
-            id="analysis-file-input"
-            ref="fileInput"
-            class="file-input"
-            type="file"
-            :accept="ENERGY_FILE_ACCEPT"
-            :disabled="isBusy"
-            aria-describedby="analysis-file-hint"
-            @change="handleInputChange"
-          />
-          <span class="dropzone-content">
-            <IconFileSpreadsheet class="dropzone-icon" :size="32" stroke-width="1.5" />
-            <span class="dropzone-title">
-              Arrastra el Excel aquí o <span class="dropzone-link">selecciónalo</span>
-            </span>
-            <span id="analysis-file-hint" class="dropzone-hint">
-              Formatos .xlsx y .xls · Máximo 10 MB
-            </span>
-          </span>
-        </label>
-      </div>
-
-      <div v-if="selectedFile" class="file-row">
-        <div class="file-main">
-          <IconFileSpreadsheet :size="20" stroke-width="1.8" />
-          <div class="file-text">
-            <span class="file-name" :title="selectedFile.name">{{ selectedFile.name }}</span>
-            <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
-          </div>
-        </div>
-        <button
-          v-if="!isBusy"
-          type="button"
-          class="file-remove"
-          :aria-label="`Quitar ${selectedFile.name}`"
-          @click="clearFile"
-        >
-          <IconX :size="16" stroke-width="1.8" />
-        </button>
-      </div>
+      <UiFileDropzone
+        :model-value="selectedFile"
+        label="Archivo de facturación"
+        :accept="ENERGY_FILE_ACCEPT"
+        :max-size="ENERGY_MAX_FILE_SIZE"
+        hint="Formatos .xlsx y .xls · Máximo 10 MB"
+        :disabled="isBusy"
+        @update:model-value="handleFileUpdate"
+      >
+        <template #title>
+          Arrastra el Excel aquí o <span class="dropzone-link">selecciónalo</span>
+        </template>
+      </UiFileDropzone>
 
       <div v-if="isBusy" class="progress-block" role="status" aria-live="polite">
         <div class="progress-header">
@@ -185,21 +132,24 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import {
-  IconCheck,
-  IconCircleCheck,
-  IconFileSpreadsheet,
-  IconX,
-} from '@tabler/icons-vue';
+import { IconCircleCheck } from '@tabler/icons-vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiButton from '@/components/ui/UiButton.vue';
+import UiFileDropzone from '@/components/ui/UiFileDropzone.vue';
+import UiSteps from '@/components/ui/UiSteps.vue';
+import UiStatList from '@/components/ui/UiStatList.vue';
+import type { StatItem } from '@/components/ui/UiStatList.vue';
 import { useAnalysisStore } from '@/stores/analysis.store';
 import { useEnergyStore } from '@/stores/energy.store';
 import { useToast } from '@/composables/useToast';
-import { ENERGY_FILE_ACCEPT, validateEnergyFile } from '@/utils/energy-file';
-import { formatFileSize, formatInteger, formatPercent } from '@/utils/number';
+import {
+  ENERGY_FILE_ACCEPT,
+  ENERGY_MAX_FILE_SIZE,
+  validateEnergyFile,
+} from '@/utils/energy-file';
+import { formatInteger, formatPercent } from '@/utils/number';
 import { apiErrorMessage } from '@/utils/error';
 import type { Analysis } from '@/types/analysis';
 import type { EnergyDashboard } from '@/types/energy';
@@ -224,8 +174,6 @@ const toast = useToast();
 
 const name = ref('');
 const selectedFile = ref<File | null>(null);
-const fileInput = ref<HTMLInputElement | null>(null);
-const isDragging = ref(false);
 const localError = ref('');
 const phase = ref<Phase>('idle');
 const savedAnalysis = ref<Analysis | null>(null);
@@ -241,14 +189,15 @@ const currentStep = computed(() => {
   }
   return 1;
 });
-
-function stepClass(step: number): string {
-  if (isSuccess.value) return 'is-done';
-  if (phase.value === 'save-error' && step === 3) return 'is-error';
-  if (step < currentStep.value) return 'is-done';
-  if (step === currentStep.value) return 'is-current';
-  return 'is-pending';
-}
+const successStats = computed<StatItem[]>(() => {
+  const result = lastResult.value;
+  if (!result) return [];
+  return [
+    { label: 'Registros procesados', value: formatInteger(result.meta.rowsProcessed) },
+    { label: 'Pérdidas no técnicas', value: formatPercent(result.kpis.nonTechnicalLossesPct) },
+    { label: 'Zonas críticas', value: formatInteger(result.criticalZones.length) },
+  ];
+});
 const canSubmit = computed(
   () => !!name.value.trim() && !!selectedFile.value && !isBusy.value,
 );
@@ -272,13 +221,11 @@ function resetState() {
   energyStore.reset();
   name.value = '';
   selectedFile.value = null;
-  isDragging.value = false;
   localError.value = '';
   phase.value = 'idle';
   savedAnalysis.value = null;
   lastResult.value = null;
   wasCanceled.value = false;
-  if (fileInput.value) fileInput.value.value = '';
 }
 
 watch(
@@ -304,23 +251,18 @@ function selectFile(file: File) {
   wasCanceled.value = false;
 }
 
-function handleInputChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (file) selectFile(file);
-  input.value = '';
-}
+function handleFileUpdate(file: File | null) {
+  if (!file) {
+    clearFile();
+    return;
+  }
 
-function handleDrop(event: DragEvent) {
-  isDragging.value = false;
-  const file = event.dataTransfer?.files?.[0];
-  if (file) selectFile(file);
+  selectFile(file);
 }
 
 function clearFile() {
   selectedFile.value = null;
   localError.value = '';
-  if (fileInput.value) fileInput.value.value = '';
 }
 
 async function saveResult(result: EnergyDashboard) {
@@ -419,32 +361,8 @@ function viewSaved() {
 }
 
 .success-kpis {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-success-border);
-}
-
-.success-kpis div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.success-kpis dt {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.success-kpis dd {
-  margin: 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text-main);
-  font-variant-numeric: tabular-nums;
 }
 
 .success-icon {
@@ -472,224 +390,11 @@ function viewSaved() {
   line-height: 1.5;
 }
 
-.upload-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.upload-step {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.step-number {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-  font-size: 0.6875rem;
-  font-weight: 700;
-}
-
-.step-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.upload-step.is-current {
-  border-color: var(--primary);
-  background-color: var(--color-primary-light);
-  color: var(--text-main);
-  font-weight: 600;
-}
-
-.upload-step.is-current .step-number {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-}
-
-.upload-step.is-done {
-  border-color: var(--color-success-border);
-  color: var(--color-success-text);
-}
-
-.upload-step.is-done .step-number {
-  background-color: var(--color-success);
-  color: #fff;
-}
-
-.upload-step.is-error {
-  border-color: var(--color-danger-border);
-  color: var(--color-danger);
-}
-
-.upload-step.is-error .step-number {
-  background-color: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
 .error-hint {
   margin: calc(var(--space-2) * -1) 0 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.5;
-}
-
-.dropzone-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.field-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-main);
-  line-height: 1;
-}
-
-.dropzone {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 160px;
-  padding: var(--space-6);
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-lg);
-  background-color: var(--bg-app);
-  transition: border-color 0.15s, background-color 0.15s;
-  cursor: pointer;
-}
-
-.dropzone:hover,
-.dropzone:focus-within,
-.dropzone.is-dragging {
-  border-color: var(--primary);
-  background-color: var(--color-primary-light);
-}
-
-.dropzone.is-disabled {
-  pointer-events: none;
-  opacity: 0.65;
-}
-
-.file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.dropzone-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  text-align: center;
-}
-
-.dropzone-icon {
-  color: var(--primary);
-}
-
-.dropzone-title {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.dropzone-link {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-}
-
-.dropzone-hint {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.file-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-hover);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.file-main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-  color: var(--primary);
-}
-
-.file-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.file-name {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-main);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-size {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.file-remove {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.file-remove:hover {
-  background-color: var(--bg-card);
-  color: var(--color-danger);
-}
-
-.file-remove:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
 }
 
 .progress-block {
@@ -734,27 +439,6 @@ function viewSaved() {
 }
 
 @media (max-width: 640px) {
-  .dropzone {
-    min-height: 140px;
-    padding: var(--space-5);
-  }
-
-  .upload-steps {
-    grid-template-columns: 1fr;
-  }
-
-  .success-kpis {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-
-  .success-kpis div {
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3);
-  }
-
   .modal-footer {
     flex-direction: column-reverse;
   }

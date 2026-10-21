@@ -102,6 +102,39 @@ describe('UiTableFilters', () => {
     expect(emittedValues()).toContainEqual({ search: '', status: '', from: '' });
   });
 
+  it('muestra chips con la etiqueta visible de cada filtro', async () => {
+    await mountFilters({ search: 'ana', status: 'active', from: '2026-01-15' });
+
+    const chips = Array.from(document.querySelectorAll('.filter-chip'));
+    expect(chips.map((chip) => chip.textContent?.trim())).toEqual([
+      '"ana"Quitar búsqueda',
+      'ActivoQuitar filtro filtrar por estado',
+      '2026-01-15Quitar filtro desde',
+    ]);
+  });
+
+  it('un chip elimina solo su filtro', async () => {
+    await mountFilters({ search: 'ana', status: 'active', from: '' });
+
+    document.querySelectorAll<HTMLButtonElement>('.filter-chip')[1]?.click();
+    await nextTick();
+
+    expect(emittedValues()).toContainEqual({ search: 'ana', status: '', from: '' });
+  });
+
+  it('permite ocultar los chips', async () => {
+    wrapper = mount(UiTableFilters, {
+      props: {
+        filters: defs,
+        modelValue: { search: 'ana', status: '', from: '' },
+        showActiveFilters: false,
+      },
+    });
+    await nextTick();
+
+    expect(document.querySelector('.filter-chip')).toBeNull();
+  });
+
   it('el slot #filter-{key} reemplaza el control estándar', async () => {
     await mountFilters(
       {},

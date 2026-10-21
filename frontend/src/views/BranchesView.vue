@@ -20,10 +20,8 @@
           :loading="isInitialLoading"
           :error="branchStore.error"
           error-title="No pudimos cargar las sedes"
-          :empty-title="branchStore.branches.length === 0 ? 'No hay sedes todavía' : 'Sin resultados'"
-          :empty-description="branchStore.branches.length === 0
-            ? 'Agrega tu primera ubicación para empezar.'
-            : 'Prueba con otra búsqueda o limpia los filtros.'"
+          :empty-title="emptyTitle"
+          :empty-description="emptyDescription"
           @retry="branchStore.fetchBranches()"
           @edit="openEditModal"
           @delete="openDeleteModal"
@@ -31,7 +29,15 @@
         >
           <template #empty-action>
             <UiButton
-              v-if="branchStore.branches.length === 0"
+              v-if="hasActiveFilters"
+              variant="outline"
+              width="auto"
+              @click="clearFilters"
+            >
+              Limpiar filtros
+            </UiButton>
+            <UiButton
+              v-else
               v-permission="Permissions.BRANCHES.CREATE"
               width="auto"
               @click="openCreateModal"
@@ -116,6 +122,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useBranchStore } from '@/stores/branch.store';
 import { useMemberStore } from '@/stores/member.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -140,22 +147,54 @@ import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useFilterSync } from '@/composables/useFilterSync';
+import { buildListQuery, isSameListQuery, parseListQuery } from '@/composables/useListQueryState';
+import type { ListQueryConfig, ListQueryState } from '@/composables/useListQueryState';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useTableView } from '@/composables/useTableView';
+import type { ServerSort } from '@/composables/useAppTable';
 import { emptyToUndefined } from '@/utils/text';
 import { apiErrorMessage } from '@/utils/error';
 import { IconPlus } from '@tabler/icons-vue';
 
+const PAGE_SIZES = [10, 20, 50, 100];
+const LIST_QUERY: ListQueryConfig = {
+  filterKeys: ['search', 'status'],
+  allowedFilters: {
+    status: ['', 'active', 'inactive'],
+  },
+  defaultLimit: 20,
+  allowedLimits: PAGE_SIZES,
+  sortable: ['name', 'location', 'contact', 'status'],
+};
+
+const route = useRoute();
+const router = useRouter();
 const branchStore = useBranchStore();
 const memberStore = useMemberStore();
 const authStore = useAuthStore();
 const toast = useToast();
 const { companyId } = useCompanyPath();
 
-// --- FILTERS ---
-// El filtrado ocurre en el servidor para que page/total sigan siendo
-// coherentes. Un solo watcher profundo (useFilterSync) cubre todas las claves.
-const branchFilterValues = ref({ search: '', status: '' });
+const initialQuery = parseListQuery(route.query, LIST_QUERY);
+const initialSort: ServerSort = initialQuery.sortBy
+  ? { sortBy: initialQuery.sortBy, sortDir: initialQuery.sortDir }
+  : {};
+
+const branchFilterValues = ref<Record<string, string>>({ ...initialQuery.filters });
+
+const hasActiveFilters = computed(() =>
+  Object.values(branchFilterValues.value).some((value) => value.trim() !== ''),
+);
+
+const emptyTitle = computed(() =>
+  hasActiveFilters.value ? 'Sin resultados' : 'No hay sedes todavía',
+);
+
+const emptyDescription = computed(() =>
+  hasActiveFilters.value
+    ? 'Prueba con otra búsqueda o limpia los filtros para ver todas las sedes.'
+    : 'Agrega tu primera ubicación para empezar.',
+);
 
 watch(companyId, (newId, oldId) => {
   if (newId !== oldId && newId) {
@@ -194,7 +233,41 @@ useFilterSync(branchFilterValues, (v) =>
   }),
 );
 
-const { table: branchTable, isInitialLoading } = useTableView(useBranchColumns(), branchStore);
+const { table: branchTable, isInitialLoading } = useTableView(
+  useBranchColumns(),
+  branchStore,
+  initialSort,
+);
+
+const queryState = computed<ListQueryState>(() => ({
+  filters: branchFilterValues.value,
+  page: branchStore.page,
+  limit: branchStore.limit,
+  sortBy: branchStore.sortBy ?? '',
+  sortDir: branchStore.sortDir,
+}));
+
+function syncQuery() {
+  const query = buildListQuery(queryState.value, route.query, LIST_QUERY);
+  if (isSameListQuery(route.query, query)) return;
+  Promise.resolve(router.replace({ query })).catch(() => {});
+}
+
+watch(
+  [
+    branchFilterValues,
+    () => branchStore.page,
+    () => branchStore.limit,
+    () => branchStore.sortBy,
+    () => branchStore.sortDir,
+  ],
+  syncQuery,
+  { deep: true },
+);
+
+function clearFilters() {
+  branchFilterValues.value = { search: '', status: '' };
+}
 
 const handleToggleActive = async (branch: Branch) => {
   const wasActive = branch.is_active;
@@ -354,7 +427,18 @@ const confirmDelete = async () => {
 };
 
 onMounted(() => {
-  branchStore.fetchBranches();
+  branchStore
+    .initialize({
+      filters: {
+        search: emptyToUndefined(initialQuery.filters.search),
+        status: emptyToUndefined(initialQuery.filters.status),
+      },
+      page: initialQuery.page,
+      limit: initialQuery.limit,
+      sort: initialSort,
+    })
+    .catch(() => {});
+
   if (authStore.activeTenantId && memberStore.members.length === 0) {
     memberStore.fetchMembers().catch(() => {});
   }

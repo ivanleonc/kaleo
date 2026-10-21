@@ -70,37 +70,28 @@
 
     <template #cell-actions="{ row }">
       <div class="row-actions">
-        <UiDropdown align="end" label="Acciones del análisis">
-          <template #trigger="{ toggle, triggerAria }">
-            <button
-              class="dots-btn"
-              @click.stop="toggle"
-              v-bind="triggerAria"
-              :aria-label="`Acciones para ${row.name}`"
-            >
-              <IconDotsVertical :size="16" stroke-width="1.8" />
-            </button>
-          </template>
-          <template #default>
-            <UiDropdownItem @click="emit('view', row)">
-              <IconEye :size="14" stroke-width="1.8" />
-              <span>Ver detalle</span>
-            </UiDropdownItem>
-            <UiDropdownItem @click="emit('rename', row)" v-permission="Permissions.ANALYSES.UPDATE">
-              <IconPencil :size="14" stroke-width="1.8" />
-              <span>Renombrar</span>
-            </UiDropdownItem>
-            <div class="ui-dropdown-divider" role="separator"></div>
-            <UiDropdownItem
-              danger
-              @click="emit('delete', row)"
-              v-permission="Permissions.ANALYSES.DELETE"
-            >
-              <IconTrash :size="14" stroke-width="1.8" />
-              <span>Eliminar</span>
-            </UiDropdownItem>
-          </template>
-        </UiDropdown>
+        <UiActionMenu
+          label="Acciones del análisis"
+          :trigger-label="`Acciones para ${row.name}`"
+        >
+          <UiDropdownItem @click="emit('view', row)">
+            <IconEye :size="14" stroke-width="1.8" />
+            <span>Ver detalle</span>
+          </UiDropdownItem>
+          <UiDropdownItem @click="emit('rename', row)" v-permission="Permissions.ANALYSES.UPDATE">
+            <IconPencil :size="14" stroke-width="1.8" />
+            <span>Renombrar</span>
+          </UiDropdownItem>
+          <div class="ui-dropdown-divider" role="separator"></div>
+          <UiDropdownItem
+            danger
+            @click="emit('delete', row)"
+            v-permission="Permissions.ANALYSES.DELETE"
+          >
+            <IconTrash :size="14" stroke-width="1.8" />
+            <span>Eliminar</span>
+          </UiDropdownItem>
+        </UiActionMenu>
       </div>
     </template>
 
@@ -118,7 +109,6 @@
 import type { AppVueTable } from '@tanstack/vue-table';
 import {
   IconChartHistogram,
-  IconDotsVertical,
   IconEye,
   IconFileSpreadsheet,
   IconPencil,
@@ -126,7 +116,7 @@ import {
 } from '@tabler/icons-vue';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
+import UiActionMenu from '@/components/ui/UiActionMenu.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import AnalysisTypeBadge from '@/components/features/analyses/AnalysisTypeBadge.vue';
 import { Permissions } from '@/constants/permissions';

@@ -51,20 +51,4 @@ export const auditService = {
     const filename = `auditoria_${new Date().toISOString().split('T')[0]}.csv`;
     return { blob, filename };
   },
-
-  async exportCsv(params: {
-    entityType?: string;
-    action?: string;
-    userId?: string;
-    from?: string;
-    to?: string;
-  }): Promise<void> {
-    const { blob, filename } = await this.fetchCsvBlob(params);
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  },
 };

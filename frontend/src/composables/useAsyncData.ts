@@ -1,4 +1,12 @@
-import { ref, watch, onMounted, type Ref, type ComputedRef } from 'vue';
+import {
+  ref,
+  watch,
+  onMounted,
+  unref,
+  type Ref,
+  type ComputedRef,
+  type WatchSource,
+} from 'vue';
 import { apiErrorMessage } from '@/utils/error';
 
 export interface UseAsyncDataOptions {
@@ -24,6 +32,8 @@ export interface UseAsyncDataOptions {
    * Útil para limpiar datos previos antes de mostrar el nuevo resultado.
    */
   onBeforeFetch?: () => void;
+  /** Si es `false`, no se ejecuta el fetcher. Útil para rutas sin ID. */
+  enabled?: Ref<boolean> | ComputedRef<boolean>;
 }
 
 export interface UseAsyncDataReturn<T> {
@@ -90,13 +100,21 @@ export function useAsyncData<T>(
     immediate = true,
     errorMessage = 'Error al cargar los datos',
     onBeforeFetch,
+    enabled,
   } = options;
 
   const data = ref<T | null>(null) as Ref<T | null>;
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
+  const isEnabled = () => (enabled ? Boolean(unref(enabled)) : true);
+
   const reload = async () => {
+    if (!isEnabled()) {
+      isLoading.value = false;
+      return;
+    }
+
     onBeforeFetch?.();
     isLoading.value = true;
     error.value = null;
@@ -113,13 +131,15 @@ export function useAsyncData<T>(
     onMounted(reload);
   }
 
-  if (watchDep) {
+  const watchSources = [watchDep, enabled].filter(Boolean) as WatchSource<unknown>[];
+  if (watchSources.length > 0) {
     // Omitir immediate en el watch: onMounted ya cubre la primera carga.
     // El watch solo re-fetch cuando la dep. cambia después del mount.
-    watch(watchDep, () => {
+    watch(watchSources, () => {
       // Limpiar data previo de la empresa/ruta anterior antes del nuevo fetch
       // para evitar el flash de datos viejos.
       data.value = null;
+      error.value = null;
       reload();
     });
   }

@@ -27,43 +27,30 @@
           >
             <IconPencil :size="16" /> Renombrar
           </UiButton>
-          <UiDropdown label="Más acciones del análisis">
-            <template #trigger="{ toggle, triggerAria }">
-              <button
-                class="more-actions-btn"
-                type="button"
-                aria-label="Más acciones del análisis"
-                @click="toggle"
-                v-bind="triggerAria"
-              >
-                <IconDotsVertical :size="18" stroke-width="1.8" />
-              </button>
+          <UiActionMenu label="Más acciones del análisis" size="md">
+            <UiDropdownItem @click="copyLink">
+              <IconLink :size="14" stroke-width="1.8" />
+              <span>Copiar enlace</span>
+            </UiDropdownItem>
+            <UiDropdownItem
+              v-if="energyDashboard?.criticalZones.length"
+              @click="exportCriticalZonesCsv"
+            >
+              <IconDownload :size="14" stroke-width="1.8" />
+              <span>Exportar zonas en CSV</span>
+            </UiDropdownItem>
+            <UiDropdownItem @click="printAnalysis">
+              <IconPrinter :size="14" stroke-width="1.8" />
+              <span>Imprimir o guardar PDF</span>
+            </UiDropdownItem>
+            <template v-if="canDelete">
+              <div class="ui-dropdown-divider" role="separator"></div>
+              <UiDropdownItem danger @click="openDeleteModal">
+                <IconTrash :size="14" stroke-width="1.8" />
+                <span>Eliminar análisis</span>
+              </UiDropdownItem>
             </template>
-            <template #default>
-              <UiDropdownItem @click="copyLink">
-                <IconLink :size="14" stroke-width="1.8" />
-                <span>Copiar enlace</span>
-              </UiDropdownItem>
-              <UiDropdownItem
-                v-if="energyDashboard?.criticalZones.length"
-                @click="exportCriticalZonesCsv"
-              >
-                <IconDownload :size="14" stroke-width="1.8" />
-                <span>Exportar zonas en CSV</span>
-              </UiDropdownItem>
-              <UiDropdownItem @click="printAnalysis">
-                <IconPrinter :size="14" stroke-width="1.8" />
-                <span>Imprimir o guardar PDF</span>
-              </UiDropdownItem>
-              <template v-if="canDelete">
-                <div class="ui-dropdown-divider" role="separator"></div>
-                <UiDropdownItem danger @click="openDeleteModal">
-                  <IconTrash :size="14" stroke-width="1.8" />
-                  <span>Eliminar análisis</span>
-                </UiDropdownItem>
-              </template>
-            </template>
-          </UiDropdown>
+          </UiActionMenu>
         </template>
       </UiPageHeader>
 
@@ -103,20 +90,7 @@
             </div>
           </div>
 
-          <dl class="context-stats">
-            <div v-if="energySummary || energyDashboard" class="context-stat">
-              <dt>Periodo</dt>
-              <dd>{{ periodRange }}</dd>
-            </div>
-            <div v-if="rowsProcessed !== null" class="context-stat">
-              <dt>Registros</dt>
-              <dd>{{ formatInteger(rowsProcessed) }}</dd>
-            </div>
-            <div class="context-stat">
-              <dt>Autor</dt>
-              <dd>{{ analysis.created_by_name || 'Usuario' }}</dd>
-            </div>
-          </dl>
+          <UiStatList :items="contextStats" layout="inline" label="Contexto del análisis" />
 
           <div class="context-tags">
             <AnalysisTypeBadge :type="analysis.analysis_type" />
@@ -175,12 +149,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   IconArrowLeft,
   IconChartHistogram,
-  IconDotsVertical,
   IconDownload,
   IconFileSpreadsheet,
   IconLink,
@@ -194,27 +167,31 @@ import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
+import UiActionMenu from '@/components/ui/UiActionMenu.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import AnalysisTypeBadge from '@/components/features/analyses/AnalysisTypeBadge.vue';
 import AnalysisRenameModal from '@/components/features/analyses/AnalysisRenameModal.vue';
 import EnergyDashboard from '@/components/features/energy/EnergyDashboard.vue';
+import UiStatList from '@/components/ui/UiStatList.vue';
+import type { StatItem } from '@/components/ui/UiStatList.vue';
 import { useAnalysisStore } from '@/stores/analysis.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { useAsyncData } from '@/composables/useAsyncData';
+import { useClipboard } from '@/composables/useClipboard';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useToast } from '@/composables/useToast';
 import { Permissions } from '@/constants/permissions';
-import type { Analysis, AnalysisDetail } from '@/types/analysis';
+import type { Analysis } from '@/types/analysis';
 import {
   energySummaryOf,
   isEnergyResult,
 } from '@/types/analysis';
 import type { EnergyZoneStatus } from '@/types/energy';
+import { createCsvBlob, downloadBlob, sanitizeFilename } from '@/utils/csv';
 import { formatDate, formatDateTime } from '@/utils/date';
 import { formatFileSize, formatInteger } from '@/utils/number';
-import { apiErrorMessage } from '@/utils/error';
 
 const route = useRoute();
 const router = useRouter();
@@ -223,15 +200,33 @@ const authStore = useAuthStore();
 const toast = useToast();
 const { companyId, companyPath } = useCompanyPath();
 
-const analysis = ref<AnalysisDetail | null>(null);
-const isLoading = ref(false);
-const error = ref<string | null>(null);
 const isRenameModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
 
 const analysisId = computed(() =>
   typeof route.params.analysisId === 'string' ? route.params.analysisId : '',
 );
+
+const analysisEnabled = computed(() => Boolean(analysisId.value));
+
+const {
+  data: analysis,
+  isLoading,
+  error,
+  reload: loadAnalysis,
+} = useAsyncData(
+  () => analysisStore.fetchAnalysis(analysisId.value),
+  {
+    watch: computed(() => [analysisId.value, companyId.value]),
+    enabled: analysisEnabled,
+    errorMessage: 'No pudimos cargar el análisis',
+    onBeforeFetch: () => {
+      analysisStore.error = null;
+    },
+  },
+);
+
+const { copyToClipboard } = useClipboard();
 
 const subtitle = computed(() =>
   analysis.value
@@ -260,27 +255,19 @@ const periodRange = computed(() => {
   return formatDate(from || to || '');
 });
 
-const canDelete = computed(() => authStore.hasPermission(Permissions.ANALYSES.DELETE));
-
-async function loadAnalysis() {
-  if (!analysisId.value) return;
-
-  isLoading.value = true;
-  error.value = null;
-  analysisStore.error = null;
-  try {
-    analysis.value = await analysisStore.fetchAnalysis(analysisId.value);
-  } catch (err: unknown) {
-    error.value = apiErrorMessage(err, 'No pudimos cargar el análisis');
-  } finally {
-    isLoading.value = false;
+const contextStats = computed<StatItem[]>(() => {
+  const stats: StatItem[] = [];
+  if (energySummary.value || energyDashboard.value) {
+    stats.push({ label: 'Periodo', value: periodRange.value });
   }
-}
-
-watch([analysisId, companyId], ([id, currentCompanyId], [previousId, previousCompanyId]) => {
-  if (!id) return;
-  if (id !== previousId || currentCompanyId !== previousCompanyId) loadAnalysis();
+  if (rowsProcessed.value !== null) {
+    stats.push({ label: 'Registros', value: formatInteger(rowsProcessed.value) });
+  }
+  stats.push({ label: 'Autor', value: analysis.value?.created_by_name || 'Usuario' });
+  return stats;
 });
+
+const canDelete = computed(() => authStore.hasPermission(Permissions.ANALYSES.DELETE));
 
 function goBackToList() {
   if (window.history.state?.back) {
@@ -319,25 +306,7 @@ async function confirmDelete() {
 }
 
 async function copyLink() {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(window.location.href);
-    } else {
-      const field = document.createElement('textarea');
-      field.value = window.location.href;
-      field.setAttribute('readonly', '');
-      field.style.position = 'fixed';
-      field.style.opacity = '0';
-      document.body.appendChild(field);
-      field.select();
-      const copied = document.execCommand('copy');
-      field.remove();
-      if (!copied) throw new Error('No se pudo copiar');
-    }
-    toast.success('Enlace copiado');
-  } catch {
-    toast.error('No pudimos copiar el enlace');
-  }
+  await copyToClipboard(window.location.href, 'Enlace copiado');
 }
 
 const ZONE_STATUS_LABELS: Record<EnergyZoneStatus, string> = {
@@ -345,12 +314,6 @@ const ZONE_STATUS_LABELS: Record<EnergyZoneStatus, string> = {
   warning: 'En observación',
   normal: 'Normal',
 };
-
-function csvCell(value: string | number): string {
-  const text = String(value);
-  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
 
 function exportCriticalZonesCsv() {
   const zones = energyDashboard.value?.criticalZones ?? [];
@@ -371,29 +334,13 @@ function exportCriticalZonesCsv() {
       ZONE_STATUS_LABELS[zone.status] ?? zone.status,
     ]),
   ];
-  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const baseName = (analysis.value?.name || 'analisis')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-  link.href = url;
-  link.download = `${baseName || 'analisis'}-zonas-criticas.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const baseName = sanitizeFilename(analysis.value?.name || 'analisis');
+  downloadBlob(createCsvBlob(rows), `${baseName}-zonas-criticas.csv`);
 }
 
 function printAnalysis() {
   window.print();
 }
-
-onMounted(loadAnalysis);
 </script>
 
 <style scoped>
@@ -425,30 +372,6 @@ onMounted(loadAnalysis);
   outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: 2px;
-}
-
-.more-actions-btn {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background-color: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
-}
-
-.more-actions-btn:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--text-light);
-  color: var(--text-main);
-}
-
-.more-actions-btn:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
 }
 
 .analysis-context {
@@ -500,34 +423,6 @@ onMounted(loadAnalysis);
 .context-file-meta {
   font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.context-stats {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  margin: 0;
-}
-
-.context-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.context-stat dt {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.context-stat dd {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-main);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 .context-tags {
@@ -613,22 +508,9 @@ onMounted(loadAnalysis);
 }
 
 @media (max-width: 640px) {
-  .context-stats {
-    width: 100%;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
   .context-file-name {
     white-space: normal;
     overflow-wrap: anywhere;
-  }
-}
-
-@media (pointer: coarse) {
-  .more-actions-btn {
-    width: 44px;
-    height: 44px;
   }
 }
 

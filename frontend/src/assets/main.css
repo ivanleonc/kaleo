@@ -630,24 +630,6 @@ body {
   to { background-position: -200% 0; }
 }
 
-.dots-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius);
-  transition: all 0.15s;
-}
-.dots-btn:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-main);
-}
-
 .row-actions {
   position: relative;
   display: flex;
@@ -703,10 +685,6 @@ button, a, [role='button'] {
 
 /* Objetivos táctiles >= 44px solo en pantallas táctiles */
 @media (pointer: coarse) {
-  .dots-btn {
-    min-width: 40px;
-    min-height: 40px;
-  }
   .clear-btn,
   .page-btn {
     min-height: 44px;

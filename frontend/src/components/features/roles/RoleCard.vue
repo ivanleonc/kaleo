@@ -33,29 +33,20 @@
 
       <!-- Acciones (solo roles no-sistema) -->
       <div class="role-actions" v-if="!role.is_system">
-        <UiDropdown align="end" label="Acciones del rol">
-          <template #trigger="{ toggle, triggerAria }">
-            <button
-              class="role-menu-btn"
-              @click.stop="toggle"
-              v-bind="triggerAria"
-              :aria-label="`Acciones para ${role.name}`"
-            >
-              <IconDotsVertical :size="16" />
-            </button>
-          </template>
-          <template #default>
-            <UiDropdownItem @click="emit('edit', role)" v-permission="Permissions.ROLES.UPDATE">
-              <IconPencil :size="14" />
-              <span>Editar rol</span>
-            </UiDropdownItem>
-            <div class="ui-dropdown-divider" role="separator"></div>
-            <UiDropdownItem danger @click="emit('delete', role)" v-permission="Permissions.ROLES.DELETE">
-              <IconTrash :size="14" />
-              <span>Eliminar rol</span>
-            </UiDropdownItem>
-          </template>
-        </UiDropdown>
+        <UiActionMenu
+          label="Acciones del rol"
+          :trigger-label="`Acciones para ${role.name}`"
+        >
+          <UiDropdownItem @click="emit('edit', role)" v-permission="Permissions.ROLES.UPDATE">
+            <IconPencil :size="14" />
+            <span>Editar rol</span>
+          </UiDropdownItem>
+          <div class="ui-dropdown-divider" role="separator"></div>
+          <UiDropdownItem danger @click="emit('delete', role)" v-permission="Permissions.ROLES.DELETE">
+            <IconTrash :size="14" />
+            <span>Eliminar rol</span>
+          </UiDropdownItem>
+        </UiActionMenu>
       </div>
     </div>
 
@@ -116,7 +107,7 @@
 import { ref, computed } from 'vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
+import UiActionMenu from '@/components/ui/UiActionMenu.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import { Permissions } from '@/constants/permissions';
 import type { Role, Permission } from '@/types/role';
@@ -126,7 +117,6 @@ import {
   IconLock,
   IconChevronDown,
   IconKey,
-  IconDotsVertical,
   IconPencil,
   IconTrash,
 } from '@tabler/icons-vue';
@@ -244,24 +234,6 @@ function getRoleDescription(name: string): string {
 }
 
 .role-actions { flex-shrink: 0; }
-
-.role-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius);
-  transition: all 0.15s;
-}
-.role-menu-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-main);
-}
 
 .role-description {
   font-size: var(--text-sm);

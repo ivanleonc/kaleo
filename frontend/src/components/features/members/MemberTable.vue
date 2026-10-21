@@ -64,41 +64,32 @@
     <!-- Celda: menú de acciones -->
     <template #cell-actions="{ row }">
       <div class="row-actions" v-permission="Permissions.USERS.UPDATE">
-        <UiDropdown align="end" label="Acciones del miembro">
-          <template #trigger="{ toggle, triggerAria }">
-            <button
-              class="dots-btn"
-              @click.stop="toggle"
-              v-bind="triggerAria"
-              :aria-label="`Acciones para ${row.name}`"
-            >
-              <IconDotsVertical :size="16" stroke-width="1.8" />
-            </button>
-          </template>
-          <template #default>
-            <UiDropdownItem @click="emit('edit', row)">
-              <IconPencil :size="14" stroke-width="1.8" />
-              <span>Editar</span>
-            </UiDropdownItem>
-            <UiDropdownItem @click="emit('reset-password', row)" v-permission="Permissions.USERS.UPDATE">
-              <IconKey :size="14" stroke-width="1.8" />
-              <span>Resetear contraseña</span>
-            </UiDropdownItem>
-            <UiDropdownItem @click="emit('manage-companies', row)" v-permission="Permissions.USERS.UPDATE">
-              <IconBuildingCommunity :size="14" stroke-width="1.8" />
-              <span>Gestionar empresas</span>
-            </UiDropdownItem>
-            <div class="ui-dropdown-divider" role="separator"></div>
-            <UiDropdownItem
-              danger
-              @click="emit('delete', row)"
-              v-permission="Permissions.USERS.DELETE"
-            >
-              <IconTrash :size="14" stroke-width="1.8" />
-              <span>Eliminar</span>
-            </UiDropdownItem>
-          </template>
-        </UiDropdown>
+        <UiActionMenu
+          label="Acciones del miembro"
+          :trigger-label="`Acciones para ${row.name}`"
+        >
+          <UiDropdownItem @click="emit('edit', row)">
+            <IconPencil :size="14" stroke-width="1.8" />
+            <span>Editar</span>
+          </UiDropdownItem>
+          <UiDropdownItem @click="emit('reset-password', row)" v-permission="Permissions.USERS.UPDATE">
+            <IconKey :size="14" stroke-width="1.8" />
+            <span>Resetear contraseña</span>
+          </UiDropdownItem>
+          <UiDropdownItem @click="emit('manage-companies', row)" v-permission="Permissions.USERS.UPDATE">
+            <IconBuildingCommunity :size="14" stroke-width="1.8" />
+            <span>Gestionar empresas</span>
+          </UiDropdownItem>
+          <div class="ui-dropdown-divider" role="separator"></div>
+          <UiDropdownItem
+            danger
+            @click="emit('delete', row)"
+            v-permission="Permissions.USERS.DELETE"
+          >
+            <IconTrash :size="14" stroke-width="1.8" />
+            <span>Eliminar</span>
+          </UiDropdownItem>
+        </UiActionMenu>
       </div>
     </template>
 
@@ -119,7 +110,7 @@ import type { AppVueTable } from '@tanstack/vue-table';
 import UiDataTable from '@/components/ui/UiDataTable.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
-import UiDropdown from '@/components/ui/UiDropdown.vue';
+import UiActionMenu from '@/components/ui/UiActionMenu.vue';
 import UiDropdownItem from '@/components/ui/UiDropdownItem.vue';
 import MemberStatusBadge from './MemberStatusBadge.vue';
 import { Permissions } from '@/constants/permissions';
@@ -127,7 +118,6 @@ import type { Member } from '@/types/member';
 import type { AppFeatures } from '@/composables/useAppTable';
 import {
   IconCrown,
-  IconDotsVertical,
   IconPencil,
   IconKey,
   IconTrash,
