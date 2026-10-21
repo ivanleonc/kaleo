@@ -62,84 +62,142 @@
     <UiFormModal
       v-model="isModalOpen"
       title="Crear rol personalizado"
+      description="Define el alcance del rol y los permisos que tendrá."
       size="large"
       :confirm-on-dirty="true"
       :dirty="isCreateDirty"
+      submit-label="Guardar rol"
+      :loading="isSaving"
+      footer-hint="Podrás ajustar el nombre, el color y los permisos más adelante."
       @submit="handleCreateSubmit"
     >
       <UiAlert v-if="errorMsg" type="error">{{ errorMsg }}</UiAlert>
-      <UiInput v-model="form.name" label="Nombre del Rol" placeholder="Ej: Gestor de Finanzas" required />
-      <UiInput v-model="form.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
-      <div class="color-row">
-        <UiInput
-          v-model="form.color"
-          label="Color (Opcional)"
-          placeholder="#8b5cf6"
-          :error="createColorError"
-        />
-        <span
-          class="color-preview"
-          :style="colorPreviewStyle(form.color)"
-          aria-hidden="true"
-        ></span>
-      </div>
 
-      <UiDualListbox
-        v-model="form.permissionIds"
-        :available="allPermissionItems"
-        :selected="allPermissionItems"
-        label="Permisos"
-        available-label="Disponibles"
-        selected-label="Asignados al Rol"
-      />
-
-      <template #footer="{ requestClose }">
-        <div class="modal-footer">
-          <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
-          <UiButton type="submit" :loading="isSaving">Guardar rol</UiButton>
+      <UiFormSection
+        title="Información del rol"
+        description="Un nombre claro y un color ayudan a identificarlo en la tabla de miembros."
+      >
+        <div class="form-grid">
+          <div class="span-2">
+            <UiInput
+              v-model="form.name"
+              label="Nombre del Rol"
+              placeholder="Ej: Gestor de Finanzas"
+              required
+            />
+          </div>
+          <div class="span-2">
+            <UiTextarea
+              v-model="form.description"
+              label="Descripción (Opcional)"
+              placeholder="¿Qué hace este rol?"
+              :rows="3"
+            />
+          </div>
+          <div class="color-row">
+            <UiInput
+              v-model="form.color"
+              label="Color (Opcional)"
+              placeholder="#8b5cf6"
+              :error="createColorError"
+            />
+            <label
+              class="color-preview"
+              :style="colorPreviewStyle(form.color)"
+              title="Elegir color"
+            >
+              <input
+                type="color"
+                class="color-input"
+                :value="form.color || '#8b5cf6'"
+                aria-label="Elegir color del rol"
+                @input="setColor('create', $event)"
+              />
+            </label>
+          </div>
         </div>
-      </template>
+      </UiFormSection>
+
+      <UiFormSection
+        title="Permisos"
+        description="Selecciona las acciones que podrán realizar los miembros con este rol."
+      >
+        <UiDualListbox
+          v-model="form.permissionIds"
+          :available="allPermissionItems"
+          :selected="allPermissionItems"
+          available-label="Disponibles"
+          selected-label="Asignados al Rol"
+        />
+      </UiFormSection>
     </UiFormModal>
 
   <!-- Edit Modal -->
   <UiFormModal
     v-model="isEditModalOpen"
     title="Editar rol"
+    description="Actualiza la información y los permisos del rol."
     size="large"
     :confirm-on-dirty="true"
     :dirty="isEditDirty"
+    submit-label="Guardar cambios"
+    :loading="isSaving"
     @submit="handleEditSubmit"
   >
     <UiAlert v-if="errorMsg" type="error">{{ errorMsg }}</UiAlert>
-    <UiInput v-model="editForm.name" label="Nombre del Rol" required />
-    <UiInput v-model="editForm.description" label="Descripción (Opcional)" placeholder="¿Qué hace este rol?" />
-    <div class="color-row">
-      <UiInput
-        v-model="editForm.color"
-        label="Color (Opcional)"
-        placeholder="#8b5cf6"
-        :error="editColorError"
-      />
-      <span
-        class="color-preview"
-        :style="colorPreviewStyle(editForm.color)"
-        aria-hidden="true"
-      ></span>
-    </div>
-    <UiDualListbox
-      v-model="editForm.permissionIds"
-      :available="allPermissionItems"
-      :selected="allPermissionItems"
-      label="Permisos"
-      available-label="Disponibles"
-      selected-label="Asignados al Rol"
-    />
-    <template #footer="{ requestClose }">
-      <div class="modal-footer">
-        <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
-        <UiButton type="submit" :loading="isSaving">Guardar cambios</UiButton>
+
+    <UiFormSection
+      title="Información del rol"
+      description="Un nombre claro y un color ayudan a identificarlo en la tabla de miembros."
+    >
+      <div class="form-grid">
+        <div class="span-2">
+          <UiInput v-model="editForm.name" label="Nombre del Rol" required />
+        </div>
+        <div class="span-2">
+          <UiTextarea
+            v-model="editForm.description"
+            label="Descripción (Opcional)"
+            placeholder="¿Qué hace este rol?"
+            :rows="3"
+          />
+        </div>
+        <div class="color-row">
+          <UiInput
+            v-model="editForm.color"
+            label="Color (Opcional)"
+            placeholder="#8b5cf6"
+            :error="editColorError"
+          />
+          <label
+            class="color-preview"
+            :style="colorPreviewStyle(editForm.color)"
+            title="Elegir color"
+          >
+            <input
+              type="color"
+              class="color-input"
+              :value="editForm.color || '#8b5cf6'"
+              aria-label="Elegir color del rol"
+              @input="setColor('edit', $event)"
+            />
+          </label>
+        </div>
       </div>
-    </template>
+    </UiFormSection>
+
+    <UiFormSection
+      title="Permisos"
+      description="Selecciona las acciones que podrán realizar los miembros con este rol."
+    >
+      <UiDualListbox
+        v-model="editForm.permissionIds"
+        :available="allPermissionItems"
+        :selected="allPermissionItems"
+        available-label="Disponibles"
+        selected-label="Asignados al Rol"
+      />
+    </UiFormSection>
   </UiFormModal>
 
   <!-- Delete Confirmation Modal -->
@@ -172,7 +230,9 @@ import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiInput from '@/components/ui/UiInput.vue';
+import UiTextarea from '@/components/ui/UiTextarea.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiDualListbox from '@/components/ui/UiDualListbox.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
@@ -221,6 +281,12 @@ const editColorError = computed(() =>
 );
 const colorPreviewStyle = (value: string) =>
   hexColorRegex.test(value.trim()) ? { backgroundColor: value.trim() } : undefined;
+
+function setColor(target: 'create' | 'edit', event: Event) {
+  const value = (event.target as HTMLInputElement).value;
+  if (target === 'create') form.color = value;
+  else editForm.color = value;
+}
 
 const allPermissionItems = computed(() =>
   allPermissions.value.map((p) => ({
@@ -383,12 +449,36 @@ useCreateAction(() => openCreateModal());
 }
 
 .color-preview {
+  position: relative;
   width: 2.5rem;
   height: 2.5rem;
   flex-shrink: 0;
+  overflow: hidden;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background-color: var(--bg-app);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.color-preview:hover {
+  border-color: var(--text-muted);
+}
+
+.color-preview:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.color-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .skeleton-grid {

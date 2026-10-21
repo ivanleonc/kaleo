@@ -67,42 +67,62 @@
         :dirty="isFormDirty"
         :submit-label="editingBranch ? 'Guardar cambios' : 'Crear sede'"
         :loading="branchStore.isLoading"
+        footer-hint="La sede principal se usa como ubicación predeterminada de la empresa."
         @submit="handleSubmit"
       >
         <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
 
-        <div class="form-row">
-          <UiInput v-model="form.name" label="Nombre de la Sede" required />
-          <UiInput v-model="form.code" label="Código (Opcional)" placeholder="BOG-01" />
-        </div>
-        <UiInput v-model="form.address" label="Dirección" />
-        <div class="form-row">
-          <UiInput v-model="form.city" label="Ciudad" />
-          <UiInput v-model="form.state" label="Estado / Provincia" />
-        </div>
-        <div class="form-row">
-          <UiInput v-model="form.country" label="País" />
-          <UiInput v-model="form.postal_code" label="Código postal" />
-        </div>
-        <div class="form-row">
-          <UiInput v-model="form.phone" label="Teléfono" type="tel" />
-          <UiInput
-            v-model="form.email"
-            label="Email"
-            type="email"
-            :error="branchEmailError"
-            @blur="emailTouched = true"
-          />
-        </div>
-        <div class="form-row">
-          <UiSelect v-model="form.manager_user_id" label="Responsable" :options="managerOptions" />
-          <UiTimezoneSelect v-model="form.timezone" />
-        </div>
-        <UiSelect
-          v-model="form.is_main_flag"
-          label="Sede principal"
-          :options="mainOptions"
-        />
+        <UiFormSection
+          title="Identificación"
+          description="Nombre interno y código operativo de la sede."
+        >
+          <div class="form-grid">
+            <UiInput v-model="form.name" label="Nombre de la Sede" required />
+            <UiInput v-model="form.code" label="Código (Opcional)" placeholder="BOG-01" />
+          </div>
+        </UiFormSection>
+
+        <UiFormSection title="Ubicación" description="Dirección física para reportes y logística.">
+          <div class="form-grid">
+            <div class="span-2">
+              <UiInput v-model="form.address" label="Dirección" />
+            </div>
+            <UiInput v-model="form.city" label="Ciudad" />
+            <UiInput v-model="form.state" label="Estado / Provincia" />
+            <UiInput v-model="form.country" label="País" />
+            <UiInput v-model="form.postal_code" label="Código postal" />
+          </div>
+        </UiFormSection>
+
+        <UiFormSection title="Contacto" description="Canales de comunicación de la sede.">
+          <div class="form-grid">
+            <UiInput v-model="form.phone" label="Teléfono" type="tel" />
+            <UiInput
+              v-model="form.email"
+              label="Email"
+              type="email"
+              :error="branchEmailError"
+              @blur="emailTouched = true"
+            />
+          </div>
+        </UiFormSection>
+
+        <UiFormSection
+          title="Administración"
+          description="Responsable, zona horaria y jerarquía de la sede."
+        >
+          <div class="form-grid">
+            <UiSelect v-model="form.manager_user_id" label="Responsable" :options="managerOptions" />
+            <UiTimezoneSelect v-model="form.timezone" />
+          </div>
+          <div class="section-switch">
+            <UiSwitch
+              v-model="isMainBranch"
+              label="Sede principal"
+              description="Identifica esta sede como la ubicación principal de la empresa."
+            />
+          </div>
+        </UiFormSection>
       </UiFormModal>
     </div>
 
@@ -141,6 +161,8 @@ import UiTableFilters, { type TableFilterDef } from '@/components/ui/UiTableFilt
 import UiPagination from '@/components/ui/UiPagination.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiSwitch from '@/components/ui/UiSwitch.vue';
 import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
 import BranchTable from '@/components/features/branches/BranchTable.vue';
 import { useToast } from '@/composables/useToast';
@@ -305,10 +327,12 @@ const form = reactive({
   is_main_flag: 'no',
 });
 
-const mainOptions = [
-  { label: 'No', value: 'no' },
-  { label: 'Sí, es la sede principal', value: 'yes' },
-];
+const isMainBranch = computed({
+  get: () => form.is_main_flag === 'yes',
+  set: (value: boolean) => {
+    form.is_main_flag = value ? 'yes' : 'no';
+  },
+});
 
 const emailTouched = ref(false);
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -473,5 +497,10 @@ useCreateAction(() => openCreateModal());
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--accent-amber);
+}
+
+.section-switch {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
 }
 </style>

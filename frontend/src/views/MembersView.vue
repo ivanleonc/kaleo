@@ -63,77 +63,125 @@
       <UiFormModal
         v-model="isAddModalOpen"
         title="Invitar miembro"
-        description="Agrega un nuevo miembro a tu equipo. La contraseña temporal se enviará a su correo."
+        description="Agrega una persona al equipo, vincula una cuenta existente o asígnala a varias empresas."
         size="large"
         :confirm-on-dirty="true"
         :dirty="isAddDirty"
+        submit-label="Agregar al Equipo"
+        :loading="memberStore.isLoading"
+        :footer-hint="addFooterHint"
         @submit="handleAddSubmit"
       >
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
-        <UiInput v-model="addForm.name" label="Nombre completo" required />
-        <UiInput v-model="addForm.email" label="Correo electrónico" type="email" required :error="addEmailError" />
 
-        <!-- Buscar usuario existente: si se elige uno, solo se vincula (sin
-             tocar su contraseña). Si no, se crea con temporal por correo. -->
-        <div class="assign-search">
-          <UiSearchInput
-            v-model="userSearchQuery"
-            placeholder="¿Ya existe? Busca por nombre o email..."
-            @input="onUserSearchInput"
-          />
-          <!-- Lista de acciones (elegir un usuario): no es un widget de
-               selección, así que sin roles listbox/option: los botones ya son
-               accesibles por teclado. -->
-          <ul v-if="userSearchResults.length > 0 && !selectedUser" class="user-results" aria-label="Usuarios encontrados">
-            <li v-for="u in userSearchResults" :key="u.id">
-              <button type="button" class="user-result" @click="pickExistingUser(u)">
-                <span class="user-result-name">{{ u.name }}</span>
-                <span class="user-result-email">{{ u.email }}</span>
-              </button>
-            </li>
-          </ul>
-          <p v-if="isSearching" class="assign-hint" role="status">Buscando…</p>
+        <UiFormSection
+          title="Datos personales"
+          description="Información básica para identificar y contactar al miembro."
+        >
+          <div class="form-grid">
+            <UiInput v-model="addForm.name" label="Nombre completo" required />
+            <UiInput
+              v-model="addForm.email"
+              label="Correo electrónico"
+              type="email"
+              required
+              :error="addEmailError"
+            />
+            <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
+            <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
+            <UiInput v-model="addForm.document_type" label="Tipo Doc. (opcional)" type="text" placeholder="CC" />
+            <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
+          </div>
+        </UiFormSection>
+
+        <UiFormSection
+          title="Acceso y vinculación"
+          description="Vincula una cuenta existente o invita a una persona nueva."
+        >
           <p v-if="selectedUser" class="assign-picked">
+            <span class="assign-picked-icon" aria-hidden="true">
+              <IconUserCheck :size="16" />
+            </span>
             Usuario existente: <strong>{{ selectedUser.name }} ({{ selectedUser.email }})</strong>
             <button type="button" class="link-btn" @click="clearSelectedUser">Quitar</button>
           </p>
-        </div>
 
-        <!-- Asignación multi-empresa (solo si administra más de una). -->
-        <div v-if="assignableCompanies.length > 1" class="assign-companies">
-          <p class="assign-label" id="assign-companies-label">Empresas donde asignar</p>
-          <div class="assign-checks" role="group" aria-labelledby="assign-companies-label">
-            <label v-for="c in assignableCompanies" :key="c.id" class="assign-check">
+          <details v-else class="link-existing">
+            <summary class="link-existing-summary">
+              <span>¿La persona ya tiene cuenta? Vincular usuario existente</span>
+              <IconChevronDown :size="16" class="link-existing-chevron" aria-hidden="true" />
+            </summary>
+            <div class="link-existing-body">
+              <UiSearchInput
+                v-model="userSearchQuery"
+                placeholder="Busca por nombre o email..."
+                @input="onUserSearchInput"
+              />
+              <ul
+                v-if="userSearchResults.length > 0"
+                class="user-results"
+                aria-label="Usuarios encontrados"
+              >
+                <li v-for="u in userSearchResults" :key="u.id">
+                  <button type="button" class="user-result" @click="pickExistingUser(u)">
+                    <span class="user-result-name">{{ u.name }}</span>
+                    <span class="user-result-email">{{ u.email }}</span>
+                  </button>
+                </li>
+              </ul>
+              <p v-if="isSearching" class="assign-hint" role="status">Buscando…</p>
+              <p v-else-if="userSearchQuery.trim().length >= 2 && userSearchResults.length === 0" class="assign-hint">
+                No encontramos usuarios con ese nombre o correo.
+              </p>
+            </div>
+          </details>
+        </UiFormSection>
+
+        <UiFormSection
+          v-if="assignableCompanies.length > 1"
+          title="Empresas"
+          description="Elige dónde asignar al miembro. Si eliges más de una, el rol se aplica por nombre en cada empresa."
+        >
+          <div class="assign-checks" role="group" aria-label="Empresas donde asignar">
+            <label
+              v-for="c in assignableCompanies"
+              :key="c.id"
+              class="company-choice"
+              :class="{
+                'is-current': c.id === companyId,
+                'is-checked': assignCompanyIds.includes(c.id),
+              }"
+            >
               <input type="checkbox" :value="c.id" v-model="assignCompanyIds" />
-              <span>{{ c.name }}</span>
-              <span v-if="c.id === companyId" class="assign-current">(actual)</span>
+              <span class="company-choice-copy">
+                <span class="company-choice-name">{{ c.name }}</span>
+                <span v-if="c.id === companyId" class="company-choice-badge">Empresa actual</span>
+              </span>
             </label>
           </div>
-        </div>
 
-        <UiSelect
-          v-if="isMultiAssign"
-          v-model="assignRoleName"
-          label="Rol (se aplica en todas las empresas elegidas)"
-          :options="assignRoleOptions"
-        />
-        <div class="form-row">
-          <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
-          <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
-        </div>
-        <div class="form-row">
-          <UiInput v-model="addForm.document_type" label="Tipo Doc. (opcional)" type="text" placeholder="CC" />
-          <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
-        </div>
-        <UiDualListbox
+          <UiSelect
+            v-if="isMultiAssign"
+            v-model="assignRoleName"
+            label="Rol (se aplica en todas las empresas elegidas)"
+            :options="assignRoleOptions"
+          />
+        </UiFormSection>
+
+        <UiFormSection
           v-if="!isMultiAssign"
-          v-model="addForm.roleIds"
-          :available="roleItems"
-          :selected="roleItems"
-          label="Roles"
-          available-label="Disponibles"
-          selected-label="Asignados"
-        />
+          title="Roles"
+          description="Selecciona los roles que tendrá el miembro en la empresa activa."
+        >
+          <UiDualListbox
+            v-model="addForm.roleIds"
+            :available="roleItems"
+            :selected="roleItems"
+            available-label="Disponibles"
+            selected-label="Asignados"
+          />
+        </UiFormSection>
+
         <div v-if="attachResults.length > 0" class="attach-results" role="status">
           <p
             v-for="r in attachResults"
@@ -143,12 +191,6 @@
             {{ r.ok ? '✓' : '✗' }} {{ r.companyName }}: {{ r.message }}
           </p>
         </div>
-        <template #footer="{ requestClose }">
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">Cancelar</UiButton>
-            <UiButton type="submit" :loading="memberStore.isLoading">Agregar al Equipo</UiButton>
-          </div>
-        </template>
       </UiFormModal>
 
       <!-- Edit Member Modal -->
@@ -159,41 +201,45 @@
         size="large"
         :confirm-on-dirty="true"
         :dirty="isEditDirty"
+        submit-label="Guardar Cambios"
+        :loading="memberStore.isLoading"
+        footer-hint="Los cambios de estado y roles se aplican de inmediato."
         @submit="handleEditSubmit"
       >
         <UiAlert v-if="memberStore.error" type="error">{{ memberStore.error }}</UiAlert>
-        <UiInput :model-value="editForm.name" label="Nombre (no editable)" disabled />
-        <UiSelect
-          v-model="editForm.status"
-          label="Estado de la Cuenta"
-          :options="statusOptions"
-        />
-        <UiInput v-model="editForm.phone" label="Teléfono" type="tel" autocomplete="tel" />
-        <UiInput v-model="editForm.position" label="Cargo" type="text" />
-        <div class="form-row">
-          <UiInput v-model="editForm.document_type" label="Tipo Doc." type="text" placeholder="CC" />
-          <UiInput v-model="editForm.document_number" label="Núm. Documento" type="text" />
-        </div>
 
-        <UiDualListbox
-          v-model="editForm.roleIds"
-          :available="roleItems"
-          :selected="roleItems"
-          label="Roles"
-          available-label="Disponibles"
-          selected-label="Asignados"
-        />
-
-        <template #footer="{ requestClose }">
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="requestClose">
-              Cancelar
-            </UiButton>
-            <UiButton type="submit" :loading="memberStore.isLoading">
-              Guardar Cambios
-            </UiButton>
+        <UiFormSection
+          title="Cuenta"
+          description="El nombre no se puede modificar desde aquí."
+        >
+          <div class="form-grid">
+            <UiInput :model-value="editForm.name" label="Nombre (no editable)" disabled />
+            <UiSelect
+              v-model="editForm.status"
+              label="Estado de la Cuenta"
+              :options="statusOptions"
+            />
           </div>
-        </template>
+        </UiFormSection>
+
+        <UiFormSection title="Contacto y documento" description="Datos de contacto y documento de identidad.">
+          <div class="form-grid">
+            <UiInput v-model="editForm.phone" label="Teléfono" type="tel" autocomplete="tel" />
+            <UiInput v-model="editForm.position" label="Cargo" type="text" />
+            <UiInput v-model="editForm.document_type" label="Tipo Doc." type="text" placeholder="CC" />
+            <UiInput v-model="editForm.document_number" label="Núm. Documento" type="text" />
+          </div>
+        </UiFormSection>
+
+        <UiFormSection title="Roles" description="Define los permisos del miembro en la empresa activa.">
+          <UiDualListbox
+            v-model="editForm.roleIds"
+            :available="roleItems"
+            :selected="roleItems"
+            available-label="Disponibles"
+            selected-label="Asignados"
+          />
+        </UiFormSection>
       </UiFormModal>
 
     </div>
@@ -253,6 +299,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiSearchInput from '@/components/ui/UiSearchInput.vue';
@@ -274,7 +321,7 @@ import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDebounceFn } from '@/composables/useDebounceFn';
 import { useCompanyStore } from '@/stores/company.store';
-import { IconPlus } from '@tabler/icons-vue';
+import { IconChevronDown, IconPlus, IconUserCheck } from '@tabler/icons-vue';
 import MemberCompaniesModal from '@/components/MemberCompaniesModal.vue';
 
 const PAGE_SIZES = [10, 20, 50, 100];
@@ -512,6 +559,12 @@ const addForm = reactive({
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const addEmailError = computed(() =>
   addForm.email && !emailRegex.test(addForm.email) ? 'Correo electrónico inválido' : null
+);
+
+const addFooterHint = computed(() =>
+  selectedUser.value
+    ? 'Se vinculará la cuenta existente sin modificar su contraseña.'
+    : 'Si el correo no existe, se enviará una contraseña temporal.',
 );
 
 onMounted(async () => {
@@ -852,19 +905,59 @@ const confirmResetPassword = async () => {
 }
 
 /* Asignación multi-empresa (modal Invitar) */
-.assign-search {
+.link-existing {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-app);
+}
+
+.link-existing-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  list-style: none;
+}
+
+.link-existing-summary::-webkit-details-marker {
+  display: none;
+}
+
+.link-existing[open] .link-existing-summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.link-existing-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.18s ease;
+}
+
+.link-existing[open] .link-existing-chevron {
+  transform: rotate(180deg);
+}
+
+.link-existing-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
 .user-results {
   list-style: none;
   margin: 0;
   padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  background-color: var(--bg-card);
 }
 
 .user-result {
@@ -876,7 +969,7 @@ const confirmResetPassword = async () => {
   padding: var(--space-2) var(--space-3);
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
   cursor: pointer;
   text-align: left;
   color: var(--text-main);
@@ -903,13 +996,23 @@ const confirmResetPassword = async () => {
 }
 
 .assign-picked {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-app);
+  font-size: var(--text-sm);
+  color: var(--text-main);
+}
+
+.assign-picked-icon {
+  display: grid;
+  place-items: center;
+  color: var(--primary);
 }
 
 .link-btn {
@@ -923,46 +1026,56 @@ const confirmResetPassword = async () => {
   text-underline-offset: 2px;
 }
 
-.assign-companies {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.assign-label {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-main);
-}
-
 .assign-checks {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  max-height: 160px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  max-height: 240px;
   overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-2);
 }
 
-.assign-check {
+.company-choice {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--text-main);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-card);
   cursor: pointer;
-  padding: var(--space-1) 0;
+  transition: border-color 0.15s, background-color 0.15s;
 }
-.assign-check input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
+
+.company-choice:hover {
+  background-color: var(--bg-hover);
+}
+
+.company-choice.is-checked {
+  border-color: var(--primary);
+  background-color: var(--color-primary-light);
+}
+
+.company-choice input[type='checkbox'] {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
   accent-color: var(--primary);
 }
 
-.assign-current {
+.company-choice-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.company-choice-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.company-choice-badge {
   font-size: var(--text-xs);
   color: var(--text-muted);
 }

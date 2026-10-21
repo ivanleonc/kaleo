@@ -95,32 +95,46 @@
         :dirty="isProfileDirty"
         submit-label="Guardar cambios"
         :loading="isSavingProfile"
+        footer-hint="Si cambias el correo, deberás verificarlo antes de que se aplique."
         @submit="handleProfileSubmit"
       >
         <UiAlert v-if="errorMessage" type="error">{{ errorMessage }}</UiAlert>
 
-        <UiInput v-model="form.name" label="Nombre completo" required />
-        <UiInput
-          v-model="form.email"
-          label="Correo electrónico"
-          type="email"
-          autocomplete="email"
-          required
-        />
-        <UiAlert v-if="emailChangeNotice" type="info">
-          {{ emailChangeNotice }}
-        </UiAlert>
-        <UiInput v-model="form.phone" label="Teléfono" type="tel" autocomplete="tel" />
-        <UiInput v-model="form.position" label="Cargo" type="text" />
-        <div class="form-row">
-          <UiInput v-model="form.document_type" label="Tipo Doc." type="text" placeholder="CC" />
-          <UiInput v-model="form.document_number" label="Núm. Documento" type="text" />
-        </div>
-        <UiInput v-model="form.avatar_url" label="URL de Foto" type="text" placeholder="https://..." />
-        <div class="form-row">
-          <UiInput v-model="form.timezone" label="Zona horaria" type="text" placeholder="America/Bogota" />
-          <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
-        </div>
+        <UiFormSection
+          title="Datos personales"
+          description="Tu nombre y datos de contacto dentro de la organización."
+        >
+          <div class="form-grid">
+            <UiInput v-model="form.name" label="Nombre completo" required />
+            <UiInput
+              v-model="form.email"
+              label="Correo electrónico"
+              type="email"
+              autocomplete="email"
+              required
+            />
+            <UiAlert v-if="emailChangeNotice" type="info" class="span-2">
+              {{ emailChangeNotice }}
+            </UiAlert>
+            <UiInput v-model="form.phone" label="Teléfono" type="tel" autocomplete="tel" />
+            <UiInput v-model="form.position" label="Cargo" type="text" />
+            <UiInput v-model="form.document_type" label="Tipo Doc." type="text" placeholder="CC" />
+            <UiInput v-model="form.document_number" label="Núm. Documento" type="text" />
+          </div>
+        </UiFormSection>
+
+        <UiFormSection
+          title="Preferencias"
+          description="Foto y configuración regional de tu cuenta."
+        >
+          <div class="form-grid">
+            <div class="span-2">
+              <UiInput v-model="form.avatar_url" label="URL de Foto" type="text" placeholder="https://..." />
+            </div>
+            <UiInput v-model="form.timezone" label="Zona horaria" type="text" placeholder="America/Bogota" />
+            <UiInput v-model="form.locale" label="Idioma" type="text" placeholder="es" />
+          </div>
+        </UiFormSection>
       </UiFormModal>
 
       <!-- Password Change Modal — footer generado automáticamente por UiFormModal -->
@@ -132,33 +146,39 @@
         :dirty="isPasswordDirty"
         submit-label="Actualizar contraseña"
         :loading="isChangingPassword"
+        footer-hint="Se cerrarán las demás sesiones activas después del cambio."
         @submit="handlePasswordChange"
       >
         <UiAlert v-if="passwordError" type="error">{{ passwordError }}</UiAlert>
 
-        <UiInput
-          v-model="passwordForm.currentPassword"
-          label="Contraseña actual"
-          type="password"
-          required
-        />
-        <UiInput
-          v-model="passwordForm.newPassword"
-          label="Nueva contraseña"
-          type="password"
-          required
-        />
+        <UiFormSection
+          title="Credenciales"
+          description="Usa una contraseña larga y distinta a la de otros servicios."
+        >
+          <UiInput
+            v-model="passwordForm.currentPassword"
+            label="Contraseña actual"
+            type="password"
+            required
+          />
+          <UiInput
+            v-model="passwordForm.newPassword"
+            label="Nueva contraseña"
+            type="password"
+            required
+          />
 
-        <UiPasswordStrength v-model="passwordForm.newPassword" />
+          <UiPasswordStrength v-model="passwordForm.newPassword" />
 
-        <UiInput
-          v-model="passwordForm.confirmPassword"
-          label="Confirmar nueva contraseña"
-          type="password"
-          :error="passwordMismatchError"
-          @blur="passwordConfirmTouched = true"
-          required
-        />
+          <UiInput
+            v-model="passwordForm.confirmPassword"
+            label="Confirmar nueva contraseña"
+            type="password"
+            :error="passwordMismatchError"
+            @blur="passwordConfirmTouched = true"
+            required
+          />
+        </UiFormSection>
       </UiFormModal>
     </div>
   </AuthenticatedLayout>
@@ -178,6 +198,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiPasswordStrength from '@/components/ui/UiPasswordStrength.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';

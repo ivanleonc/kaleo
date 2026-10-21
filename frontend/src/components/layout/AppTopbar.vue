@@ -182,27 +182,26 @@
     </div>
   </header>
 
-  <UiModal v-model="isCreateModalOpen" label="Nueva organización">
-    <form @submit.prevent="handleCreateSubmit">
-      <UiCard>
-        <template #header>
-          <h3 class="card-title">Nueva organización</h3>
-          <p class="card-description">Agrega un nuevo espacio de trabajo a tu cuenta.</p>
-        </template>
-        <div class="form-body">
-          <UiAlert v-if="companyStore.error">{{ companyStore.error }}</UiAlert>
-          <UiInput v-model="createForm.name" label="Nombre" required />
-          <UiInput v-model="createForm.tax_id" label="Tax ID / NIT / RFC (opcional)" />
-        </div>
-        <template #footer>
-          <div class="modal-footer">
-            <UiButton type="button" variant="outline" @click="isCreateModalOpen = false">Cancelar</UiButton>
-            <UiButton type="submit" :loading="companyStore.isLoading">Crear</UiButton>
-          </div>
-        </template>
-      </UiCard>
-    </form>
-  </UiModal>
+  <UiFormModal
+    v-model="isCreateModalOpen"
+    title="Nueva organización"
+    description="Agrega un nuevo espacio de trabajo a tu cuenta."
+    submit-label="Crear organización"
+    :loading="companyStore.isLoading"
+    :confirm-on-dirty="true"
+    :dirty="createForm.name.trim().length > 0 || createForm.tax_id.trim().length > 0"
+    @submit="handleCreateSubmit"
+  >
+    <UiAlert v-if="companyStore.error" type="error">{{ companyStore.error }}</UiAlert>
+    <div class="form-grid">
+      <div class="span-2">
+        <UiInput v-model="createForm.name" label="Nombre" required />
+      </div>
+      <div class="span-2">
+        <UiInput v-model="createForm.tax_id" label="Tax ID / NIT / RFC (opcional)" />
+      </div>
+    </div>
+  </UiFormModal>
 
   <CommandPalette v-model="isPaletteOpen" />
 </template>
@@ -216,10 +215,8 @@ import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
 import { companyPathFor, tenantUrlParam, preservableSection } from '@/utils/tenant';
-import UiModal from '@/components/ui/UiModal.vue';
-import UiCard from '@/components/ui/UiCard.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiInput from '@/components/ui/UiInput.vue';
-import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiDropdown from '@/components/ui/UiDropdown.vue';

@@ -51,27 +51,32 @@
         </template>
       </p>
 
-      <UiInput
-        v-model="name"
-        label="Nombre del análisis"
-        placeholder="Ej. Facturación enero 2026"
-        required
-        :disabled="isBusy"
-      />
-
-      <UiFileDropzone
-        :model-value="selectedFile"
-        label="Archivo de facturación"
-        :accept="ENERGY_FILE_ACCEPT"
-        :max-size="ENERGY_MAX_FILE_SIZE"
-        hint="Formatos .xlsx y .xls · Máximo 10 MB"
-        :disabled="isBusy"
-        @update:model-value="handleFileUpdate"
+      <UiFormSection
+        title="Archivo y nombre"
+        description="El nombre identifica el análisis en el historial de la empresa."
       >
-        <template #title>
-          Arrastra el Excel aquí o <span class="dropzone-link">selecciónalo</span>
-        </template>
-      </UiFileDropzone>
+        <UiInput
+          v-model="name"
+          label="Nombre del análisis"
+          placeholder="Ej. Facturación enero 2026"
+          required
+          :disabled="isBusy"
+        />
+
+        <UiFileDropzone
+          :model-value="selectedFile"
+          label="Archivo de facturación"
+          :accept="ENERGY_FILE_ACCEPT"
+          :max-size="ENERGY_MAX_FILE_SIZE"
+          hint="Formatos .xlsx y .xls · Máximo 10 MB"
+          :disabled="isBusy"
+          @update:model-value="handleFileUpdate"
+        >
+          <template #title>
+            Arrastra el Excel aquí o <span class="dropzone-link">selecciónalo</span>
+          </template>
+        </UiFileDropzone>
+      </UiFormSection>
 
       <div v-if="isBusy" class="progress-block" role="status" aria-live="polite">
         <div class="progress-header">
@@ -91,7 +96,7 @@
       </div>
     </template>
 
-    <template #footer="{ requestClose }">
+    <template #footer="{ requestClose, formId }">
       <div v-if="isSuccess" class="modal-footer">
         <UiButton variant="outline" width="auto" @click="startAnother">Crear otro</UiButton>
         <UiButton width="auto" @click="viewSaved">Ver análisis</UiButton>
@@ -122,7 +127,13 @@
         >
           Cancelar
         </UiButton>
-        <UiButton type="submit" width="auto" :disabled="!canSubmit" :loading="isBusy">
+        <UiButton
+          type="submit"
+          :form="formId"
+          width="auto"
+          :disabled="!canSubmit"
+          :loading="isBusy"
+        >
           Procesar y guardar
         </UiButton>
       </div>
@@ -134,6 +145,7 @@
 import { computed, ref, watch } from 'vue';
 import { IconCircleCheck } from '@tabler/icons-vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiButton from '@/components/ui/UiButton.vue';

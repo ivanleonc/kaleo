@@ -7,6 +7,7 @@
     :dirty="isDirty"
     submit-label="Guardar nombre"
     :loading="analysisStore.isLoading"
+    footer-hint="El nuevo nombre se mostrará en el historial de análisis."
     @submit="handleSubmit"
   >
     <UiAlert v-if="error" type="error">{{ error }}</UiAlert>

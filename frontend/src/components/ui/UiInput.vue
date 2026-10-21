@@ -1,6 +1,8 @@
 <template>
   <div class="input-group">
-    <label v-if="label" :for="id" class="ui-label">{{ label }}</label>
+    <label v-if="label" :for="id" class="ui-label">
+      {{ label }} <span v-if="required" class="required-mark" aria-hidden="true">*</span>
+    </label>
     <div class="input-wrapper">
       <input
         :id="id"
@@ -11,6 +13,7 @@
         :disabled="disabled"
         :autocomplete="autocomplete"
         :name="name"
+        :aria-label="ariaLabel"
         :aria-invalid="!!error"
         :aria-describedby="error ? errorId : undefined"
         class="ui-input"
@@ -48,6 +51,7 @@ interface Props {
   disabled?: boolean;
   autocomplete?: string;
   name?: string;
+  ariaLabel?: string;
   error?: string | null;
 }
 
@@ -93,7 +97,11 @@ const togglePassword = () => {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-main);
-  line-height: 1;
+  line-height: 1.25;
+}
+
+.required-mark {
+  color: var(--color-danger);
 }
 
 .input-wrapper {

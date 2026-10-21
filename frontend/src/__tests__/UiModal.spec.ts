@@ -117,4 +117,39 @@ describe('UiModal', () => {
 
     expect(wrapper!.emitted('update:modelValue')).toEqual([[false]]);
   });
+
+  it('Escape cancela la confirmación de descarte y vuelve al formulario', async () => {
+    await mountModal({ confirmOnDirty: true, dirty: true });
+    await pressEscape();
+    expect(confirmDialog()).not.toBeNull();
+
+    await pressEscape();
+    expect(confirmDialog()).toBeNull();
+    expect(document.querySelector('.body')).not.toBeNull();
+    expect(wrapper!.emitted('update:modelValue')).toBeUndefined();
+  });
+
+  it('enfoca el primer campo del cuerpo antes que el botón de cierre', async () => {
+    wrapper = mount(UiModal, {
+      props: { modelValue: true, labelledby: 'modal-title' },
+      slots: {
+        header: '<h2 id="modal-title">Editar miembro</h2>',
+        default: '<input class="first-field" />',
+      },
+      attachTo: document.body,
+    });
+    await nextTick();
+    await nextTick();
+
+    expect(document.activeElement).toBe(document.querySelector('.first-field'));
+  });
+
+  it('el botón de cierre tiene nombre accesible y cierra el modal', async () => {
+    await mountModal();
+    const close = document.querySelector<HTMLButtonElement>('.modal-close');
+
+    expect(close?.getAttribute('aria-label')).toBe('Cerrar');
+    await click(close);
+    expect(wrapper!.emitted('update:modelValue')).toEqual([[false]]);
+  });
 });

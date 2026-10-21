@@ -1,6 +1,7 @@
 <template>
   <button
     :type="type"
+    :form="form"
     :disabled="disabled || loading"
     :aria-busy="loading"
     class="ui-button"
@@ -17,6 +18,7 @@
 <script setup lang="ts">
 interface Props {
   type?: 'button' | 'submit' | 'reset';
+  form?: string;
   disabled?: boolean;
   loading?: boolean;
   variant?: 'primary' | 'outline' | 'danger' | 'ghost' | 'link';

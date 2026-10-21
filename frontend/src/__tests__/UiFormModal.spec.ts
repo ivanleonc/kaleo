@@ -67,4 +67,20 @@ describe('UiFormModal', () => {
 
     expect(wrapper!.emitted('update:modelValue')).toEqual([[false]]);
   });
+
+  it('conecta el submit del footer con el formulario del cuerpo', async () => {
+    wrapper = mount(UiFormModal, {
+      props: { modelValue: true, title: 'Nueva sede' },
+      slots: { default: '<input class="field" />' },
+      attachTo: document.body,
+    });
+    await nextTick();
+    await nextTick();
+
+    const form = q('.ui-form-modal') as HTMLFormElement | null;
+    const submit = q('.form-modal-actions button[type="submit"]');
+
+    expect(form?.id).toBeTruthy();
+    expect(submit?.getAttribute('form')).toBe(form?.id);
+  });
 });

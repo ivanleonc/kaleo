@@ -3,87 +3,70 @@
     ref="modalRef"
     v-model="isOpen"
     :size="size"
-    :label="title"
+    :label="title || 'Formulario'"
+    :labelledby="$slots.header || !title ? undefined : titleId"
+    :describedby="$slots.header || !description ? undefined : descriptionId"
+    :show-close="showClose"
     :confirm-on-dirty="confirmOnDirty"
     :dirty="dirty"
     :confirm-message="confirmMessage"
     :prevent-close="preventClose"
   >
-    <form class="ui-form-modal" @submit.prevent="emit('submit')">
-      <UiCard>
-        <template v-if="title || $slots.header" #header>
-          <slot name="header">
-            <h3 class="form-modal-title">{{ title }}</h3>
-            <p v-if="description" class="form-modal-description">{{ description }}</p>
-          </slot>
-        </template>
-
-        <div class="form-body">
-          <slot></slot>
+    <template v-if="title || description || $slots.header || $slots.icon" #header>
+      <slot name="header">
+        <div class="form-modal-heading">
+          <span v-if="$slots.icon" class="form-modal-icon">
+            <slot name="icon" />
+          </span>
+          <div class="form-modal-copy">
+            <h2 :id="titleId" class="form-modal-title">{{ title }}</h2>
+            <p v-if="description" :id="descriptionId" class="form-modal-description">
+              {{ description }}
+            </p>
+          </div>
         </div>
+      </slot>
+    </template>
 
-        <!--
-          Footer con dos modos:
-          1. Slot #footer (prioridad): el consumidor controla completamente los
-             botones — igual que antes, sin cambios de comportamiento.
-          2. Footer por defecto (nuevo): si no se provee #footer pero se pasan
-             las props `submit-label` o `cancel-label`, se renderiza un footer
-             estándar Cancel/Submit. Reduce de ~8 líneas de template por vista
-             a 0 en casos simples.
-
-          Nota: `hideFooter` suprime el footer por completo (útil en modales
-          de solo lectura o donde el submit se maneja externamente).
-        -->
-        <template v-if="!hideFooter" #footer>
-          <slot name="footer" :request-close="requestClose">
-            <div class="modal-footer">
-              <UiButton type="button" variant="outline" @click="requestClose">
-                {{ cancelLabel }}
-              </UiButton>
-              <UiButton type="submit" :loading="loading">
-                {{ submitLabel }}
-              </UiButton>
-            </div>
-          </slot>
-        </template>
-      </UiCard>
+    <form :id="formId" ref="formRef" class="ui-form-modal" @submit.prevent="emit('submit')">
+      <div class="form-body">
+        <slot></slot>
+      </div>
     </form>
+
+    <template v-if="!hideFooter" #footer>
+      <slot
+        name="footer"
+        :request-close="requestClose"
+        :form-id="formId"
+        :submit="submitForm"
+      >
+        <div class="form-modal-footer">
+          <p v-if="footerHint" class="form-footer-hint">{{ footerHint }}</p>
+          <div class="form-modal-actions">
+            <UiButton type="button" variant="outline" width="auto" @click="requestClose">
+              {{ cancelLabel }}
+            </UiButton>
+            <UiButton
+              type="submit"
+              :form="formId"
+              width="auto"
+              :loading="loading"
+            >
+              {{ submitLabel }}
+            </UiButton>
+          </div>
+        </div>
+      </slot>
+    </template>
   </UiModal>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, useId } from 'vue';
 import UiModal from './UiModal.vue';
-import UiCard from './UiCard.vue';
 import UiButton from './UiButton.vue';
 
-/**
- * Modal de formulario: UiModal + UiCard + encabezado y pie estándar.
- *
- * Antes cada vista repetía el mismo bloque de marcado (modal, card, header
- * con título y descripción, body, footer con cancelar/guardar) y además
- * cableaba `confirm-on-dirty` a mano, lo que producía inconsistencias.
- *
- * ## Footer por defecto (nuevo)
- * Cuando no se provee el slot `#footer`, el modal renderiza automáticamente
- * un par Cancelar/Guardar configurables via props:
- *
- * ```html
- * <!-- Sin footer en el template: UiFormModal lo genera -->
- * <UiFormModal
- *   v-model="isOpen"
- *   title="Nueva sede"
- *   submit-label="Crear sede"
- *   :loading="branchStore.isLoading"
- *   @submit="handleSubmit"
- * >
- *   <!-- solo el body del formulario -->
- * </UiFormModal>
- * ```
- *
- * El slot `#footer` sigue disponible para casos que necesiten control total
- * (múltiples botones, lógica condicional, etc.) — retrocompatibilidad 100%.
- */
 withDefaults(
   defineProps<{
     title?: string;
@@ -93,14 +76,12 @@ withDefaults(
     confirmOnDirty?: boolean;
     confirmMessage?: string;
     preventClose?: boolean;
-    /** Texto del botón de envío en el footer por defecto. */
+    showClose?: boolean;
     submitLabel?: string;
-    /** Texto del botón de cancelar en el footer por defecto. */
     cancelLabel?: string;
-    /** Estado de carga del botón de envío (spinner). */
     loading?: boolean;
-    /** Suprime completamente el footer (sin botones). */
     hideFooter?: boolean;
+    footerHint?: string;
   }>(),
   {
     title: '',
@@ -110,10 +91,12 @@ withDefaults(
     confirmOnDirty: false,
     confirmMessage: 'Tienes cambios sin guardar. ¿Cerrar de todos modos?',
     preventClose: false,
+    showClose: true,
     submitLabel: 'Guardar',
     cancelLabel: 'Cancelar',
     loading: false,
     hideFooter: false,
+    footerHint: '',
   },
 );
 
@@ -122,15 +105,18 @@ const isOpen = defineModel<boolean>({ default: false });
 const emit = defineEmits<{ (e: 'submit'): void }>();
 
 const modalRef = ref<InstanceType<typeof UiModal> | null>(null);
+const formRef = ref<HTMLFormElement | null>(null);
+const formId = `form-modal-${useId()}`;
+const titleId = `form-modal-title-${useId()}`;
+const descriptionId = `form-modal-description-${useId()}`;
 
-/**
- * Expuesto al slot `footer` para que el botón Cancelar pase por la misma
- * comprobación de cambios sin guardar que el overlay y la tecla Escape.
- * Sin esto, `v-model = false` en el botón descartaba el formulario en silencio.
- */
 const requestClose = () => modalRef.value?.attemptClose();
 
-defineExpose({ requestClose });
+const submitForm = () => {
+  formRef.value?.requestSubmit();
+};
+
+defineExpose({ requestClose, submitForm });
 </script>
 
 <style scoped>
@@ -141,13 +127,101 @@ defineExpose({ requestClose });
 .form-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 
-/* Footer por defecto — mismo estilo que el .modal-footer de las vistas. */
-.modal-footer {
+.form-modal-heading {
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding-right: var(--space-2);
+}
+
+.form-modal-icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.form-modal-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.form-modal-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+
+.form-modal-description {
+  max-width: 62ch;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.form-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.form-footer-hint {
+  max-width: 38ch;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.form-modal-actions {
+  display: flex;
+  flex-shrink: 0;
   gap: var(--space-2);
+  margin-left: auto;
+}
+
+.form-modal-actions :deep(.ui-button) {
+  min-width: 7.5rem;
+}
+
+@media (max-width: 640px) {
+  .form-modal-heading {
+    gap: var(--space-3);
+  }
+
+  .form-modal-title {
+    font-size: var(--text-lg);
+  }
+
+  .form-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-footer-hint {
+    max-width: none;
+  }
+
+  .form-modal-actions {
+    flex-direction: column-reverse;
+    margin-left: 0;
+  }
+
+  .form-modal-actions :deep(.ui-button) {
+    width: 100%;
+  }
 }
 </style>

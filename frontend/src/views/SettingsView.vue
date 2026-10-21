@@ -74,74 +74,89 @@
         :dirty="isFormDirty"
         submit-label="Guardar cambios"
         :loading="companyStore.isLoading"
+        footer-hint="Los cambios de slug pueden afectar enlaces compartidos de la empresa."
         @submit="handleSubmit"
       >
         <UiAlert v-if="companyStore.error" type="error">{{ companyStore.error }}</UiAlert>
 
-        <UiInput
-          v-model="form.name"
-          label="Nombre de la Empresa"
-          required
-        />
-
-        <div class="form-row">
-          <UiInput
-            v-model="form.tax_id"
-            label="Tax ID / NIT / RFC"
-            placeholder="Ej. TAX-12345"
-          />
-          <div class="slug-field">
+        <UiFormSection
+          title="Información general"
+          description="Datos legales y enlace público de la organización."
+        >
+          <div class="form-grid">
+            <div class="span-2">
+              <UiInput
+                v-model="form.name"
+                label="Nombre de la Empresa"
+                required
+              />
+            </div>
             <UiInput
-              v-model="form.slug"
-              label="Identificador (slug)"
-              placeholder="mi-empresa"
-              :error="slugError"
+              v-model="form.tax_id"
+              label="Tax ID / NIT / RFC"
+              placeholder="Ej. TAX-12345"
             />
-            <p class="slug-preview">
-              URL: /companies/{{ form.slug || 'se-genera-automaticamente' }}/settings
-            </p>
-            <UiAlert v-if="slugChangedWarning" type="warning" class="slug-warning">
-              {{ slugChangedWarning }}
-            </UiAlert>
+            <div class="slug-field">
+              <UiInput
+                v-model="form.slug"
+                label="Identificador (slug)"
+                placeholder="mi-empresa"
+                :error="slugError"
+              />
+              <p class="slug-preview">
+                URL: /companies/{{ form.slug || 'se-genera-automaticamente' }}/settings
+              </p>
+              <UiAlert v-if="slugChangedWarning" type="warning" class="slug-warning">
+                {{ slugChangedWarning }}
+              </UiAlert>
+            </div>
           </div>
-        </div>
+        </UiFormSection>
 
-        <UiInput
-          v-model="form.logo_url"
-          label="URL del Logo"
-          placeholder="https://..."
-          type="url"
-        />
-        <div v-if="form.logo_url.trim()" class="logo-preview">
-          <img
-            :src="form.logo_url.trim()"
-            alt="Vista previa del logo de la empresa"
-            @load="logoBroken = false"
-            @error="logoBroken = true"
+        <UiFormSection
+          title="Marca"
+          description="El logo se muestra en la barra lateral y en los reportes."
+        >
+          <UiInput
+            v-model="form.logo_url"
+            label="URL del Logo"
+            placeholder="https://..."
+            type="url"
           />
-          <p v-if="logoBroken" class="logo-preview-error">
-            Esta URL no cargó ninguna imagen. Revisa el enlace antes de guardar.
-          </p>
-        </div>
+          <div v-if="form.logo_url.trim()" class="logo-preview">
+            <img
+              :src="form.logo_url.trim()"
+              alt="Vista previa del logo de la empresa"
+              @load="logoBroken = false"
+              @error="logoBroken = true"
+            />
+            <p v-if="logoBroken" class="logo-preview-error">
+              Esta URL no cargó ninguna imagen. Revisa el enlace antes de guardar.
+            </p>
+          </div>
+        </UiFormSection>
 
-        <div class="form-row">
-          <UiInput v-model="form.phone" label="Teléfono" autocomplete="tel" />
-          <UiInput v-model="form.email" label="Email" type="email" autocomplete="email" />
-        </div>
+        <UiFormSection title="Contacto" description="Canales de atención de la empresa.">
+          <div class="form-grid">
+            <UiInput v-model="form.phone" label="Teléfono" autocomplete="tel" />
+            <UiInput v-model="form.email" label="Email" type="email" autocomplete="email" />
+            <div class="span-2">
+              <UiInput v-model="form.address" label="Dirección" autocomplete="street-address" />
+            </div>
+          </div>
+        </UiFormSection>
 
-        <UiInput v-model="form.address" label="Dirección" autocomplete="street-address" />
-
-        <div class="form-row">
-          <UiInput v-model="form.city" label="Ciudad" autocomplete="address-level2" />
-          <UiInput v-model="form.state" label="Estado / Departamento" autocomplete="address-level1" />
-        </div>
-
-        <div class="form-row">
-          <UiInput v-model="form.country" label="País" autocomplete="country-name" />
-          <UiInput v-model="form.postal_code" label="Código postal" autocomplete="postal-code" />
-        </div>
-
-        <UiTimezoneSelect v-model="form.timezone" />
+        <UiFormSection title="Ubicación" description="Dirección fiscal y zona horaria.">
+          <div class="form-grid">
+            <UiInput v-model="form.city" label="Ciudad" autocomplete="address-level2" />
+            <UiInput v-model="form.state" label="Estado / Departamento" autocomplete="address-level1" />
+            <UiInput v-model="form.country" label="País" autocomplete="country-name" />
+            <UiInput v-model="form.postal_code" label="Código postal" autocomplete="postal-code" />
+            <div class="span-2">
+              <UiTimezoneSelect v-model="form.timezone" />
+            </div>
+          </div>
+        </UiFormSection>
       </UiFormModal>
     </div>
   </AuthenticatedLayout>
@@ -164,6 +179,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiTimezoneSelect from '@/components/ui/UiTimezoneSelect.vue';
 import UiAvatar from '@/components/ui/UiAvatar.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';

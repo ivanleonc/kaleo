@@ -316,27 +316,31 @@ watch(filteredSelected, (list) => {
 .dual-listbox {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+}
+
+.ui-label {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-main);
+  line-height: 1.25;
 }
 
 .dual-listbox-container {
   display: flex;
-  gap: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  overflow: hidden;
+  align-items: stretch;
+  gap: var(--space-3);
 }
 
 .listbox-panel {
-  flex: 1;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
-}
-
-.listbox-panel:first-child {
-  border-right: 1px solid var(--border);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-card);
 }
 
 .listbox-actions {
@@ -344,20 +348,19 @@ watch(filteredSelected, (list) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: var(--space-1) 6px;
-  background: var(--bg-app);
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  gap: var(--space-2);
+  flex-shrink: 0;
+  width: 2.5rem;
 }
 
 .panel-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 6px var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3);
   border-bottom: 1px solid var(--border);
-  background: var(--bg-app);
+  background-color: var(--bg-app);
 }
 
 .panel-title {
@@ -367,41 +370,49 @@ watch(filteredSelected, (list) => {
 }
 
 .panel-count {
+  min-width: 1.5rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-hover);
   font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
   color: var(--text-muted);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
 }
 
 .panel-search {
-  padding: 4px var(--space-2);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .panel-search-input {
   width: 100%;
-  height: 1.5rem;
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
+  height: 2rem;
+  padding: 0 var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   color: var(--text-main);
+  font-size: var(--text-sm);
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.panel-search-input::placeholder {
+  color: var(--text-muted);
 }
 
 .panel-search-input:focus-visible {
-  border-color: var(--text-main);
-  box-shadow: 0 0 0 1px var(--text-main);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 .panel-list {
   list-style: none;
   margin: 0;
-  padding: 0;
-  max-height: 200px;
+  padding: var(--space-1);
+  min-height: 13rem;
+  max-height: 16rem;
   overflow-y: auto;
   scrollbar-width: thin;
 }
@@ -409,42 +420,46 @@ watch(filteredSelected, (list) => {
 .panel-item {
   display: flex;
   flex-direction: column;
-  padding: 6px var(--space-2);
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
+  transition: background-color 0.12s;
 }
 
 .panel-item:hover {
-  background: var(--bg-hover);
+  background-color: var(--bg-hover);
 }
 
-/* Los options se focused con el teclado, no solo con el ratón */
 .panel-item:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
 .panel-item.selected {
-  background: var(--bg-hover);
+  background-color: var(--bg-hover);
 }
 
 .panel-item.temp-selected {
-  background: var(--color-primary-light);
+  background-color: var(--color-primary-light);
 }
 
 .item-label {
   font-size: var(--text-sm);
+  line-height: 1.35;
   color: var(--text-main);
 }
 
 .item-description {
   font-size: var(--text-xs);
+  line-height: 1.4;
   color: var(--text-muted);
-  margin-top: 2px;
 }
 
 .panel-empty {
+  display: grid;
+  place-items: center;
+  min-height: 13rem;
   padding: var(--space-6) var(--space-4);
   text-align: center;
   color: var(--text-muted);
@@ -452,23 +467,27 @@ watch(filteredSelected, (list) => {
 }
 
 .action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg-card);
+  background-color: var(--bg-card);
   color: var(--text-main);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .action-btn:hover:not(:disabled) {
-  background: var(--text-main);
-  color: var(--bg-card);
   border-color: var(--text-main);
+  background-color: var(--text-main);
+  color: var(--bg-card);
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .action-btn:disabled {
@@ -477,10 +496,10 @@ watch(filteredSelected, (list) => {
 }
 
 .action-divider {
-  width: 1.5rem;
+  width: 1rem;
   height: 1px;
-  background: var(--border);
   margin: var(--space-1) 0;
+  background-color: var(--border);
 }
 
 @media (max-width: 640px) {
@@ -488,24 +507,32 @@ watch(filteredSelected, (list) => {
     flex-direction: column;
   }
 
-  .listbox-panel:first-child {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
   .listbox-actions {
     flex-direction: row;
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    padding: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) 0;
   }
 
   .action-divider {
     width: 1px;
     height: 1.5rem;
     margin: 0 var(--space-1);
+  }
+
+  .panel-search-input {
+    height: 2.5rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .action-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .panel-item {
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
   }
 }
 </style>
