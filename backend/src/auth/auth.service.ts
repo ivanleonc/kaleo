@@ -3,7 +3,7 @@ import { RegistrationService } from './registration.service.js';
 import { SessionService } from './session.service.js';
 import { PasswordService } from './password.service.js';
 
-@Injectable()
+@Injectable() 
 export class AuthService {
   constructor(
     private registrationService: RegistrationService,
