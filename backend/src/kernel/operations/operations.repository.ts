@@ -1,6 +1,5 @@
-import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { InjectDataSource } from '@nestjs/typeorm';
 import { withTenantTransaction } from '../../common/tenancy/tenant-transaction.js';
 import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
 import type { OperationKind, OperationRow } from './operations.types.js';
@@ -10,12 +9,7 @@ export class OperationsRepository {
   constructor(
     private readonly dataSource: DataSource,
     private readonly tenantContext: TenantContextService,
-    @Optional() @InjectDataSource('auth') private readonly authDataSource?: DataSource,
   ) {}
-
-  private get privilegedDataSource(): DataSource {
-    return this.authDataSource ?? this.dataSource;
-  }
 
   private assertCompany(companyId: string): void {
     if (this.tenantContext.requireCompanyId() !== companyId) {
@@ -72,18 +66,25 @@ export class OperationsRepository {
   }
 
   async getInternal(id: string): Promise<OperationRow | null> {
-    const rows = await this.privilegedDataSource.query(
-      `SELECT * FROM operations WHERE id = $1`,
-      [id],
-    );
-    return (rows[0] as OperationRow) ?? null;
+    const companyId = this.tenantContext.requireCompanyId();
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `SELECT * FROM operations WHERE id = $1 AND company_id = $2`,
+        [id, companyId],
+      );
+      return (rows[0] as OperationRow) ?? null;
+    });
   }
 
   async markProcessing(id: string): Promise<void> {
-    await this.privilegedDataSource.query(
-      `UPDATE operations SET status = 'processing', error = NULL WHERE id = $1`,
-      [id],
-    );
+    const companyId = this.tenantContext.requireCompanyId();
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await queryRunner.query(
+        `UPDATE operations SET status = 'processing', error = NULL
+         WHERE id = $1 AND company_id = $2`,
+        [id, companyId],
+      );
+    });
   }
 
   async markReady(
@@ -95,32 +96,39 @@ export class OperationsRepository {
       summary?: Record<string, unknown>;
     },
   ): Promise<void> {
-    await this.privilegedDataSource.query(
-      `UPDATE operations
-       SET status = 'ready',
-           filename = $2,
-           content_type = $3,
-           data = $4,
-           result = $5::jsonb,
-           error = NULL,
-           completed_at = now()
-       WHERE id = $1`,
-      [
-        id,
-        result.filename ?? null,
-        result.contentType ?? null,
-        result.data ?? null,
-        result.summary ? JSON.stringify(result.summary) : null,
-      ],
-    );
+    const companyId = this.tenantContext.requireCompanyId();
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await queryRunner.query(
+        `UPDATE operations
+         SET status = 'ready',
+             filename = $3,
+             content_type = $4,
+             data = $5,
+             result = $6::jsonb,
+             error = NULL,
+             completed_at = now()
+         WHERE id = $1 AND company_id = $2`,
+        [
+          id,
+          companyId,
+          result.filename ?? null,
+          result.contentType ?? null,
+          result.data ?? null,
+          result.summary ? JSON.stringify(result.summary) : null,
+        ],
+      );
+    });
   }
 
   async markFailed(id: string, error: string): Promise<void> {
-    await this.privilegedDataSource.query(
-      `UPDATE operations
-       SET status = 'failed', error = $2, completed_at = now()
-       WHERE id = $1`,
-      [id, error.slice(0, 1000)],
-    );
+    const companyId = this.tenantContext.requireCompanyId();
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await queryRunner.query(
+        `UPDATE operations
+         SET status = 'failed', error = $3, completed_at = now()
+         WHERE id = $1 AND company_id = $2`,
+        [id, companyId, error.slice(0, 1000)],
+      );
+    });
   }
 }

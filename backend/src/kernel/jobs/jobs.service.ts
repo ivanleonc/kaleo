@@ -7,6 +7,7 @@ import type { JobHandler, JobInput, JobRow } from './jobs.types.js';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const STALE_LOCK_MINUTES = 10;
+const JOB_TIMEOUT_MS = 60_000;
 
 type QueryExecutor = { query(sql: string, parameters?: any[]): Promise<any> };
 
@@ -94,21 +95,25 @@ export class JobsService {
         if (!handler) {
           throw new Error(`No hay handler para la cola "${job.queue}"`);
         }
+        this.logger.log(`Job ${job.id} (${job.queue}) start`);
         const execute = () => handler(job);
         if (this.tenantContext) {
           const userId =
             typeof job.payload.userId === 'string' ? job.payload.userId : undefined;
-          await this.tenantContext.run(
-            {
-              requestId: `job:${job.id}`,
-              companyId: job.company_id,
-              userId,
-              isSuperAdmin: false,
-            },
-            execute,
+          await this.withTimeout(
+            this.tenantContext.run(
+              {
+                requestId: `job:${job.id}`,
+                companyId: job.company_id,
+                userId,
+                isSuperAdmin: false,
+              },
+              execute,
+            ),
+            job.id,
           );
         } else {
-          await execute();
+          await this.withTimeout(execute(), job.id);
         }
         await db.query(
           `UPDATE jobs
@@ -117,6 +122,7 @@ export class JobsService {
            WHERE id = $1`,
           [job.id],
         );
+        this.logger.log(`Job ${job.id} (${job.queue}) completed`);
       } catch (error) {
         const message = (error as Error).message.slice(0, 1000);
         if (job.attempts >= job.max_attempts) {
@@ -149,5 +155,24 @@ export class JobsService {
     }
 
     return claimed.length;
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, jobId: string): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`Job ${jobId} excedió ${JOB_TIMEOUT_MS / 1000}s`)),
+            JOB_TIMEOUT_MS,
+          );
+          timer.unref?.();
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 }
