@@ -680,7 +680,9 @@ onMounted(async () => {
     roleService.getRoles().then((roles) => {
       availableRoles.value = roles;
     }).catch(() => {}),
-    memberStore.fetchInvitations(),
+    typeof memberStore.fetchInvitations === 'function'
+      ? memberStore.fetchInvitations()
+      : Promise.resolve(),
   ]);
 });
 
