@@ -40,6 +40,8 @@ npm run docs:dev   # → http://localhost:5173
 
 Regla: **local → dev** para romper sin miedo; **staging** para validar; **prod** solo con CI verde + humo verde en staging. Staging nunca comparte base de datos con producción.
 
+> **Nota:** el servicio Render `saas-api-staging-fx9a` es **producción**. El nombre “staging” es legado; no usar ese servicio para pruebas ni asumir que apunta a `kaleo-staging`.
+
 ## Arranque en local (una sola terminal)
 
 Desde la raíz del proyecto:
