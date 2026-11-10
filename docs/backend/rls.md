@@ -43,6 +43,30 @@ CREATE POLICY branches_tenant_isolation ON public.branches
 
 `NULLIF(..., '')` es obligatorio: si el GUC se define y luego se resetea, `current_setting` devuelve `''`, y `''::uuid` lanza error. Con `NULLIF`, la comparación es `NULL` y no devuelve filas.
 
+## Cobertura de políticas
+
+| Tabla | Regla |
+|---|---|
+| `branches`, `analyses`, `feature_flags`, `audit_logs`, `user_contexts` | `company_id = app.company_id` |
+| `invitations`, `invitation_roles` | `company_id = app.company_id` |
+| `outbox_events` | `company_id = app.company_id` |
+| `memberships`, `membership_roles`, `membership_branches` | `company_id = app.company_id` |
+| `roles` | globales (`company_id IS NULL`) o de la empresa actual |
+| `role_permissions` | el rol es global o de la empresa actual |
+| `permissions` | catálogo global, solo lectura |
+| `users` | el usuario actual o alguien con membership activa en la empresa actual |
+| `companies` | la empresa actual o una empresa donde el usuario tiene membership activa |
+
+Validación integral:
+
+```bash
+npm run smoke:rls:all -- staging
+```
+
+Crea dos empresas con datos de varios módulos, cambia a `kaleo_app` con contexto de A y verifica que no vea nada de B. Sin contexto, las tablas por empresa devuelven 0 filas.
+
+> **Importante:** la aplicación sigue conectando como `postgres` (`BYPASSRLS`). Las políticas están listas, pero no se aplican hasta cambiar la `DATABASE_URL` a `kaleo_app`.
+
 ## Cómo se ejecuta
 
 Dentro de una transacción:
@@ -92,10 +116,12 @@ Los repositorios existentes siguen recibiendo `companyId` explícito. La migraci
 
 ## Rollout pendiente
 
-1. Extender políticas a tablas con `company_id`: `branches`, `analyses`, `feature_flags`, `audit_logs`.
-2. Diseñar políticas especiales para `users`, `companies`, `user_contexts` y `roles` (login y memberships ocurren antes de tener contexto de empresa).
-3. Migrar los repositorios de las tablas con RLS a `withTenantTransaction`.
-4. Crear el rol de login de la aplicación y migrar la `DATABASE_URL`.
-5. Probar con `kaleo_app` en staging antes de producción.
+1. ✅ Políticas para todas las tablas de negocio.
+2. Migrar los repositorios a `withTenantTransaction` para que cada operación de negocio setee `app.company_id`.
+3. Resolver el flujo de autenticación sin contexto de empresa (login por email, registro y onboarding):
+   - opción A: funciones `SECURITY DEFINER` para lookups de auth;
+   - opción B: rol/DataSource `kaleo_auth` separado con permisos acotados.
+4. Crear el rol de login `kaleo_app` con password y migrar la `DATABASE_URL`.
+5. Probar en staging con `kaleo_app` y luego en producción.
 
-No cambiar la conexión de la aplicación a `kaleo_app` hasta completar los pasos 1–4.
+**No cambiar la conexión a `kaleo_app` hasta completar 2 y 3.** Con `kaleo_app` y sin contexto, el login por email devuelve 0 filas por diseño.

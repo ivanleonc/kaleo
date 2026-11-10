@@ -112,6 +112,7 @@ Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm 
 | `025-outbox-and-audit-fields.sql` | Outbox transaccional y metadatos de auditoría |
 | `026-create-memberships.sql` | Memberships, roles y sedes con backfill |
 | `027-sync-user-contexts-memberships.sql` | Triggers de sincronización `user_contexts` → memberships |
+| `028-rls-all-tables.sql` | Políticas RLS para todas las tablas de negocio |
 
 ### Reglas de oro
 
