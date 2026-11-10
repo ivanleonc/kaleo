@@ -71,6 +71,10 @@ export class RbacService {
       throw new ConflictException(`No se pueden modificar los roles del sistema (${role.name})`);
     }
 
+    if (data.name && data.name !== role.name && PROTECTED_ROLES.includes(role.name as any)) {
+      throw new ConflictException(`No se puede renombrar un rol del sistema (${role.name})`);
+    }
+
     if (role.company_id !== null && role.company_id !== companyId) {
       throw new ForbiddenException('No tienes acceso a este rol');
     }

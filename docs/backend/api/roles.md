@@ -140,7 +140,7 @@ Actualiza nombre, descripción, color y/o permisos de un rol personalizado.
 ```
 
 ::: warning Roles del sistema
-No se pueden modificar los roles `Owner`, `Admin` y `Viewer`. Son roles del sistema (`is_system: true`).
+`Owner`, `Admin` y `Viewer` no se pueden renombrar ni eliminar. Los permisos de `Owner` son inmutables; los de `Admin` y `Viewer` sí se pueden ajustar.
 :::
 
 ---
