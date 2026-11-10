@@ -4,4 +4,3 @@
 /assets/*  /assets/:splat  200
 *.js       /*.js            200
 *.css      /*.css            200
-/*         /index.html       200

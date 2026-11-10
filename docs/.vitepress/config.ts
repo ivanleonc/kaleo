@@ -234,5 +234,6 @@ export default defineConfig({
       message: 'Documentación de Kaleo — plataforma SaaS multi-tenant',
       copyright: '© 2026 Kaleo. Todos los derechos reservados.',
     },
+    // build-cache-buster: forzar-nuevo-hash-2026-11-09
   },
 })
