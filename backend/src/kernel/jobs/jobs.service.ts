@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { DataSource, QueryRunner } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
 import type { JobHandler, JobInput, JobRow } from './jobs.types.js';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
@@ -26,6 +27,7 @@ export class JobsService {
   constructor(
     private readonly dataSource: DataSource,
     @Optional() @InjectDataSource('auth') private readonly authDataSource?: DataSource,
+    @Optional() private readonly tenantContext?: TenantContextService,
   ) {}
 
   private get privilegedDataSource(): DataSource {
@@ -92,7 +94,22 @@ export class JobsService {
         if (!handler) {
           throw new Error(`No hay handler para la cola "${job.queue}"`);
         }
-        await handler(job);
+        const execute = () => handler(job);
+        if (this.tenantContext) {
+          const userId =
+            typeof job.payload.userId === 'string' ? job.payload.userId : undefined;
+          await this.tenantContext.run(
+            {
+              requestId: `job:${job.id}`,
+              companyId: job.company_id,
+              userId,
+              isSuperAdmin: false,
+            },
+            execute,
+          );
+        } else {
+          await execute();
+        }
         await db.query(
           `UPDATE jobs
            SET status = 'completed', completed_at = now(),

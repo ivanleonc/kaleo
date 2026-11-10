@@ -46,28 +46,26 @@ Sin `queryRunner` usa el DataSource `auth` (privilegiado).
 
 - Reclama con `FOR UPDATE SKIP LOCKED`.
 - Marca `running` antes de ejecutar.
+- Ejecuta el handler dentro de un `TenantContext` con `company_id` del job (y `user_id` si viene en el payload).
 - Ejecuta el handler registrado para la cola.
 - Éxito → `completed`.
 - Fallo → backoff 5s, 10s, 20s… hasta 300s.
 - Agotar `max_attempts` → `dead_letter`.
 
-## Handlers
+## Handlers incluidos
 
-```ts
-jobs.registerHandler('email.send', async (job) => {
-  // ...
-});
-```
+| Cola | Acción |
+|---|---|
+| `email.send` | Envía `{ to, subject, html }` por `EmailService` |
+| `export.generate` | Genera CSV/XLSX de members, branches, analyses o audit |
+| `report.generate` | Genera reporte de análisis |
+| `import.branches` | Crea sedes desde filas JSON |
 
-Handler incluido:
-
-| Cola | Payload | Acción |
-|---|---|---|
-| `email.send` | `{ to, subject, html }` | Envía por `EmailService` |
+Ver `operations.md` para endpoints y ciclo de vida.
 
 ## Pendiente
 
-- Productores reales para imports y exports.
+- Productores reales para imports masivos de otras entidades.
 - Migrar envíos de email existentes a `email.send` cuando convenga.
 - Endpoint/admin para ver pendientes y reintentar dead-letter.
 - Métricas de profundidad y latencia por cola.

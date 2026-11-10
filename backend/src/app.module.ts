@@ -18,6 +18,7 @@ import { ModuleRegistryModule } from './kernel/modules/module-registry.module.js
 import { EntitlementModule } from './kernel/billing/entitlement.module.js';
 import { CompanySettingsModule } from './kernel/tenancy/company-settings.module.js';
 import { JobsModule } from './kernel/jobs/jobs.module.js';
+import { OperationsModule } from './kernel/operations/operations.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -103,6 +104,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     EntitlementModule,
     CompanySettingsModule,
     JobsModule,
+    OperationsModule,
   ],
   controllers: [AppController],
   providers: [
