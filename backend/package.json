@@ -29,6 +29,7 @@
     "migrate": "tsx scripts/run-migrations.ts",
     "db:bootstrap-ci": "tsx scripts/bootstrap-ci-db.ts",
     "db:set-app-passwords": "tsx scripts/set-app-role-passwords.ts",
+    "db:check-app-roles": "tsx scripts/check-app-roles.ts",
     "migrate:backfill": "tsx scripts/backfill-migrations.ts",
     "migrate:verify": "tsx scripts/verify-012.ts",
     "smoke:members": "tsx scripts/smoke-members.ts",

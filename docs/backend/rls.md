@@ -189,16 +189,27 @@ inyecta en repositorios/guards de auth, auditoría y outbox.
 Activación:
 
 1. Aplicar `039-app-runtime-roles.sql`.
-2. Configurar contraseñas:
+2. Configurar contraseñas (lee `DATABASE_URL` de `.env.production`):
 
 ```bash
 KALEO_RUNTIME_PASSWORD=... KALEO_AUTH_PASSWORD=... \
   npm run db:set-app-passwords -- production
 ```
 
-3. Definir `DATABASE_APP_URL` y `DATABASE_AUTH_URL` en el hosting.
-4. Reiniciar el backend y validar login, onboarding, miembros, auditoría y outbox.
-5. Rollback: quitar ambas variables; la app vuelve a usar `DATABASE_URL`.
+3. Verificar las dos conexiones antes de tocar Render:
+
+```bash
+KALEO_RUNTIME_PASSWORD=... KALEO_AUTH_PASSWORD=... \
+  npm run db:check-app-roles -- production
+```
+
+Debe terminar con `RESULTADO: roles de aplicación OK`. Este paso valida el
+formato del usuario en el pooler y que RLS falla cerrado sin contexto.
+
+4. Definir `DATABASE_APP_URL` y `DATABASE_AUTH_URL` en el hosting con las
+   mismas contraseñas verificadas.
+5. Reiniciar el backend y validar login, onboarding, miembros, auditoría y outbox.
+6. Rollback: quitar ambas variables; la app vuelve a usar `DATABASE_URL`.
 
 > `DATABASE_URL` sigue siendo la conexión administrativa de migraciones/scripts.
 > No la cambies al rol runtime.
