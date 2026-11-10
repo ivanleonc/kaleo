@@ -23,6 +23,9 @@ function createService(
   const repository = {
     syncCatalog: vi.fn(async () => {}),
     getCompanyModuleStatuses: vi.fn(async () => statuses),
+    setCompanyModule: vi.fn(async (_companyId: string, _code: string, enabled: boolean) =>
+      enabled ? 'enabled' : 'disabled',
+    ),
   } as any;
   return new ModuleRegistryService(repository, manifests);
 }
@@ -67,5 +70,67 @@ describe('ModuleRegistryService.getEnabledModules', () => {
     const modules = await service.getEnabledModules('company-1');
 
     expect(modules.map((m) => m.code)).toEqual(['core.users']);
+  });
+});
+
+describe('ModuleRegistryService.setModuleEnabled', () => {
+  const base = manifest({ code: 'core.base' });
+  const projects = manifest({
+    code: 'construction.projects',
+    isCore: false,
+    vertical: 'construction',
+  });
+  const estimating = manifest({
+    code: 'construction.estimating',
+    isCore: false,
+    vertical: 'construction',
+    dependsOn: ['construction.projects'],
+  });
+
+  function setup(statuses: Map<string, ModuleStatus>) {
+    const repository = {
+      syncCatalog: vi.fn(async () => {}),
+      getCompanyModuleStatuses: vi.fn(async () => statuses),
+      setCompanyModule: vi.fn(async (_companyId: string, _code: string, enabled: boolean) =>
+        enabled ? 'enabled' : 'disabled',
+      ),
+    } as any;
+    const service = new ModuleRegistryService(repository, [base, projects, estimating]);
+    return { service, repository };
+  }
+
+  it('rechaza deshabilitar un módulo core', async () => {
+    const { service } = setup(new Map());
+    await expect(service.setModuleEnabled('c-1', 'core.base', false)).rejects.toThrow('core');
+  });
+
+  it('exige dependencias habilitadas antes de activar', async () => {
+    const { service } = setup(new Map());
+    await expect(service.setModuleEnabled('c-1', 'construction.estimating', true))
+      .rejects.toThrow('construction.projects');
+  });
+
+  it('activa el módulo cuando la dependencia está habilitada', async () => {
+    const { service, repository } = setup(
+      new Map<string, ModuleStatus>([['construction.projects', 'enabled']]),
+    );
+    await expect(service.setModuleEnabled('c-1', 'construction.estimating', true))
+      .resolves.toEqual({ code: 'construction.estimating', status: 'enabled' });
+    expect(repository.setCompanyModule).toHaveBeenCalledWith(
+      'c-1',
+      'construction.estimating',
+      true,
+    );
+  });
+
+  it('no deshabilita un módulo con dependientes activos', async () => {
+    const { service } = setup(
+      new Map<string, ModuleStatus>([
+        ['construction.projects', 'enabled'],
+        ['construction.estimating', 'enabled'],
+      ]),
+    );
+    await expect(service.setModuleEnabled('c-1', 'construction.projects', false))
+      .rejects.toThrow('construction.estimating');
   });
 });

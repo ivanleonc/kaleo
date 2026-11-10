@@ -88,4 +88,30 @@ export class ModuleRegistryRepository {
       );
     });
   }
+
+  async setCompanyModule(
+    companyId: string,
+    moduleCode: string,
+    enabled: boolean,
+  ): Promise<ModuleStatus> {
+    this.assertCompany(companyId);
+    const status: ModuleStatus = enabled ? 'enabled' : 'disabled';
+
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `INSERT INTO company_modules
+           (company_id, module_code, status, enabled_at, disabled_at)
+         VALUES ($1, $2, $3,
+           CASE WHEN $3 = 'enabled' THEN now() ELSE NULL END,
+           CASE WHEN $3 = 'disabled' THEN now() ELSE NULL END)
+         ON CONFLICT (company_id, module_code) DO UPDATE SET
+           status = EXCLUDED.status,
+           enabled_at = CASE WHEN EXCLUDED.status = 'enabled' THEN now() ELSE company_modules.enabled_at END,
+           disabled_at = CASE WHEN EXCLUDED.status = 'disabled' THEN now() ELSE NULL END
+         RETURNING status`,
+        [companyId, moduleCode, status],
+      );
+      return rows[0]?.status as ModuleStatus;
+    });
+  }
 }

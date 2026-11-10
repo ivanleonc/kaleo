@@ -76,6 +76,27 @@ Devuelve los manifests habilitados con su estado:
 }
 ```
 
+## Habilitar/deshabilitar
+
+Solo super-admin:
+
+```http
+PUT /api/modules/:code
+x-company-id: <uuid>
+Authorization: Bearer <token>
+
+{ "enabled": true }
+```
+
+Reglas:
+
+- Los `core.*` no se pueden deshabilitar.
+- Al habilitar, todas las dependencias deben estar habilitadas.
+- Al deshabilitar, no debe haber módulos activos que dependan de él.
+- La escritura queda auditada.
+
+`GET /api/modules/catalog` devuelve todos los manifests (super-admin).
+
 ## Frontend shell
 
 - `useModulesStore` carga `GET /api/modules` al cambiar de empresa en `AuthenticatedLayout`.
