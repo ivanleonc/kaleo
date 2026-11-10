@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException, ConflictException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
 import { rows, row } from '../../common/utils/db.js';
@@ -23,7 +23,13 @@ export class CompanyRepository {
     return rows<TenantRow>(await this.dataSource.query(sql, [userId]));
   }
 
-  async createWithOwner(userId: string, name: string, taxId?: string, slug?: string) {
+  async createWithOwner(
+    userId: string,
+    name: string,
+    taxId?: string,
+    slug?: string,
+    onCreated?: (queryRunner: QueryRunner, company: CompanyRow) => Promise<void>,
+  ) {
     let newCompany: CompanyRow | undefined;
     try {
       await runInTransaction(this.dataSource, async (queryRunner) => {
@@ -51,6 +57,10 @@ export class CompanyRepository {
           `INSERT INTO user_contexts (user_id, company_id, branch_id, role_id) VALUES ($1, $2, NULL, $3)`,
           [userId, newCompany!.id, ownerRoleId],
         );
+
+        if (onCreated) {
+          await onCreated(queryRunner, newCompany!);
+        }
       });
       return newCompany;
     } catch (error) {

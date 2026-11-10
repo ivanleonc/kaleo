@@ -1,5 +1,8 @@
 import { Injectable, ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common';
 import { CompanyRepository } from './repositories/company.repository.js';
+import { AuditLogService } from '../audit/audit-log.service.js';
+import { OutboxService } from '../outbox/outbox.service.js';
+import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
 import { slugify, slugWithSuffix } from '../common/utils/slug.util.js';
 // import { AuditLogService } from '../audit/audit-log.service'; // TODO: Migrar
 
@@ -7,7 +10,9 @@ import { slugify, slugWithSuffix } from '../common/utils/slug.util.js';
 export class CompanyService {
   constructor(
     private readonly companyRepository: CompanyRepository,
-    // private auditLogger: AuditLogService
+    private readonly auditLogService: AuditLogService,
+    private readonly outboxService: OutboxService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   /** Normaliza y valida disponibilidad de un slug explícito. */
@@ -63,20 +68,47 @@ export class CompanyService {
       ? await this.ensureSlugAvailable(slug)
       : await this.generateUniqueSlug(name);
 
-    const newCompany = await this.companyRepository.createWithOwner(userId, name, taxId, finalSlug); //[cite: 12]
+    const context = this.tenantContext.get();
+    const newCompany = await this.companyRepository.createWithOwner(
+      userId,
+      name,
+      taxId,
+      finalSlug,
+      async (queryRunner, company) => {
+        await this.auditLogService.logInTransaction(queryRunner, {
+          companyId: company.id,
+          userId,
+          action: 'POST /api/companies',
+          entityType: 'Company',
+          entityId: company.id,
+          newValues: {
+            id: company.id,
+            name: company.name,
+            tax_id: company.tax_id,
+            slug: company.slug,
+          },
+          responseStatus: 201,
+          moduleCode: 'core.tenancy',
+          source: 'api',
+          requestId: context?.requestId,
+          actorType: 'user',
+          actorId: userId,
+        });
 
-    /* TODO: Migrar auditoría[cite: 12]
-    this.auditLogger.log({
-      companyId: newCompany.id,
-      userId: userId,
-      action: 'COMPANY_CREATED',
-      modelType: 'Company',
-      modelId: newCompany.id,
-      newValues: { name, tax_id: taxId }
-    });
-    */
+        await this.outboxService.enqueue(
+          {
+            companyId: company.id,
+            aggregateType: 'Company',
+            aggregateId: company.id,
+            eventType: 'company.created',
+            payload: { companyId: company.id, name: company.name, slug: company.slug },
+          },
+          queryRunner,
+        );
+      },
+    );
 
-    return newCompany; //[cite: 12]
+    return newCompany;
   }
 
   async updateCompanyInfo(userId: string, companyId: string, data: {

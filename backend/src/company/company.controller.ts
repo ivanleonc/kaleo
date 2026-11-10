@@ -81,7 +81,7 @@ export class CompanyController {
   }
 
   @Post()
-  @Audit({ entityType: 'Company', resolveCreatedId: (r) => r?.data?.company?.id })
+  @Audit({ entityType: 'Company', skip: true })
   @ApiOperation({ summary: 'Crear nueva empresa', description: 'El usuario autenticado se convierte automáticamente en Owner de la empresa creada' })
   @ApiResponse({
     status: 201,

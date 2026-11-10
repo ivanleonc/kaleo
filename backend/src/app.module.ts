@@ -21,6 +21,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware.js';
 import { TenantContextModule } from './common/tenancy/tenant-context.module.js';
+import { OutboxModule } from './outbox/outbox.module.js';
 import { TenantContextMiddleware } from './common/tenancy/tenant-context.middleware.js';
 import { envValidationSchema } from './common/config/env.validation.js';
 import { databaseSslOptions } from './common/config/database-ssl.js';
@@ -60,6 +61,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
       }),
     }),
     TenantContextModule,
+    OutboxModule,
     AuditLogModule,
     EmailModule,
     AuthModule,

@@ -109,6 +109,7 @@ Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm 
 | `022-fix-rls-empty-setting.sql` | Corrige RLS cuando no hay `app.company_id` |
 | `023-company-id-unique.sql` | `UNIQUE (company_id, id)` para futuras FKs compuestas |
 | `024-create-invitations.sql` | Invitaciones por email con token, roles y expiración |
+| `025-outbox-and-audit-fields.sql` | Outbox transaccional y metadatos de auditoría |
 
 ### Reglas de oro
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AuditLogRepository } from './audit-log.repository.js';
+import type { QueryRunner } from 'typeorm';
+import { AuditLogRepository, type AuditLogData } from './audit-log.repository.js';
 import { TabularExportService } from '../common/export/tabular-export.service.js';
 import type { ExportFile, ExportFormat } from '../common/export/export.types.js';
 import { AUDIT_EXPORT_COLUMNS, type AuditExportRow } from './audit-export.columns.js';
@@ -13,20 +14,7 @@ export class AuditLogService {
     private readonly exportService: TabularExportService,
   ) {}
 
-  async log(data: {
-    userId?: string;
-    companyId?: string;
-    action: string;
-    entityType: string;
-    entityId: string;
-    oldValues?: any;
-    newValues?: any;
-    ipAddress?: string;
-    userAgent?: string;
-    responseStatus?: number;
-    responseData?: any;
-    durationMs?: number;
-  }) {
+  async log(data: Omit<AuditLogData, 'companyId'> & { companyId?: string }) {
     if (!data.companyId) {
       this.logger.debug(`Skipping audit log for action "${data.action}" — no companyId provided`);
       return;
@@ -40,6 +28,14 @@ export class AuditLogService {
     } catch (error: any) {
       this.logger.error(`Failed to write audit log: ${error.message}`);
     }
+  }
+
+  /**
+   * Auditoría atómica: se escribe con el QueryRunner del cambio de negocio.
+   * Si falla, la transacción debe hacer rollback; por eso no se captura el error.
+   */
+  async logInTransaction(queryRunner: QueryRunner, data: AuditLogData) {
+    await this.auditLogRepository.logInTransaction(queryRunner, data);
   }
 
   async findFiltered(params: {

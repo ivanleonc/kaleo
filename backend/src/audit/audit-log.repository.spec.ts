@@ -28,6 +28,40 @@ const LAST_ROW = {
   created_at: new Date('2026-06-01T08:15:45.123Z'),
 };
 
+describe('AuditLogRepository.logInTransaction', () => {
+  it('inserta con el QueryRunner y los metadatos nuevos', async () => {
+    const calls: Array<{ sql: string; params: any[] }> = [];
+    const runner = {
+      query: vi.fn(async (sql: string, params: any[] = []) => {
+        calls.push({ sql, params });
+        return [];
+      }),
+    };
+    const repository = new AuditLogRepository({} as any);
+
+    await repository.logInTransaction(runner as any, {
+      companyId: 'company-1',
+      userId: 'user-1',
+      action: 'POST /api/companies',
+      entityType: 'Company',
+      entityId: 'company-1',
+      moduleCode: 'core.tenancy',
+      source: 'api',
+      requestId: 'req-1',
+      actorType: 'user',
+      actorId: 'user-1',
+    });
+
+    expect(calls[0]!.sql).toContain('module_code');
+    expect(calls[0]!.sql).toContain('request_id');
+    expect(calls[0]!.params[12]).toBe('core.tenancy');
+    expect(calls[0]!.params[13]).toBe('api');
+    expect(calls[0]!.params[14]).toBe('req-1');
+    expect(calls[0]!.params[16]).toBe('user');
+    expect(calls[0]!.params[17]).toBe('user-1');
+  });
+});
+
 describe('AuditLogRepository.findFiltered', () => {
   let calls: Array<{ sql: string; params: any[] }>;
   let repository: AuditLogRepository;

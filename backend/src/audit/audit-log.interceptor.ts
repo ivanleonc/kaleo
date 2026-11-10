@@ -1,8 +1,9 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Observable, catchError, from, mergeMap, throwError } from 'rxjs';
 import { AuditLogService } from './audit-log.service.js';
 import { DataSource } from 'typeorm';
+import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
 import {
   AUDIT_CONTEXT_KEY,
   AuditContextOptions,
@@ -16,6 +17,7 @@ export class AuditLogInterceptor implements NestInterceptor {
     private auditLogService: AuditLogService,
     private dataSource: DataSource,
     private reflector: Reflector,
+    private tenantContext: TenantContextService,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -23,6 +25,8 @@ export class AuditLogInterceptor implements NestInterceptor {
     const { method, url, body, user, ip, headers } = request;
     const userAgent = headers['user-agent'];
     const companyId = headers['x-company-id'] || user?.tenants?.[0]?.id;
+    const requestId =
+      this.tenantContext.get()?.requestId || (headers['x-request-id'] as string | undefined);
 
     if (url.includes('/audit')) {
       return next.handle();
@@ -66,7 +70,7 @@ export class AuditLogInterceptor implements NestInterceptor {
       : Promise.resolve(undefined);
 
     return next.handle().pipe(
-      tap((response) => {
+      mergeMap(async (response) => {
         const duration = Date.now() - startTime;
 
         let newEntityId = entityId;
@@ -87,27 +91,38 @@ export class AuditLogInterceptor implements NestInterceptor {
         }
         this.logger.debug(`${method} ${normalizedUrl} 200 ${duration}ms`);
 
-        // La auditoría nunca bloquea la respuesta: se escribe en segundo plano.
-        void Promise.all([oldValuesPromise.catch(() => null), newValuesPromise])
-          .then(([oldValues, newValues]) =>
-            this.auditLogService.log({
-              userId: resolvedUserId,
-              companyId: effectiveCompanyId,
-              action: `${method} ${normalizedUrl}`,
-              entityType,
-              entityId: newEntityId,
-              oldValues: oldValues || undefined,
-              newValues: newValues || undefined,
-              ipAddress: ip,
-              userAgent,
-              responseStatus: 200,
-              responseData: sanitizedResponse,
-              durationMs: duration,
-            }),
-          )
-          .catch((err) => {
-            this.logger.error(`Audit write failed for ${method} ${normalizedUrl}: ${err.message}`);
-          });
+        const [oldValues, newValues] = await Promise.all([
+          oldValuesPromise.catch(() => null),
+          newValuesPromise,
+        ]);
+        const auditData = {
+          userId: resolvedUserId,
+          companyId: effectiveCompanyId,
+          action: `${method} ${normalizedUrl}`,
+          entityType,
+          entityId: newEntityId,
+          oldValues: oldValues || undefined,
+          newValues: newValues || undefined,
+          ipAddress: ip,
+          userAgent,
+          responseStatus: 200,
+          responseData: sanitizedResponse,
+          durationMs: duration,
+          moduleCode: this.extractModuleCode(url),
+          source: 'api' as const,
+          requestId,
+          actorType: 'user' as const,
+          actorId: resolvedUserId,
+        };
+
+        // Las mutaciones esperan la auditoría; los GET no bloquean la respuesta.
+        if (isMutation) {
+          await this.auditLogService.log(auditData);
+        } else {
+          void this.auditLogService.log(auditData);
+        }
+
+        return response;
       }),
       catchError((error) => {
         const duration = Date.now() - startTime;
@@ -115,32 +130,37 @@ export class AuditLogInterceptor implements NestInterceptor {
 
         this.logger.debug(`${method} ${normalizedUrl} ${statusCode} ${duration}ms`);
 
-        void Promise.all([oldValuesPromise.catch(() => null), newValuesPromise])
-          .then(([oldValues, newValues]) =>
-            this.auditLogService.log({
-              userId: user?.id,
-              companyId,
-              action: `${method} ${normalizedUrl}`,
-              entityType,
-              entityId,
-              oldValues: oldValues || undefined,
-              newValues: newValues || undefined,
-              ipAddress: ip,
-              userAgent,
-              responseStatus: statusCode,
-              responseData: {
-                error: true,
-                message: error.message || 'Unknown error',
-                code: error.code || 'INTERNAL_ERROR',
-              },
-              durationMs: duration,
+        return from(
+          Promise.all([oldValuesPromise.catch(() => null), newValuesPromise])
+            .then(([oldValues, newValues]) =>
+              this.auditLogService.log({
+                userId: user?.id,
+                companyId,
+                action: `${method} ${normalizedUrl}`,
+                entityType,
+                entityId,
+                oldValues: oldValues || undefined,
+                newValues: newValues || undefined,
+                ipAddress: ip,
+                userAgent,
+                responseStatus: statusCode,
+                responseData: {
+                  error: true,
+                  message: error.message || 'Unknown error',
+                  code: error.code || 'INTERNAL_ERROR',
+                },
+                durationMs: duration,
+                moduleCode: this.extractModuleCode(url),
+                source: 'api',
+                requestId,
+                actorType: 'user',
+                actorId: user?.id,
+              }),
+            )
+            .catch((err) => {
+              this.logger.error(`Audit write failed for ${method} ${normalizedUrl}: ${err.message}`);
             }),
-          )
-          .catch((err) => {
-            this.logger.error(`Audit write failed for ${method} ${normalizedUrl}: ${err.message}`);
-          });
-
-        return throwError(() => error);
+        ).pipe(mergeMap(() => throwError(() => error)));
       }),
     );
   }
@@ -302,6 +322,17 @@ export class AuditLogInterceptor implements NestInterceptor {
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
       ':id',
     );
+  }
+
+  private extractModuleCode(url: string): string | undefined {
+    if (url.includes('/audit')) return 'core.audit';
+    if (url.includes('/auth')) return 'core.iam';
+    if (url.includes('/companies/users') || url.includes('/invitations')) return 'core.members';
+    if (url.includes('/roles') || url.includes('/permissions')) return 'core.rbac';
+    if (url.includes('/branches')) return 'core.tenancy';
+    if (url.includes('/companies')) return 'core.tenancy';
+    if (url.includes('/analyses')) return 'energy';
+    return undefined;
   }
 
   private extractEntityType(url: string): string {

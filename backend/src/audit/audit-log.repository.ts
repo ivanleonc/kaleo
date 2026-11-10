@@ -1,29 +1,56 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { EXPORT_MAX_ROWS } from '../common/export/export.types.js';
 import { decodeAuditCursor, encodeAuditCursor } from './audit-cursor.js';
+
+export interface AuditLogData {
+  userId?: string;
+  companyId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  oldValues?: any;
+  newValues?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  responseStatus?: number;
+  responseData?: any;
+  durationMs?: number;
+  moduleCode?: string;
+  source?: 'api' | 'job' | 'ai' | 'system';
+  requestId?: string;
+  correlationId?: string;
+  actorType?: 'user' | 'bot' | 'system' | 'ai';
+  actorId?: string;
+}
+
+type QueryExecutor = { query(sql: string, parameters?: any[]): Promise<any> };
 
 @Injectable()
 export class AuditLogRepository {
   constructor(private dataSource: DataSource) {}
 
-  async log(data: {
-    userId?: string;
-    companyId: string;
-    action: string;
-    entityType: string;
-    entityId: string;
-    oldValues?: any;
-    newValues?: any;
-    ipAddress?: string;
-    userAgent?: string;
-    responseStatus?: number;
-    responseData?: any;
-    durationMs?: number;
-  }) {
-    await this.dataSource.query(
-      `INSERT INTO audit_logs (company_id, user_id, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent, response_status, response_data, duration_ms) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+  async log(data: AuditLogData) {
+    await this.insert(this.dataSource, data);
+  }
+
+  /**
+   * Escribe la auditoría en la misma transacción que el cambio de negocio.
+   * Si falla, la transacción completa hace rollback (auditoría atómica).
+   */
+  async logInTransaction(queryRunner: QueryRunner, data: AuditLogData) {
+    await this.insert(queryRunner, data);
+  }
+
+  private async insert(executor: QueryExecutor, data: AuditLogData) {
+    await executor.query(
+      `INSERT INTO audit_logs (
+         company_id, user_id, action, entity_type, entity_id,
+         old_values, new_values, ip_address, user_agent,
+         response_status, response_data, duration_ms,
+         module_code, source, request_id, correlation_id, actor_type, actor_id
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
       [
         data.companyId,
         data.userId || null,
@@ -37,6 +64,12 @@ export class AuditLogRepository {
         data.responseStatus || null,
         data.responseData ? JSON.stringify(data.responseData) : null,
         data.durationMs || null,
+        data.moduleCode || null,
+        data.source || 'api',
+        data.requestId || null,
+        data.correlationId || null,
+        data.actorType || 'user',
+        data.actorId || data.userId || null,
       ],
     );
   }

@@ -82,6 +82,7 @@ npm run migrate -- production --accept-checksum 000
 | `022-fix-rls-empty-setting.sql` | Corrige la política cuando `app.company_id` está vacío o no definido. |
 | `023-company-id-unique.sql` | `UNIQUE (company_id, id)` en tablas padre para futuras FKs compuestas. |
 | `024-create-invitations.sql` | Invitaciones por email (`invitations`, `invitation_roles`). |
+| `025-outbox-and-audit-fields.sql` | Outbox transaccional y columnas de trazabilidad en auditoría. |
 
 ## Verificar el estado
 
