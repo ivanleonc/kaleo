@@ -22,7 +22,8 @@ const barOptions = computed(() => ({
 </script>
 
 <UiChart :option="barOptions" height="400px" :loading="isLoading" />
-```n
+```
+
 ## Notas
 
 - Requiere `vue-echarts` y `echarts` (ya instalados)

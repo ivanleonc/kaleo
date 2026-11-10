@@ -40,13 +40,13 @@ features:
 
   - icon: ⚡
     title: Vue 3 + Composition API
-    details: 100% Composition API con <script setup>. Pinia para estado, TanStack Table v9, composables reutilizables y patrón usePaginatedSetup para listas paginadas.
+    details: 100% Composition API con &lt;script setup&gt;. Pinia para estado, TanStack Table v9, composables reutilizables y patrón usePaginatedSetup para listas paginadas.
     link: /frontend/composables/
     linkText: Ver composables
 
   - icon: 🏗️
     title: NestJS + TypeORM
-    details: API RESTful con guards globales, repositorios SQL tipados con rows<T>(), migraciones versionadas, auditoría automática y soporte multi-tenant por empresa.
+    details: API RESTful con guards globales, repositorios SQL tipados con rows&lt;T&gt;(), migraciones versionadas, auditoría automática y soporte multi-tenant por empresa.
     link: /backend/estructura
     linkText: Ver backend
 
