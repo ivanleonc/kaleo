@@ -32,6 +32,7 @@ import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
+import { useModulesStore } from '@/stores/modules.store';
 import AppTopbar from '@/components/layout/AppTopbar.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import UiOfflineBanner from '@/components/ui/UiOfflineBanner.vue';
@@ -39,6 +40,7 @@ import UiOfflineBanner from '@/components/ui/UiOfflineBanner.vue';
 const route = useRoute();
 const { companyId } = useCompanyPath();
 const { isSidebarPinned, isMobileSidebarOpen, closeMobileSidebar } = useSidebar();
+const modulesStore = useModulesStore();
 
 // Ruta "de sección": cambia la vista, pero no la paginación interna de una tabla.
 const viewKey = computed(() => {
@@ -51,6 +53,15 @@ const viewKey = computed(() => {
 watch(() => route.path, () => {
   isMobileSidebarOpen.value = false;
 });
+
+// Precarga los módulos habilitados para el shell (sidebar/router).
+watch(
+  companyId,
+  (id) => {
+    if (id) void modulesStore.load(id);
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>

@@ -21,7 +21,12 @@
       <IconX :size="18" stroke-width="1.8" />
     </button>
     <nav class="sidebar-nav" aria-label="Navegación principal">
-      <router-link :to="companyPath('/dashboard')" class="nav-link" exact-active-class="active">
+      <router-link
+        :to="companyPath('/dashboard')"
+        class="nav-link"
+        exact-active-class="active"
+        v-if="modulesStore.isEnabled('core.dashboard')"
+      >
         <IconLayoutDashboard :size="22" stroke-width="1.8" />
         <span class="nav-label">Panel</span>
       </router-link>
@@ -30,27 +35,28 @@
         class="nav-link"
         :class="{ active: isAnalysesActive }"
         v-permission="Permissions.ANALYSES.READ"
+        v-if="modulesStore.isEnabled('core.analyses')"
       >
         <IconChartHistogram :size="22" stroke-width="1.8" />
         <span class="nav-label">Analítica</span>
       </router-link>
-      <router-link :to="companyPath('/members')" class="nav-link" active-class="active" v-permission="Permissions.USERS.READ">
+      <router-link :to="companyPath('/members')" class="nav-link" active-class="active" v-permission="Permissions.USERS.READ" v-if="modulesStore.isEnabled('core.users')">
         <IconUsers :size="22" stroke-width="1.8" />
         <span class="nav-label">Equipo</span>
       </router-link>
-      <router-link :to="companyPath('/branches')" class="nav-link" active-class="active" v-permission="Permissions.BRANCHES.READ">
+      <router-link :to="companyPath('/branches')" class="nav-link" active-class="active" v-permission="Permissions.BRANCHES.READ" v-if="modulesStore.isEnabled('core.branches')">
         <IconBuildingCommunity :size="22" stroke-width="1.8" />
         <span class="nav-label">Sedes</span>
       </router-link>
-      <router-link :to="companyPath('/roles')" class="nav-link" active-class="active" v-permission="Permissions.ROLES.READ">
+      <router-link :to="companyPath('/roles')" class="nav-link" active-class="active" v-permission="Permissions.ROLES.READ" v-if="modulesStore.isEnabled('core.roles')">
         <IconShieldLock :size="22" stroke-width="1.8" />
         <span class="nav-label">Roles</span>
       </router-link>
-      <router-link :to="companyPath('/audit')" class="nav-link" active-class="active" v-permission="Permissions.AUDIT.READ">
+      <router-link :to="companyPath('/audit')" class="nav-link" active-class="active" v-permission="Permissions.AUDIT.READ" v-if="modulesStore.isEnabled('core.audit')">
         <IconClipboardList :size="22" stroke-width="1.8" />
         <span class="nav-label">Auditoría</span>
       </router-link>
-      <router-link :to="companyPath('/settings')" class="nav-link" active-class="active" v-permission="Permissions.COMPANY.READ">
+      <router-link :to="companyPath('/settings')" class="nav-link" active-class="active" v-permission="Permissions.COMPANY.READ" v-if="modulesStore.isEnabled('core.company')">
         <IconSettings :size="22" stroke-width="1.8" />
         <span class="nav-label">Ajustes</span>
       </router-link>
@@ -93,6 +99,7 @@ import { useRoute } from 'vue-router';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
+import { useModulesStore } from '@/stores/modules.store';
 import { Permissions } from '@/constants/permissions';
 import {
   IconLayoutDashboard,
@@ -113,6 +120,7 @@ import {
 const route = useRoute();
 const { companyPath } = useCompanyPath();
 const { isDarkMode, toggleTheme } = useTheme();
+const modulesStore = useModulesStore();
 const isAnalysesActive = computed(() => route.path.includes('/analyses'));
 const {
   isSidebarExpanded,

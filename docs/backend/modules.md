@@ -76,6 +76,13 @@ Devuelve los manifests habilitados con su estado:
 }
 ```
 
+## Frontend shell
+
+- `useModulesStore` carga `GET /api/modules` al cambiar de empresa en `AuthenticatedLayout`.
+- El sidebar consulta `modulesStore.isEnabled(code)` antes de mostrar cada entrada.
+- Las rutas llevan `meta.moduleCode`; el router bloquea módulos de pack/shared no habilitados.
+- Los `core.*` pasan siempre, incluso antes de que termine la carga.
+
 ## Agregar un módulo
 
 1. Añadir el manifest en `module-manifests.ts`.

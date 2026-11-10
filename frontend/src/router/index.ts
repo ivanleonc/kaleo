@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
+import { useModulesStore } from '@/stores/modules.store';
 import { Permissions } from '@/constants/permissions';
 import { resolveTenantByParam, companyPathFor, tenantUrlParam } from '@/utils/tenant';
 import { APP_NAME } from '@/constants/brand';
@@ -62,7 +63,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/companies/:companyId/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true, title: 'Panel' },
+    meta: { requiresAuth: true, title: 'Panel', moduleCode: 'core.dashboard' },
   },
   {
     path: '/companies/:companyId/analyses',
@@ -72,6 +73,7 @@ const routes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiredPermission: Permissions.ANALYSES.READ,
       title: 'Analítica',
+      moduleCode: 'core.analyses',
     },
   },
   {
@@ -82,6 +84,7 @@ const routes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiredPermission: Permissions.ANALYSES.READ,
       title: 'Analítica',
+      moduleCode: 'core.analyses',
     },
   },
   {
@@ -96,7 +99,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/companies/:companyId/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
-    meta: { requiresAuth: true, requiredPermission: Permissions.COMPANY.READ, title: 'Configuración' },
+    meta: { requiresAuth: true, requiredPermission: Permissions.COMPANY.READ, title: 'Configuración', moduleCode: 'core.company' },
   },
   {
     path: '/companies/:companyId/profile',
@@ -114,13 +117,13 @@ const routes: Array<RouteRecordRaw> = [
     path: '/companies/:companyId/members',
     name: 'Members',
     component: () => import('@/views/MembersView.vue'),
-    meta: { requiresAuth: true, requiredPermission: Permissions.USERS.READ, title: 'Miembros' },
+    meta: { requiresAuth: true, requiredPermission: Permissions.USERS.READ, title: 'Miembros', moduleCode: 'core.users' },
   },
   {
     path: '/companies/:companyId/branches',
     name: 'Branches',
     component: () => import('@/views/BranchesView.vue'),
-    meta: { requiresAuth: true, requiredPermission: Permissions.BRANCHES.READ, title: 'Sucursales' },
+    meta: { requiresAuth: true, requiredPermission: Permissions.BRANCHES.READ, title: 'Sucursales', moduleCode: 'core.branches' },
   },
   {
     path: '/companies/:companyId/roles',
@@ -130,6 +133,7 @@ const routes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiredPermission: Permissions.ROLES.READ,
       title: 'Roles',
+      moduleCode: 'core.roles',
     },
   },
   {
@@ -140,6 +144,7 @@ const routes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       requiredPermission: Permissions.AUDIT.READ,
       title: 'Auditoría',
+      moduleCode: 'core.audit',
     },
   },
   {
@@ -261,6 +266,17 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiredPermission) {
     if (!authStore.hasPermission(to.meta.requiredPermission as string)) {
+      const path = companyPathFor(activeTenant, '/dashboard');
+      if (path) return { path };
+    }
+  }
+
+  // Módulos de pack/shared: core siempre pasa; el resto requiere habilitación.
+  const moduleCode = typeof to.meta.moduleCode === 'string' ? to.meta.moduleCode : undefined;
+  if (moduleCode && !moduleCode.startsWith('core.') && activeTenant) {
+    const modulesStore = useModulesStore();
+    await modulesStore.load(activeTenant.id);
+    if (!modulesStore.isEnabled(moduleCode)) {
       const path = companyPathFor(activeTenant, '/dashboard');
       if (path) return { path };
     }

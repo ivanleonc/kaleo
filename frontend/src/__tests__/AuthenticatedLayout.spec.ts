@@ -53,6 +53,12 @@ vi.mock('@/services/auth.service', () => ({
   },
 }));
 
+vi.mock('@/services/module.service', () => ({
+  moduleService: {
+    getModules: vi.fn(async () => ({ success: true, data: [] })),
+  },
+}));
+
 // El dropdown teletransporta su menú: en el test basta con el contenido inline.
 const UiDropdownStub = {
   template: `<div><slot name="trigger" :open="false" :toggle="noop" :close="noop" :trigger-aria="{}" /><slot :close="noop" /></div>`,
