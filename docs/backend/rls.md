@@ -192,10 +192,8 @@ Activación:
 2. Configurar contraseñas:
 
 ```bash
-DATABASE_URL=<admin> \
-KALEO_RUNTIME_PASSWORD=... \
-KALEO_AUTH_PASSWORD=... \
-npm run db:set-app-passwords
+KALEO_RUNTIME_PASSWORD=... KALEO_AUTH_PASSWORD=... \
+  npm run db:set-app-passwords -- production
 ```
 
 3. Definir `DATABASE_APP_URL` y `DATABASE_AUTH_URL` en el hosting.
