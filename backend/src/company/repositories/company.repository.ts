@@ -15,9 +15,12 @@ export class CompanyRepository {
         c.id, c.name, c.tax_id, c.slug,
         COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles
       FROM companies c
-      INNER JOIN user_contexts uc ON c.id = uc.company_id
-      LEFT JOIN roles r ON uc.role_id = r.id
-      WHERE uc.user_id = $1 AND c.is_active = TRUE AND c.deleted_at IS NULL
+      INNER JOIN memberships m
+        ON c.id = m.company_id AND m.user_id = $1 AND m.status = 'active'
+      LEFT JOIN membership_roles mr
+        ON mr.membership_id = m.id AND mr.company_id = m.company_id
+      LEFT JOIN roles r ON mr.role_id = r.id
+      WHERE c.is_active = TRUE AND c.deleted_at IS NULL
       GROUP BY c.id, c.name, c.tax_id, c.slug
     `;
     return rows<TenantRow>(await this.dataSource.query(sql, [userId]));
@@ -74,9 +77,11 @@ export class CompanyRepository {
   async verifyUserBelongsToCompany(userId: string, companyId: string) {
     const result = rows<RoleNameRow>(await this.dataSource.query(
       `SELECT r.name as role_name
-       FROM user_contexts uc
-       JOIN roles r ON uc.role_id = r.id
-       WHERE uc.user_id = $1 AND uc.company_id = $2`,
+       FROM memberships m
+       INNER JOIN membership_roles mr
+         ON mr.membership_id = m.id AND mr.company_id = m.company_id
+       INNER JOIN roles r ON mr.role_id = r.id
+       WHERE m.user_id = $1 AND m.company_id = $2 AND m.status = 'active'`,
       [userId, companyId],
     ));
 
@@ -125,9 +130,9 @@ export class CompanyRepository {
   async getAllCompanies(): Promise<CompanyRow[]> {
     return rows<CompanyRow>(await this.dataSource.query(
       `SELECT c.id, c.name, c.tax_id, c.slug, c.is_active,
-              COUNT(DISTINCT uc.user_id)::int AS member_count
+              COUNT(DISTINCT m.user_id)::int AS member_count
        FROM companies c
-       LEFT JOIN user_contexts uc ON uc.company_id = c.id
+       LEFT JOIN memberships m ON m.company_id = c.id AND m.status = 'active'
        WHERE c.deleted_at IS NULL
        GROUP BY c.id, c.name, c.tax_id, c.slug, c.is_active
        ORDER BY c.name`,

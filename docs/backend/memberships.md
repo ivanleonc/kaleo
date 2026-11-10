@@ -59,10 +59,15 @@ RESULTADO: memberships + triggers OK
 ## Fases de migración
 
 1. ✅ Crear tablas, backfill y triggers de sincronización.
-2. Migrar lecturas de auth/sesión/guards a memberships (`RegistrationService`, `SessionService`, `CompanyAccessGuard`, `RbacService`).
-3. Migrar repositorios de miembros/roles/sedes y el detalle de auditoría.
-4. Cambiar escrituras a memberships; eliminar triggers y `user_contexts`.
+2. ✅ Migrar lecturas a memberships:
+   - `CompanyRepository.getUserCompanies`, `verifyUserBelongsToCompany`, `getAllCompanies`.
+   - `RoleRepository.getUserAccess`.
+   - `MemberRepository.getMembersByCompany`, `findForExport`, `getMemberCompanies`, `isAlreadyMember`, `searchUsers`.
+3. Migrar escrituras de miembros/roles/sedes a memberships; eliminar triggers y `user_contexts`.
+4. Migrar el detalle de auditoría (`fetchOldValues` de Member) y cualquier consulta restante.
 5. Diseñar RLS de `users`/`companies` basada en memberships y pasar la app a `kaleo_app`.
+
+> **Importante:** las lecturas nuevas requieren las migraciones `026` y `027` aplicadas en el entorno antes de desplegar el código.
 
 ## Reglas mientras dure la transición
 

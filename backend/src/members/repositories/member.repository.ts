@@ -33,7 +33,7 @@ export class MemberRepository {
 
     const { where, values, nextIndex } = buildWhere(
       [
-        { clause: 'uc.company_id = $?', value: companyId },
+        { clause: 'm.company_id = $?', value: companyId },
         { clause: 'u.deleted_at IS NULL' },
         filters.search
           ? { clause: '(u.name ILIKE $? OR u.email ILIKE $?)', value: `%${filters.search}%`, reuse: true }
@@ -43,7 +43,7 @@ export class MemberRepository {
           : filters.status === 'active'
             ? { clause: '(u.locked_until IS NULL OR u.locked_until <= NOW())' }
             : undefined,
-        filters.roleId ? { clause: 'EXISTS (SELECT 1 FROM user_contexts ucr WHERE ucr.user_id = u.id AND ucr.company_id = uc.company_id AND ucr.role_id = $?)', value: filters.roleId } : undefined,
+        filters.roleId ? { clause: 'EXISTS (SELECT 1 FROM membership_roles mr2 WHERE mr2.membership_id = m.id AND mr2.company_id = m.company_id AND mr2.role_id = $?)', value: filters.roleId } : undefined,
       ],
       1,
     );
@@ -55,7 +55,7 @@ export class MemberRepository {
     const countResult = await this.dataSource.query(
       `SELECT COUNT(DISTINCT u.id) as total
        FROM users u
-       INNER JOIN user_contexts uc ON u.id = uc.user_id
+       INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
        WHERE ${where}`,
       values,
     );
@@ -70,8 +70,10 @@ export class MemberRepository {
          COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
          ${statusExpr} as status
        FROM users u
-       INNER JOIN user_contexts uc ON u.id = uc.user_id
-       LEFT JOIN roles r ON uc.role_id = r.id
+       INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
+       LEFT JOIN membership_roles mr
+         ON mr.membership_id = m.id AND mr.company_id = m.company_id
+       LEFT JOIN roles r ON mr.role_id = r.id
        WHERE ${where}
        GROUP BY u.id, u.email, u.name, u.created_at, u.locked_until,
                 u.phone, u.position, u.avatar_url,
@@ -97,7 +99,7 @@ export class MemberRepository {
   ) {
     const { where, values, nextIndex } = buildWhere(
       [
-        { clause: 'uc.company_id = $?', value: companyId },
+        { clause: 'm.company_id = $?', value: companyId },
         { clause: 'u.deleted_at IS NULL' },
         filters.search
           ? { clause: '(u.name ILIKE $? OR u.email ILIKE $?)', value: `%${filters.search}%`, reuse: true }
@@ -107,7 +109,7 @@ export class MemberRepository {
           : filters.status === 'active'
             ? { clause: '(u.locked_until IS NULL OR u.locked_until <= NOW())' }
             : undefined,
-        filters.roleId ? { clause: 'EXISTS (SELECT 1 FROM user_contexts ucr WHERE ucr.user_id = u.id AND ucr.company_id = uc.company_id AND ucr.role_id = $?)', value: filters.roleId } : undefined,
+        filters.roleId ? { clause: 'EXISTS (SELECT 1 FROM membership_roles mr2 WHERE mr2.membership_id = m.id AND mr2.company_id = m.company_id AND mr2.role_id = $?)', value: filters.roleId } : undefined,
       ],
       1,
     );
@@ -121,8 +123,10 @@ export class MemberRepository {
          COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
          ${statusExpr} as status
        FROM users u
-       INNER JOIN user_contexts uc ON u.id = uc.user_id
-       LEFT JOIN roles r ON uc.role_id = r.id
+       INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
+       LEFT JOIN membership_roles mr
+         ON mr.membership_id = m.id AND mr.company_id = m.company_id
+       LEFT JOIN roles r ON mr.role_id = r.id
        WHERE ${where}
        GROUP BY u.id, u.email, u.name, u.locked_until
        ORDER BY ${orderBy}, u.name, u.email
@@ -133,7 +137,8 @@ export class MemberRepository {
 
   async isAlreadyMember(userId: string, companyId: string): Promise<boolean> {
     const result = await this.dataSource.query(
-      `SELECT 1 FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
+      `SELECT 1 FROM memberships
+       WHERE user_id = $1 AND company_id = $2 AND status = 'active'`,
       [userId, companyId],
     );
     return result.length > 0;
@@ -376,9 +381,12 @@ export class MemberRepository {
       `SELECT c.id, c.name, c.slug,
               COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
        FROM companies c
-       INNER JOIN user_contexts uc ON uc.company_id = c.id
-       LEFT JOIN roles r ON r.id = uc.role_id
-       WHERE uc.user_id = $1 AND c.deleted_at IS NULL
+       INNER JOIN memberships m
+         ON m.company_id = c.id AND m.user_id = $1 AND m.status = 'active'
+       LEFT JOIN membership_roles mr
+         ON mr.membership_id = m.id AND mr.company_id = m.company_id
+       LEFT JOIN roles r ON r.id = mr.role_id
+       WHERE c.deleted_at IS NULL
        GROUP BY c.id, c.name, c.slug
        ORDER BY c.name`,
       [userId],
@@ -398,8 +406,8 @@ export class MemberRepository {
        FROM users u
        WHERE u.deleted_at IS NULL
          AND EXISTS (
-           SELECT 1 FROM user_contexts uc
-           WHERE uc.user_id = u.id AND uc.company_id = $1
+           SELECT 1 FROM memberships m
+           WHERE m.user_id = u.id AND m.company_id = $1 AND m.status = 'active'
          )
          AND (u.name ILIKE $2 OR u.email ILIKE $2)
        ORDER BY u.name

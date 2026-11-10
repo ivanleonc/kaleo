@@ -27,7 +27,7 @@ describe('CompanyRepository.getAllCompanies', () => {
     const { sql, params } = calls[0];
     // Sin filtro por usuario: ningún WHERE sobre uc.user_id con parámetro.
     expect(sql).not.toMatch(/uc\.user_id\s*=\s*\$/);
-    expect(sql).toContain('COUNT(DISTINCT uc.user_id)');
+    expect(sql).toContain('COUNT(DISTINCT m.user_id)');
     expect(sql).toContain('c.deleted_at IS NULL');
     expect(params).toEqual([]);
   });

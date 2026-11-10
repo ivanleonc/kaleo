@@ -36,7 +36,7 @@ describe('MemberRepository.getMembersByCompany', () => {
     await repository.getMembersByCompany('company-1', 2, 10);
 
     const dataQuery = calls[1];
-    expect(dataQuery.sql).toContain('uc.company_id = $1');
+    expect(dataQuery.sql).toContain('m.company_id = $1');
     expect(dataQuery.params[0]).toBe('company-1');
     expect(dataQuery.sql).toContain('LIMIT $2 OFFSET $3');
     expect(dataQuery.params.slice(1)).toEqual([10, 10]);
@@ -58,10 +58,10 @@ describe('MemberRepository.getMembersByCompany', () => {
     });
 
     const countQuery = calls[0];
-    expect(countQuery.sql).toContain('uc.company_id = $1');
+    expect(countQuery.sql).toContain('m.company_id = $1');
     expect(countQuery.sql).toContain('u.name ILIKE $2');
     expect(countQuery.sql).toContain('u.locked_until > NOW()');
-    expect(countQuery.sql).toContain('ucr.role_id = $3');
+    expect(countQuery.sql).toContain('mr2.role_id = $3');
     expect(countQuery.params).toEqual(['company-1', '%juan%', 'role-1']);
   });
 
@@ -223,7 +223,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
 
     expect(result).toEqual([{ id: 'c-1', name: 'Acme', slug: 'acme', roles: ['Owner'] }]);
     expect(queries[0].params).toEqual(['user-7']);
-    expect(queries[0].sql).toContain('uc.user_id = $1');
+    expect(queries[0].sql).toContain('m.user_id = $1');
   });
 
   it('searchUsers filtra por empresa, limita y pagina con ILIKE', async () => {
@@ -236,7 +236,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
 
     expect(result).toHaveLength(1);
     expect(queries[0]!.params).toEqual(['company-1', '%ju%', 20]);
-    expect(queries[0]!.sql).toContain('uc.company_id = $1');
+    expect(queries[0]!.sql).toContain('m.company_id = $1');
     expect(queries[0]!.sql).toContain('u.name ILIKE $2 OR u.email ILIKE $2');
   });
 
@@ -248,7 +248,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
 
     await repo.searchUsers('company-1', 'ju');
 
-    expect(queries[0]!.sql).toContain('uc.company_id = $1');
+    expect(queries[0]!.sql).toContain('m.company_id = $1');
     expect(queries[0]!.params[0]).toBe('company-1');
   });
 });

@@ -164,11 +164,13 @@ export class RoleRepository {
       `SELECT
          COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.id IS NOT NULL), '{}'::text[]) AS roles,
          COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.id IS NOT NULL), '{}'::text[]) AS permissions
-       FROM user_contexts uc
-       INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
+       FROM memberships m
+       INNER JOIN membership_roles mr
+         ON mr.membership_id = m.id AND mr.company_id = m.company_id
+       INNER JOIN roles r ON r.id = mr.role_id AND r.deleted_at IS NULL
        LEFT JOIN role_permissions rp ON rp.role_id = r.id
        LEFT JOIN permissions p ON p.id = rp.permission_id
-       WHERE uc.user_id = $1 AND uc.company_id = $2`,
+       WHERE m.user_id = $1 AND m.company_id = $2 AND m.status = 'active'`,
       [userId, companyId],
     );
 
