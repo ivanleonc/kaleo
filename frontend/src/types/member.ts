@@ -78,3 +78,9 @@ export interface MemberCompany {
   slug: string | null;
   roles: string[];
 }
+
+/** Sede asignada a una membership (alcance por sede). */
+export interface MemberBranch {
+  branch_id: string;
+  name: string;
+}

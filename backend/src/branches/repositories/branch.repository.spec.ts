@@ -137,3 +137,45 @@ describe('BranchRepository.findPagedByCompany', () => {
     expect(result.data).toEqual([]);
   });
 });
+
+describe('BranchRepository.getBranchScope', () => {
+  function repositoryWithRow(row: any) {
+    const context = new TenantContextService();
+    const query = vi.fn(async () => (row ? [row] : []));
+    const runner = {
+      connect: vi.fn(async () => {}),
+      startTransaction: vi.fn(async () => {}),
+      query,
+      commitTransaction: vi.fn(async () => {}),
+      rollbackTransaction: vi.fn(async () => {}),
+      release: vi.fn(async () => {}),
+    };
+    const dataSource = { query, createQueryRunner: () => runner };
+    return { repository: new BranchRepository(dataSource as any, context), context };
+  }
+
+  async function scopeFor(row: any) {
+    const { repository: repo, context } = repositoryWithRow(row);
+    return context.run({ requestId: 'req-1', isSuperAdmin: false }, async () => {
+      context.setCompany('company-1', 'user-1');
+      return repo.getBranchScope('company-1');
+    });
+  }
+
+  it('devuelve null para Owner y Admin', async () => {
+    await expect(scopeFor({ admin_roles: ['Admin'], branch_ids: ['b-1'] })).resolves.toBeNull();
+  });
+
+  it('devuelve las sedes asignadas a un usuario no administrador', async () => {
+    await expect(scopeFor({ admin_roles: [], branch_ids: ['b-1', 'b-2'] }))
+      .resolves.toEqual(['b-1', 'b-2']);
+  });
+
+  it('sin sedes asignadas mantiene el alcance global', async () => {
+    await expect(scopeFor({ admin_roles: [], branch_ids: [] })).resolves.toBeNull();
+  });
+
+  it('falla cerrado si no hay membership', async () => {
+    await expect(scopeFor(null)).resolves.toEqual([]);
+  });
+});

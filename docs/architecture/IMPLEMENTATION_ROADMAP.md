@@ -196,7 +196,7 @@ gantt
 7. Revocación de sesiones por empresa.
 8. Invitaciones por email con token hasheado, expiración y aceptación.
 9. Eliminar la búsqueda global de usuarios del flujo de miembros.
-10. Definir el alcance de sede: aplicarlo como filtro o retirar la semántica. **Recomendación: aplicarlo solo si el cliente lo activa.**
+10. ✅ Alcance de sede: opt-in por usuario con `membership_branches` (Owner/Admin ven todas).
 
 ### 5.3 Workstream C — RBAC v2
 

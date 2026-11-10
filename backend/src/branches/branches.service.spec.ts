@@ -6,6 +6,7 @@ import { TabularExportService } from '../common/export/tabular-export.service.js
 describe('BranchService.exportBranches', () => {
   const branchRepository: any = {
     findForExport: vi.fn(),
+    getBranchScope: vi.fn(async () => null),
   };
 
   let service: BranchService;
@@ -48,6 +49,12 @@ describe('BranchService.exportBranches', () => {
     expect(text).toContain('"Medellín, Antioquia, Colombia"');
     expect(text).not.toContain('"Contacto"');
     expect(file.filename).toMatch(/^sedes_.*\.csv$/);
+    expect(branchRepository.findForExport).toHaveBeenCalledWith(
+      'company-1',
+      {},
+      { sortBy: 'name', sortDir: 'asc' },
+      null,
+    );
   });
 
   it('rechaza columnas que no existen en el dominio', async () => {

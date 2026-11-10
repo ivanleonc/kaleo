@@ -57,6 +57,17 @@ Lista paginada de sedes de la empresa activa.
 
 ---
 
+## Alcance por sede
+
+Si un miembro tiene sedes asignadas en `membership_branches`:
+
+- Solo ve esas sedes en `GET /api/companies/branches` y su exportación.
+- No puede ver, editar ni eliminar sedes fuera de su alcance.
+- Owner y Admin siempre ven todas.
+- Sin sedes asignadas, el usuario mantiene el comportamiento global anterior.
+
+La asignación se gestiona desde `PUT /api/companies/users/:userId/branches`.
+
 ## `GET /api/companies/branches/export`
 
 Exporta **todas** las sedes que cumplen los filtros (no solo la página actual) como archivo CSV o Excel.

@@ -1,6 +1,6 @@
 import { apiClient } from '@/api/axios';
 import { fetchExportFile, type ExportedFile, type ExportFormat } from '@/api/export';
-import type { MembersResponse, CreateMemberResponse, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, UserSearchResult, MemberCompany } from '@/types/member';
+import type { MembersResponse, CreateMemberResponse, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, UserSearchResult, MemberCompany, MemberBranch } from '@/types/member';
 
 /** Header por request para operar sobre una empresa distinta a la activa. */
 function companyHeaders(companyId: string) {
@@ -77,6 +77,18 @@ export const memberService = {
   /** Empresas (con roles) a las que pertenece un miembro. */
   async getUserCompanies(userId: string): Promise<{ success: boolean; data: MemberCompany[] }> {
     const response = await apiClient.get(`/companies/users/${userId}/companies`);
+    return response.data;
+  },
+
+  /** Sedes asignadas a un miembro (alcance por sede). */
+  async getMemberBranches(userId: string): Promise<{ success: boolean; data: MemberBranch[] }> {
+    const response = await apiClient.get(`/companies/users/${userId}/branches`);
+    return response.data;
+  },
+
+  /** Reemplaza las sedes asignadas. Lista vacía desactiva el alcance. */
+  async setMemberBranches(userId: string, branchIds: string[]) {
+    const response = await apiClient.put(`/companies/users/${userId}/branches`, { branchIds });
     return response.data;
   },
 

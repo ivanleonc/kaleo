@@ -300,6 +300,19 @@
             selected-label="Asignados"
           />
         </UiFormSection>
+
+        <UiFormSection
+          title="Sedes"
+          description="Si asignas sedes, el miembro solo verá esas sedes. Sin sedes asignadas, verá todas."
+        >
+          <UiDualListbox
+            v-model="editForm.branchIds"
+            :available="branchItems"
+            :selected="branchItems"
+            available-label="Disponibles"
+            selected-label="Asignadas"
+          />
+        </UiFormSection>
       </UiFormModal>
 
     </div>
@@ -361,6 +374,8 @@ import { reactive, onMounted, ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useMemberStore } from '@/stores/member.store';
 import { roleService, type Role } from '@/services/role.service';
+import { branchService } from '@/services/branch.service';
+import type { Branch } from '@/types/branch';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { Permissions } from '@/constants/permissions';
@@ -422,6 +437,7 @@ const memberStore = useMemberStore();
 const companyStore = useCompanyStore();
 const toast = useToast();
 const availableRoles = ref<Role[]>([]);
+const availableBranches = ref<Branch[]>([]);
 const { companyId } = useCompanyPath();
 
 const initialQuery = parseListQuery(route.query, LIST_QUERY);
@@ -436,6 +452,24 @@ const roleItems = computed(() =>
     description: r.is_system ? 'Sistema' : 'Personalizado',
   }))
 );
+
+const branchItems = computed(() =>
+  availableBranches.value.map((b) => ({
+    id: b.id,
+    label: b.name,
+    description: b.city || undefined,
+  }))
+);
+
+async function ensureBranches() {
+  if (availableBranches.value.length > 0) return;
+  try {
+    const response = await branchService.getBranches({ limit: 100, status: 'active' });
+    availableBranches.value = response.data;
+  } catch {
+    availableBranches.value = [];
+  }
+}
 
 // --- ASIGNACIÓN MULTI-EMPRESA (Owner de varias / super-admin) ---
 // El flujo legacy (una empresa = la activa) sigue intacto abajo. Este bloque
@@ -680,6 +714,7 @@ onMounted(async () => {
     roleService.getRoles().then((roles) => {
       availableRoles.value = roles;
     }).catch(() => {}),
+    ensureBranches(),
     typeof memberStore.fetchInvitations === 'function'
       ? memberStore.fetchInvitations()
       : Promise.resolve(),
@@ -814,6 +849,7 @@ const editForm = reactive({
   id: '',
   name: '',
   roleIds: [] as string[],
+  branchIds: [] as string[],
   status: 'active' as 'active' | 'inactive',
   phone: '',
   position: '',
@@ -831,6 +867,7 @@ const prevStatus = ref<'active' | 'inactive'>('active');
 
 const editableContactFields = () => ({
   roleIds: [...editForm.roleIds],
+  branchIds: [...editForm.branchIds],
   status: editForm.status,
   phone: editForm.phone,
   position: editForm.position,
@@ -840,7 +877,7 @@ const editableContactFields = () => ({
 
 const { isDirty: isEditDirty, capture: captureEditForm } = useDirtyForm(editableContactFields);
 
-const openEditModal = (member: any) => {
+const openEditModal = async (member: any) => {
   if (isSelf(member.id)) {
     toast.error('No puedes modificar tu propio acceso. Pide a otro administrador que lo haga.');
     return;
@@ -853,6 +890,7 @@ const openEditModal = (member: any) => {
   editForm.position = member.position || '';
   editForm.document_type = member.document_type || '';
   editForm.document_number = member.document_number || '';
+  editForm.branchIds = [];
 
   if (member.roles && member.roles.length > 0) {
     editForm.roleIds = availableRoles.value
@@ -860,6 +898,14 @@ const openEditModal = (member: any) => {
       .map(role => role.id);
   } else {
     editForm.roleIds = [];
+  }
+
+  await ensureBranches();
+  try {
+    const assigned = await memberService.getMemberBranches(member.id);
+    editForm.branchIds = assigned.data.map((b) => b.branch_id);
+  } catch {
+    // Si falla la carga de sedes, se guarda sin cambios de alcance.
   }
 
   memberStore.error = null;
@@ -880,6 +926,7 @@ const handleEditSubmit = async () => {
       document_type: emptyToUndefined(editForm.document_type),
       document_number: emptyToUndefined(editForm.document_number),
     });
+    await memberService.setMemberBranches(memberId, editForm.branchIds);
     isEditModalOpen.value = false;
     if (statusChanged) {
       // El cambio de estado es reversible: ofrecer deshacerlo sin reabrir el modal.

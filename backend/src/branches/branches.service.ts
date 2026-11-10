@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { BranchRepository } from './repositories/branch.repository.js';
 import type { SortSpec } from '../common/dto/pagination-query.dto.js';
 import type { ExportFile, ExportFormat } from '../common/export/export.types.js';
@@ -19,7 +19,8 @@ export class BranchService {
     filters: { search?: string; status?: string } = {},
     sort: SortSpec = {},
   ) {
-    return this.branchRepository.findPagedByCompany(companyId, page, limit, filters, sort);
+    const scope = await this.branchRepository.getBranchScope(companyId);
+    return this.branchRepository.findPagedByCompany(companyId, page, limit, filters, sort, scope);
   }
 
   async exportBranches(
@@ -29,7 +30,8 @@ export class BranchService {
     format: ExportFormat,
     columns?: string[],
   ): Promise<ExportFile> {
-    const rows = await this.branchRepository.findForExport(companyId, filters, sort);
+    const scope = await this.branchRepository.getBranchScope(companyId);
+    const rows = await this.branchRepository.findForExport(companyId, filters, sort, scope);
     const selected = this.exportService.resolveColumns(BRANCH_EXPORT_COLUMNS, columns);
 
     return this.exportService.generate(format, selected, rows, {
@@ -39,7 +41,17 @@ export class BranchService {
   }
 
   async getBranchById(companyId: string, branchId: string) {
-    return this.branchRepository.findById(branchId, companyId);
+    const scope = await this.branchRepository.getBranchScope(companyId);
+    const branch = await this.branchRepository.findById(branchId, companyId, scope);
+    if (!branch) throw new NotFoundException('Sede no encontrada');
+    return branch;
+  }
+
+  private async assertBranchInScope(companyId: string, branchId: string) {
+    const scope = await this.branchRepository.getBranchScope(companyId);
+    if (scope && !scope.includes(branchId)) {
+      throw new NotFoundException('Sede no encontrada');
+    }
   }
 
   async createBranch(companyId: string, data: {
@@ -55,10 +67,12 @@ export class BranchService {
     country?: string; postal_code?: string; phone?: string; email?: string; is_active?: boolean;
     code?: string; is_main?: boolean; manager_user_id?: string; timezone?: string;
   }) {
+    await this.assertBranchInScope(companyId, branchId);
     return this.branchRepository.update(branchId, companyId, data);
   }
 
   async deleteBranch(companyId: string, branchId: string) {
+    await this.assertBranchInScope(companyId, branchId);
     return this.branchRepository.softDelete(branchId, companyId);
   }
 }

@@ -215,6 +215,44 @@ Lista todas las empresas a las que pertenece un usuario (con sus roles en cada u
 
 ---
 
+## `GET /api/companies/users/:userId/branches`
+
+Lista las sedes asignadas al miembro. Una lista vacía significa que el usuario
+ve todas las sedes de la empresa (sin alcance por sede).
+
+**Permiso:** `users:read`
+
+**Respuesta `200`:**
+
+```json
+{
+  "success": true,
+  "data": [
+    { "branch_id": "uuid-sede", "name": "Sede Norte" }
+  ]
+}
+```
+
+## `PUT /api/companies/users/:userId/branches`
+
+Reemplaza las sedes asignadas al miembro.
+
+**Permiso:** `users:update`
+
+**Body:**
+
+```json
+{
+  "branchIds": ["uuid-sede-1", "uuid-sede-2"]
+}
+```
+
+- Lista vacía: desactiva el alcance por sede para ese usuario.
+- Todas las sedes deben pertenecer a la empresa activa.
+
+**Respuesta `200`:** confirmación. Un body inválido o una sede ajena responde
+`400`.
+
 ## `POST /api/companies/:id/members`
 
 Asigna un usuario existente a una empresa específica (puede ser diferente de la activa).

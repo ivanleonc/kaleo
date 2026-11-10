@@ -48,7 +48,50 @@ export class BranchRepository {
     }
   }
 
-  async findByCompany(companyId: string) {
+  /**
+   * Alcance de sedes del usuario actual.
+   *
+   * - `null`: sin restricción (Owner/Admin o usuario sin sedes asignadas).
+   * - `string[]`: solo esas sedes.
+   * - `[]`: membership inexistente (falla cerrado).
+   *
+   * La asignación de sedes activa el alcance por usuario; no hay flag de
+   * empresa. Un usuario sin sedes mantiene el comportamiento global anterior.
+   */
+  async getBranchScope(companyId: string): Promise<string[] | null> {
+    this.assertCompany(companyId);
+    const userId = this.tenantContext.getUserId();
+    if (!userId) return null;
+
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const result = await queryRunner.query(
+        `SELECT
+           COALESCE(array_agg(DISTINCT r.name)
+             FILTER (WHERE r.name IN ('Owner', 'Admin')), '{}') AS admin_roles,
+           COALESCE(array_agg(DISTINCT mb.branch_id)
+             FILTER (WHERE mb.branch_id IS NOT NULL), '{}') AS branch_ids
+         FROM memberships m
+         LEFT JOIN membership_roles mr
+           ON mr.membership_id = m.id AND mr.company_id = m.company_id
+         LEFT JOIN roles r ON r.id = mr.role_id AND r.deleted_at IS NULL
+         LEFT JOIN membership_branches mb
+           ON mb.membership_id = m.id AND mb.company_id = m.company_id
+         WHERE m.company_id = $1 AND m.user_id = $2 AND m.status = 'active'
+         GROUP BY m.id`,
+        [companyId, userId],
+      );
+
+      const row = result[0];
+      if (!row) return [];
+      const adminRoles: string[] = row.admin_roles ?? [];
+      if (adminRoles.length > 0) return null;
+
+      const branchIds: string[] = row.branch_ids ?? [];
+      return branchIds.length > 0 ? branchIds : null;
+    });
+  }
+
+  async findByCompany(companyId: string, branchScope: string[] | null = null) {
     this.assertCompany(companyId);
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
       rows(await queryRunner.query(
@@ -56,8 +99,9 @@ export class BranchRepository {
          FROM branches b
          LEFT JOIN users u ON u.id = b.manager_user_id AND u.deleted_at IS NULL
          WHERE b.company_id = $1 AND b.deleted_at IS NULL
+           AND ($2::uuid[] IS NULL OR b.id = ANY($2::uuid[]))
          ORDER BY b.name`,
-        [companyId],
+        [companyId, branchScope],
       )),
     );
   }
@@ -68,6 +112,7 @@ export class BranchRepository {
     limit = 20,
     filters: { search?: string; status?: string } = {},
     sort: SortSpec = {},
+    branchScope: string[] | null = null,
   ) {
     this.assertCompany(companyId);
     const safePage = Math.max(1, page);
@@ -78,6 +123,7 @@ export class BranchRepository {
       [
         { clause: 'b.company_id = $?', value: companyId },
         { clause: 'b.deleted_at IS NULL' },
+        branchScope ? { clause: 'b.id = ANY($?::uuid[])', value: branchScope } : undefined,
         filters.search
           ? { clause: '(b.name ILIKE $? OR b.city ILIKE $? OR b.state ILIKE $? OR b.country ILIKE $?)', value: `%${filters.search}%`, reuse: true }
           : undefined,
@@ -123,12 +169,14 @@ export class BranchRepository {
     companyId: string,
     filters: { search?: string; status?: string } = {},
     sort: SortSpec = {},
+    branchScope: string[] | null = null,
   ) {
     this.assertCompany(companyId);
     const { where, values, nextIndex } = buildWhere(
       [
         { clause: 'b.company_id = $?', value: companyId },
         { clause: 'b.deleted_at IS NULL' },
+        branchScope ? { clause: 'b.id = ANY($?::uuid[])', value: branchScope } : undefined,
         filters.search
           ? { clause: '(b.name ILIKE $? OR b.city ILIKE $? OR b.state ILIKE $? OR b.country ILIKE $?)', value: `%${filters.search}%`, reuse: true }
           : undefined,
@@ -156,8 +204,9 @@ export class BranchRepository {
     );
   }
 
-  async findById(branchId: string, companyId: string) {
+  async findById(branchId: string, companyId: string, branchScope: string[] | null = null) {
     this.assertCompany(companyId);
+    if (branchScope && !branchScope.includes(branchId)) return null;
     return withTenantTransaction(
       this.dataSource,
       this.tenantContext,

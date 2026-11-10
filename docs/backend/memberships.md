@@ -50,6 +50,24 @@ Se usa en creación de empresa, alta/adjuntar miembro, actualización de roles y
 aceptación de invitaciones. La baja de miembro elimina la membership y deja que
 las FKs limpien roles y sedes.
 
+## Alcance por sede
+
+`membership_branches` es opt-in por usuario:
+
+| Estado | Comportamiento |
+|---|---|
+| Sin sedes asignadas | El miembro ve todas las sedes de la empresa |
+| Con sedes asignadas | Solo ve y opera sobre esas sedes |
+| Owner/Admin | Siempre todas las sedes |
+
+Reglas:
+
+- `BranchRepository.getBranchScope` resuelve el alcance en una transacción de tenant.
+- La lista, exportación y detalle de sedes aplican el filtro.
+- Actualizar/eliminar una sede fuera del alcance responde `404`.
+- La asignación se hace con `PUT /api/companies/users/:userId/branches`.
+- Una lista vacía desactiva el alcance para ese usuario.
+
 ## Invalidación de claims por empresa
 
 Cada membership tiene `token_version`. El access token incluye

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Headers, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Put, Delete, Body, Param, Headers, Query, UseGuards, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { MemberQueryDto, normalizePagination, normalizeSort } from '../common/dto/pagination-query.dto.js';
 import { Ok, OkPaged } from '../common/dto/api-response.dto.js';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiHeader, ApiQuery } from '@nestjs/swagger';
@@ -6,6 +6,7 @@ import { exportFileToStreamable } from '../common/export/tabular-export.service.
 import { MemberService } from './member.service.js';
 import { AddMemberDto } from './dto/add-member.dto.js';
 import { UpdateMemberDto } from './dto/update-member.dto.js';
+import { SetMemberBranchesDto } from './dto/set-member-branches.dto.js';
 import { MemberExportQueryDto } from './dto/member-export-query.dto.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
@@ -288,5 +289,37 @@ export class MemberController {
   async getUserCompanies(@Param('userId', ParseUUIDPipe) targetUserId: string) {
     const result = await this.memberService.getUserCompanies(targetUserId);
     return Ok(result);
+  }
+
+  @Get(':userId/branches')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('users:read')
+  @ApiOperation({ summary: 'Sedes asignadas a un miembro' })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiParam({ name: 'userId', description: 'UUID del usuario' })
+  async getMemberBranches(
+    @Headers('x-company-id') companyId: string,
+    @Param('userId', ParseUUIDPipe) targetUserId: string,
+  ) {
+    return Ok(await this.memberService.getMemberBranches(companyId, targetUserId));
+  }
+
+  @Put(':userId/branches')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('users:update')
+  @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true })
+  @ApiOperation({
+    summary: 'Asignar sedes a un miembro',
+    description: 'Define el alcance por sede. Una lista vacía desactiva el alcance.',
+  })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiParam({ name: 'userId', description: 'UUID del usuario' })
+  async setMemberBranches(
+    @Headers('x-company-id') companyId: string,
+    @Param('userId', ParseUUIDPipe) targetUserId: string,
+    @Body() dto: SetMemberBranchesDto,
+  ) {
+    const result = await this.memberService.setMemberBranches(companyId, targetUserId, dto.branchIds);
+    return Ok(undefined, result.message);
   }
 }

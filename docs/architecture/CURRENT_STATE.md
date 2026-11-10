@@ -329,7 +329,7 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 ### 9.2 Problemas
 
 1. **Búsqueda global de usuarios:** `MemberRepository.searchUsers` busca en todos los usuarios, lo que permite enumerar nombres y emails de otras empresas.
-2. **Sedes no aplicadas:** `branch_id` se guarda, pero guards y queries no lo usan como filtro.
+2. **Sedes (resuelto):** el alcance es opt-in por usuario vía `membership_branches`; Owner/Admin ven todas.
 3. **Borrado de sede en cascada:** borrar una sede elimina la membership completa.
 4. **Inactivación global:** `locked_until = NOW() + 100 years` bloquea al usuario en todas las empresas.
 5. **Remoción global:** eliminar un miembro revoca todos sus refresh tokens, no solo los de la empresa.
@@ -575,7 +575,7 @@ La documentación VitePress es extensa y cubre arquitectura, backend, frontend, 
 | ID | Hallazgo | Evidencia | Impacto | Acción recomendada |
 |---|---|---|---|---|
 | P0-1 | Búsqueda global de usuarios entre tenants | `MemberRepository.searchUsers` | Fuga de PII, enumeración de usuarios | Invitaciones por email; búsqueda solo en empresa |
-| P0-2 | Sedes no aplicadas como frontera | `membership_branches` no usado en guards/queries | Acceso a datos de otra sede | Definir alcance y aplicar filtros o quitar semántica |
+| ~~P0-2~~ | ~~Sedes no aplicadas como frontera~~ | Resuelto: alcance opt-in por `membership_branches` en listado/export/detalle de sedes | | |
 | P0-3 | Inactivación/remoción global | `locked_until` y revocación global | Un usuario pierde acceso a todas sus empresas | Membership con estado por empresa y revocación por empresa |
 | P0-4 | BD no garantiza aislamiento tenant | FKs independientes, RLS sin políticas | Un bug puede crear vínculos cross-tenant | FKs compuestas, RLS real, tests de aislamiento |
 | P0-5 | Auditoría no transaccional | Interceptor fire-and-forget, CASCADE | Trazabilidad financiera incompleta | Auditoría transaccional/outbox y retención |

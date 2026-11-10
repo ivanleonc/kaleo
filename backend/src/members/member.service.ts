@@ -220,6 +220,20 @@ export class MemberService {
     return this.memberRepository.getMemberCompanies(targetUserId);
   }
 
+  /** Sedes asignadas a un miembro (alcance por sede). */
+  async getMemberBranches(companyId: string, targetUserId: string) {
+    return this.memberRepository.getMemberBranches(companyId, targetUserId);
+  }
+
+  /**
+   * Asigna sedes a una membership. Una lista vacía desactiva el alcance por
+   * sede para ese usuario (vuelve a ver todas).
+   */
+  async setMemberBranches(companyId: string, targetUserId: string, branchIds: string[]) {
+    await this.memberRepository.setMemberBranches(companyId, targetUserId, branchIds);
+    return { message: 'Sedes del miembro actualizadas correctamente' };
+  }
+
   /**
    * Búsqueda de usuarios para autocompletar (solo id/nombre/email).
    * Se limita a miembros de la empresa para no filtrar usuarios de otros tenants.

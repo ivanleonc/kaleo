@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
@@ -449,6 +449,81 @@ export class MemberRepository {
         [companyId, `%${query}%`, Math.min(Math.max(limit, 1), 20)],
       ),
     );
+  }
+
+  /**
+   * Sedes asignadas a una membership. La lista vacía significa "sin alcance
+   * por sede" (el usuario ve todas), no "sin acceso".
+   */
+  async getMemberBranches(companyId: string, userId: string) {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await assertMember(
+        (sql, params) => queryRunner.query(sql, params),
+        userId,
+        companyId,
+      );
+
+      return queryRunner.query(
+        `SELECT mb.branch_id, b.name
+         FROM membership_branches mb
+         INNER JOIN memberships m
+           ON m.id = mb.membership_id AND m.company_id = mb.company_id
+         INNER JOIN branches b
+           ON b.id = mb.branch_id AND b.company_id = mb.company_id
+         WHERE mb.company_id = $1 AND m.user_id = $2 AND b.deleted_at IS NULL
+         ORDER BY b.name`,
+        [companyId, userId],
+      );
+    });
+  }
+
+  async setMemberBranches(companyId: string, userId: string, branchIds: string[]) {
+    this.assertCompany(companyId);
+    const uniqueBranchIds = [...new Set(branchIds.filter(Boolean))];
+
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await assertMember(
+        (sql, params) => queryRunner.query(sql, params),
+        userId,
+        companyId,
+      );
+
+      if (uniqueBranchIds.length > 0) {
+        const valid = await queryRunner.query(
+          `SELECT id FROM branches
+           WHERE company_id = $1 AND deleted_at IS NULL
+             AND id = ANY($2::uuid[])`,
+          [companyId, uniqueBranchIds],
+        );
+        if (valid.length !== uniqueBranchIds.length) {
+          throw new BadRequestException('Una o más sedes no pertenecen a esta empresa');
+        }
+      }
+
+      const membership = await queryRunner.query(
+        `SELECT id FROM memberships WHERE company_id = $1 AND user_id = $2`,
+        [companyId, userId],
+      );
+      if (!membership[0]) {
+        throw new NotFoundException('El usuario no es miembro de esta empresa');
+      }
+
+      await queryRunner.query(
+        `DELETE FROM membership_branches WHERE company_id = $1 AND membership_id = $2`,
+        [companyId, membership[0].id],
+      );
+
+      if (uniqueBranchIds.length > 0) {
+        const values = uniqueBranchIds.map((_, i) => `($1, $2, $${i + 3})`).join(', ');
+        await queryRunner.query(
+          `INSERT INTO membership_branches (company_id, membership_id, branch_id)
+           VALUES ${values}
+           ON CONFLICT DO NOTHING`,
+          [companyId, membership[0].id, ...uniqueBranchIds],
+        );
+      }
+    });
   }
 
   async removeMember(
