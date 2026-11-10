@@ -32,18 +32,12 @@ Ejemplos: `core.users.read`, `core.branches.create`, `core.audit.read`, `core.ro
 
 | Módulo | Código | Acciones disponibles |
 |---|---|---|
-| Autenticación | `AUTH` | `read` |
 | Usuarios / Miembros | `USERS` | `read`, `create`, `update`, `delete` |
 | Roles | `ROLES` | `read`, `create`, `update`, `delete` |
 | Empresa | `COMPANY` | `read`, `update` |
-| Configuración | `SETTINGS` | `read`, `update` |
-| Perfil | `PROFILE` | `read`, `update` |
-| Dashboard | `DASHBOARD` | `read` |
 | Sedes | `BRANCHES` | `read`, `create`, `update`, `delete` |
+| Análisis | `ANALYSES` | `read`, `create`, `update`, `delete` |
 | Auditoría | `AUDIT` | `read` |
-| Facturación | `BILLING` | `read`, `create`, `update`, `delete` |
-| Notificaciones | `NOTIFICATIONS` | `read`, `update` |
-| Integraciones | `INTEGRATIONS` | `read`, `create`, `update`, `delete` |
 
 ## Implementación en el frontend
 

@@ -5,16 +5,11 @@
  *
  * To add a new permission:
  * 1. Add the constant here
- * 2. Mirror it in frontend/src/constants/permissions.ts
- * 3. Add the row to the SQL seed (004-seed-permissions-roles.sql)
+ * 2. Mirror it in packages/shared/src/permissions.ts
+ * 3. Add the row to the SQL seed/migration
  * 4. Use @RequirePermissions(Permissions.MODULE.ACTION) in controllers
  */
 export const Permissions = {
-  AUTH: {
-    READ: 'core.auth.read',
-    UPDATE: 'core.auth.update',
-  },
-
   USERS: {
     READ: 'core.users.read',
     CREATE: 'core.users.create',
@@ -34,20 +29,6 @@ export const Permissions = {
     UPDATE: 'core.company.update',
   },
 
-  SETTINGS: {
-    READ: 'core.settings.read',
-    UPDATE: 'core.settings.update',
-  },
-
-  PROFILE: {
-    READ: 'core.profile.read',
-    UPDATE: 'core.profile.update',
-  },
-
-  DASHBOARD: {
-    READ: 'core.dashboard.read',
-  },
-
   BRANCHES: {
     READ: 'core.branches.read',
     CREATE: 'core.branches.create',
@@ -64,21 +45,6 @@ export const Permissions = {
 
   AUDIT: {
     READ: 'core.audit.read',
-  },
-
-  BILLING: {
-    READ: 'core.billing.read',
-    UPDATE: 'core.billing.update',
-  },
-
-  NOTIFICATIONS: {
-    READ: 'core.notifications.read',
-    UPDATE: 'core.notifications.update',
-  },
-
-  INTEGRATIONS: {
-    READ: 'core.integrations.read',
-    UPDATE: 'core.integrations.update',
   },
 } as const;
 

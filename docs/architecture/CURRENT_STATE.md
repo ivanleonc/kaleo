@@ -359,8 +359,8 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 
 ### 10.3 Limitaciones
 
-- Permisos “fantasma” de billing, notifications e integrations sin módulo real.
-- Códigos legacy de otras verticales aún no existen; el namespace actual es `core.*`.
+- Nuevos permisos deben añadirse a backend, shared, seed/migración y frontend.
+- Códigos legacy `module:action` se aceptan solo durante la transición.
 
 ---
 

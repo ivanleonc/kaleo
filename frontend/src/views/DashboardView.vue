@@ -38,7 +38,7 @@
           </UiMetricCard>
         </router-link>
 
-        <router-link :to="companyPath('/settings')" class="metric-link" v-permission="Permissions.SETTINGS.READ">
+        <router-link :to="companyPath('/settings')" class="metric-link" v-permission="Permissions.COMPANY.READ">
           <UiMetricCard
             title="Empresa actual"
             :value="activeCompanyName"

@@ -141,7 +141,7 @@ const items = computed<PaletteItem[]>(() => {
   go('Sedes', 'Gestionar sedes', IconBuildingCommunity, '/branches', Permissions.BRANCHES.READ);
   go('Roles', 'Configurar roles', IconShieldLock, '/roles', Permissions.ROLES.READ);
   go('Auditoría', 'Ver registros', IconClipboardList, '/audit', Permissions.AUDIT.READ);
-  go('Empresa', 'Ajustes de la empresa', IconSettings, '/settings', Permissions.SETTINGS.READ);
+  go('Empresa', 'Ajustes de la empresa', IconSettings, '/settings', Permissions.COMPANY.READ);
   go('Mi Cuenta', 'Ver mi perfil', IconUserCircle, '/profile');
 
   // Acciones rápidas: navegan a la sección y abren el modal de creación
