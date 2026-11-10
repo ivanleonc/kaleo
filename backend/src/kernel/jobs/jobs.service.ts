@@ -41,7 +41,7 @@ export class JobsService {
 
   async enqueue(input: JobInput, queryRunner?: QueryRunner): Promise<string> {
     const executor: QueryExecutor = queryRunner ?? this.privilegedDataSource;
-    const rows = await executor.query(
+    const inserted = await executor.query(
       `INSERT INTO jobs (company_id, queue, payload, run_at, max_attempts)
        VALUES ($1, $2, $3::jsonb, COALESCE($4, now()), $5)
        RETURNING id`,
@@ -53,7 +53,8 @@ export class JobsService {
         Math.max(1, input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS),
       ],
     );
-    return rows[0]!.id as string;
+    const row = Array.isArray(inserted?.[0]) ? inserted[0][0] : inserted[0];
+    return row!.id as string;
   }
 
   async runPending(limit = 10): Promise<number> {
@@ -68,7 +69,7 @@ export class JobsService {
       [STALE_LOCK_MINUTES],
     );
 
-    const claimed = (await db.query(
+    const rawClaimed = await db.query(
       `WITH candidate AS (
          SELECT id FROM jobs
          WHERE status = 'pending' AND run_at <= now()
@@ -87,7 +88,10 @@ export class JobsService {
                  j.attempts, j.max_attempts, j.locked_at, j.locked_by,
                  j.last_error, j.completed_at, j.created_at, j.updated_at`,
       [limit, this.workerId],
-    )) as JobRow[];
+    );
+    // TypeORM devuelve [rows, rowCount] para UPDATE ... RETURNING ejecutado
+    // directamente sobre el DataSource; dentro de un QueryRunner devuelve rows.
+    const claimed = (Array.isArray(rawClaimed?.[0]) ? rawClaimed[0] : rawClaimed) as JobRow[];
 
     for (const job of claimed) {
       const handler = this.handlers.get(job.queue);

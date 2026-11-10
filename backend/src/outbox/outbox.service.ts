@@ -33,7 +33,7 @@ export class OutboxService {
 
   async enqueue(input: OutboxEventInput, queryRunner?: QueryRunner): Promise<string> {
     const executor: QueryExecutor = queryRunner ?? this.authDataSource ?? this.dataSource;
-    const inserted = rows<{ event_id: string }>(await executor.query(
+    const raw = await executor.query(
       `INSERT INTO outbox_events
          (event_id, company_id, aggregate_type, aggregate_id, event_type, payload, occurred_at)
        VALUES
@@ -48,7 +48,8 @@ export class OutboxService {
         JSON.stringify(input.payload ?? {}),
         input.occurredAt ?? null,
       ],
-    ));
+    );
+    const inserted = (Array.isArray(raw?.[0]) ? raw[0] : raw) as Array<{ event_id: string }>;
     return inserted[0]!.event_id;
   }
 

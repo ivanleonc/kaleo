@@ -22,12 +22,16 @@ function job(overrides: Partial<JobRow> = {}): JobRow {
   };
 }
 
-function createStub(claimed: JobRow[] = []) {
+function createStub(claimed: JobRow[] = [], structured = false) {
   const queries: Array<{ sql: string; params: any[] }> = [];
   const query = vi.fn(async (sql: string, params: any[] = []) => {
     queries.push({ sql, params });
-    if (sql.includes('RETURNING j.id')) return claimed;
-    if (sql.includes('INSERT INTO jobs')) return [{ id: 'job-new' }];
+    if (sql.includes('RETURNING j.id')) {
+      return structured ? [claimed, claimed.length] : claimed;
+    }
+    if (sql.includes('INSERT INTO jobs')) {
+      return structured ? [[{ id: 'job-new' }], 1] : [{ id: 'job-new' }];
+    }
     return [];
   });
   return { dataSource: { query } as any, queries };
@@ -56,6 +60,16 @@ describe('JobsService', () => {
 
     expect(handler).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1' }));
     expect(queries.some((q) => q.sql.includes("status = 'completed'"))).toBe(true);
+  });
+
+  it('normaliza el resultado [rows, count] de UPDATE ... RETURNING', async () => {
+    const { dataSource } = createStub([job()], true);
+    const service = new JobsService(dataSource);
+    const handler = vi.fn(async () => {});
+    service.registerHandler('email.send', handler);
+
+    await expect(service.runPending()).resolves.toBe(1);
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1' }));
   });
 
   it('reprograma con backoff cuando falla', async () => {
