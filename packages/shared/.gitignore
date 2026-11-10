@@ -1,0 +1,5 @@
+# Build artifacts generados por tsc/vue-tsc
+*.js
+*.js.map
+*.d.ts
+*.tsbuildinfo
