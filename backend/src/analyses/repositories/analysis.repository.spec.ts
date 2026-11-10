@@ -1,26 +1,62 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { AnalysisRepository } from './analysis.repository.js';
 import { createEnergyResult } from '../testing/energy-result.fixture.js';
+import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
 
-function createPagedDataSourceStub(total = '1') {
+function createStub(handler: (sql: string, params: any[]) => unknown) {
   const calls: Array<{ sql: string; params: any[] }> = [];
-  const dataSource = {
-    query: vi.fn(async (sql: string, params: any[] = []) => {
-      calls.push({ sql, params });
-      return sql.includes('COUNT') ? [{ total }] : [];
-    }),
+  const query = vi.fn(async (sql: string, params: any[] = []) => {
+    calls.push({ sql, params });
+    return handler(sql, params);
+  });
+  const runner = {
+    connect: vi.fn(async () => {}),
+    startTransaction: vi.fn(async () => {}),
+    query,
+    commitTransaction: vi.fn(async () => {}),
+    rollbackTransaction: vi.fn(async () => {}),
+    release: vi.fn(async () => {}),
   };
+  const dataSource = { query, createQueryRunner: () => runner };
   return { dataSource, calls };
 }
 
-describe('AnalysisRepository.findPagedByCompany', () => {
-  it('pagina con scope de empresa y orden por fecha descendente', async () => {
-    const { dataSource, calls } = createPagedDataSourceStub();
-    const repository = new AnalysisRepository(dataSource as any);
+function createPagedStub(total = '1') {
+  return createStub((sql) => (sql.includes('COUNT') ? [{ total }] : []));
+}
 
+function runWithContext<T>(context: TenantContextService, fn: () => Promise<T>): Promise<T> {
+  return context.run({ requestId: 'req-1', isSuperAdmin: false }, () => {
+    context.setCompany('company-1');
+    return fn();
+  });
+}
+
+function businessCalls(calls: Array<{ sql: string; params: any[] }>) {
+  return calls.filter(
+    (c) => !c.sql.includes('SET LOCAL ROLE') && !c.sql.includes("set_config('app."),
+  );
+}
+
+describe('AnalysisRepository.findPagedByCompany', () => {
+  let calls: Array<{ sql: string; params: any[] }>;
+  let repository: AnalysisRepository;
+  let context: TenantContextService;
+
+  const tenantIt = (name: string, fn: () => Promise<void>) =>
+    it(name, () => runWithContext(context, fn));
+
+  beforeEach(() => {
+    const stub = createPagedStub();
+    calls = stub.calls;
+    context = new TenantContextService();
+    repository = new AnalysisRepository(stub.dataSource as any, context);
+  });
+
+  tenantIt('pagina con scope de empresa y orden por fecha descendente', async () => {
     await repository.findPagedByCompany('company-1', 2, 10);
 
-    const dataQuery = calls[1];
+    const dataQuery = businessCalls(calls)[1];
     expect(dataQuery.sql).toContain('a.company_id = $1');
     expect(dataQuery.sql).toContain('a.deleted_at IS NULL');
     expect(dataQuery.sql).toContain('ORDER BY a.created_at DESC, a.id');
@@ -28,46 +64,40 @@ describe('AnalysisRepository.findPagedByCompany', () => {
     expect(dataQuery.params).toEqual(['company-1', 10, 10]);
   });
 
-  it('busca por nombre y archivo con un placeholder reutilizado', async () => {
-    const { dataSource, calls } = createPagedDataSourceStub();
-    const repository = new AnalysisRepository(dataSource as any);
-
+  tenantIt('busca por nombre y archivo con un placeholder reutilizado', async () => {
     await repository.findPagedByCompany('company-1', 1, 20, { search: 'enero' });
 
-    const dataQuery = calls[1];
+    const dataQuery = businessCalls(calls)[1];
     expect(dataQuery.sql).toContain('(a.name ILIKE $2 OR a.file_name ILIKE $2)');
     expect(dataQuery.params).toEqual(['company-1', '%enero%', 20, 0]);
     expect(dataQuery.sql).toContain('LIMIT $3 OFFSET $4');
   });
 
-  it('filtra por tipo de análisis', async () => {
-    const { dataSource, calls } = createPagedDataSourceStub();
-    const repository = new AnalysisRepository(dataSource as any);
-
+  tenantIt('filtra por tipo de análisis', async () => {
     await repository.findPagedByCompany('company-1', 1, 20, { analysis_type: 'energy' });
 
-    expect(calls[0].sql).toContain('a.analysis_type = $2');
-    expect(calls[0].params).toEqual(['company-1', 'energy']);
+    expect(businessCalls(calls)[0].sql).toContain('a.analysis_type = $2');
+    expect(businessCalls(calls)[0].params).toEqual(['company-1', 'energy']);
   });
 
-  it('neutraliza intentos de inyección en sortBy', async () => {
-    const { dataSource, calls } = createPagedDataSourceStub();
-    const repository = new AnalysisRepository(dataSource as any);
-
+  tenantIt('neutraliza intentos de inyección en sortBy', async () => {
     await repository.findPagedByCompany('company-1', 1, 20, {}, {
       sortBy: 'a.name; DROP TABLE analyses--',
       sortDir: 'asc',
     });
 
-    expect(calls[1].sql).not.toContain('DROP TABLE');
-    expect(calls[1].sql).toContain('ORDER BY a.created_at ASC');
+    expect(businessCalls(calls)[1].sql).not.toContain('DROP TABLE');
+    expect(businessCalls(calls)[1].sql).toContain('ORDER BY a.created_at ASC');
   });
 
-  it('acota page y limit a valores seguros', async () => {
-    const { dataSource } = createPagedDataSourceStub('0');
-    const repository = new AnalysisRepository(dataSource as any);
+  tenantIt('acota page y limit a valores seguros', async () => {
+    const stub = createPagedStub('0');
+    const localContext = new TenantContextService();
+    const localRepository = new AnalysisRepository(stub.dataSource as any, localContext);
 
-    const result = await repository.findPagedByCompany('company-1', 0, 5000);
+    const result = await runWithContext(localContext, () =>
+      localRepository.findPagedByCompany('company-1', 0, 5000),
+    );
 
     expect(result.page).toBe(1);
     expect(result.limit).toBe(100);
@@ -77,44 +107,43 @@ describe('AnalysisRepository.findPagedByCompany', () => {
 
 describe('AnalysisRepository mutations', () => {
   it('crea el análisis y serializa summary/result', async () => {
-    const calls: Array<{ sql: string; params: any[] }> = [];
-    const dataSource = {
-      query: vi.fn(async (sql: string, params: any[] = []) => {
-        calls.push({ sql, params });
-        if (sql.includes('INSERT INTO analyses')) return [{ id: 'analysis-1' }];
-        if (sql.includes('a.result')) {
-          return [{
-            id: 'analysis-1',
-            company_id: 'company-1',
-            created_by: 'user-1',
-            created_by_name: 'Ana',
-            name: 'Enero',
-            analysis_type: 'energy',
-            source: 'api',
-            file_name: 'enero.xlsx',
-            file_size: 120,
-            summary: { periodFrom: '2026-01-01' },
-            result: createEnergyResult(),
-            created_at: '2026-02-01T00:00:00.000Z',
-            updated_at: '2026-02-01T00:00:00.000Z',
-          }];
-        }
-        return [];
-      }),
-    };
-    const repository = new AnalysisRepository(dataSource as any);
-
-    const created = await repository.create('company-1', 'user-1', {
-      name: 'Enero',
-      analysis_type: 'energy',
-      source: 'api',
-      file_name: 'enero.xlsx',
-      file_size: 120,
-      summary: { periodFrom: '2026-01-01' },
-      result: createEnergyResult(),
+    const context = new TenantContextService();
+    const { dataSource, calls } = createStub((sql) => {
+      if (sql.includes('INSERT INTO analyses')) return [{ id: 'analysis-1' }];
+      if (sql.includes('a.result')) {
+        return [{
+          id: 'analysis-1',
+          company_id: 'company-1',
+          created_by: 'user-1',
+          created_by_name: 'Ana',
+          name: 'Enero',
+          analysis_type: 'energy',
+          source: 'api',
+          file_name: 'enero.xlsx',
+          file_size: 120,
+          summary: { periodFrom: '2026-01-01' },
+          result: createEnergyResult(),
+          created_at: '2026-02-01T00:00:00.000Z',
+          updated_at: '2026-02-01T00:00:00.000Z',
+        }];
+      }
+      return [];
     });
+    const repository = new AnalysisRepository(dataSource as any, context);
 
-    const insert = calls[0];
+    const created = await runWithContext(context, () =>
+      repository.create('company-1', 'user-1', {
+        name: 'Enero',
+        analysis_type: 'energy',
+        source: 'api',
+        file_name: 'enero.xlsx',
+        file_size: 120,
+        summary: { periodFrom: '2026-01-01' },
+        result: createEnergyResult(),
+      }),
+    );
+
+    const insert = businessCalls(calls).find((c) => c.sql.includes('INSERT INTO analyses'))!;
     expect(insert.params[0]).toBe('company-1');
     expect(insert.params[1]).toBe('user-1');
     expect(insert.params[4]).toBe('api');
@@ -124,23 +153,22 @@ describe('AnalysisRepository mutations', () => {
   });
 
   it('renombra y devuelve null cuando no existe', async () => {
-    const dataSource = {
-      query: vi.fn(async (sql: string) => {
-        if (sql.includes('UPDATE analyses')) return [];
-        return [];
-      }),
-    };
-    const repository = new AnalysisRepository(dataSource as any);
+    const context = new TenantContextService();
+    const { dataSource } = createStub((sql) => (sql.includes('UPDATE analyses') ? [] : []));
+    const repository = new AnalysisRepository(dataSource as any, context);
 
-    await expect(repository.rename('analysis-1', 'company-1', 'Nuevo')).resolves.toBeNull();
+    await expect(
+      runWithContext(context, () => repository.rename('analysis-1', 'company-1', 'Nuevo')),
+    ).resolves.toBeNull();
   });
 
   it('soft delete devuelve false cuando no encuentra el análisis', async () => {
-    const dataSource = {
-      query: vi.fn(async () => []),
-    };
-    const repository = new AnalysisRepository(dataSource as any);
+    const context = new TenantContextService();
+    const { dataSource } = createStub(() => []);
+    const repository = new AnalysisRepository(dataSource as any, context);
 
-    await expect(repository.softDelete('analysis-1', 'company-1')).resolves.toBe(false);
+    await expect(
+      runWithContext(context, () => repository.softDelete('analysis-1', 'company-1')),
+    ).resolves.toBe(false);
   });
 });
