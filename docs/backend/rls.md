@@ -67,6 +67,26 @@ Crea dos empresas con datos de varios módulos, cambia a `kaleo_app` con context
 
 > **Importante:** la aplicación sigue conectando como `postgres` (`BYPASSRLS`). Las políticas están listas, pero no se aplican hasta cambiar la `DATABASE_URL` a `kaleo_app`.
 
+## Pilot de transacción con RLS
+
+`withTenantTransaction` ahora:
+
+1. Abre una transacción.
+2. Ejecuta `SET LOCAL ROLE kaleo_app`.
+3. Setea `app.company_id` y, si existe, `app.user_id`.
+4. Ejecuta el callback con el `QueryRunner`.
+5. Hace commit/rollback y libera la conexión.
+
+El primer repositorio migrado es `FeatureFlagsRepository`. La app sigue conectando como `postgres`, pero dentro de esa transacción actúa como `kaleo_app`, por lo que RLS se aplica.
+
+Validación:
+
+```bash
+npm run smoke:tenant -- staging
+```
+
+Comprueba que el contexto A solo vea sus flags, que el upsert en A funcione y que leer/escribir B quede bloqueado.
+
 ## Cómo se ejecuta
 
 Dentro de una transacción:
@@ -117,11 +137,12 @@ Los repositorios existentes siguen recibiendo `companyId` explícito. La migraci
 ## Rollout pendiente
 
 1. ✅ Políticas para todas las tablas de negocio.
-2. Migrar los repositorios a `withTenantTransaction` para que cada operación de negocio setee `app.company_id`.
-3. Resolver el flujo de autenticación sin contexto de empresa (login por email, registro y onboarding):
+2. ✅ Pilot de `withTenantTransaction` + `SET LOCAL ROLE kaleo_app` en feature flags.
+3. Migrar el resto de repositorios de negocio a `withTenantTransaction`.
+4. Resolver el flujo de autenticación sin contexto de empresa (login por email, registro y onboarding):
    - opción A: funciones `SECURITY DEFINER` para lookups de auth;
    - opción B: rol/DataSource `kaleo_auth` separado con permisos acotados.
-4. Crear el rol de login `kaleo_app` con password y migrar la `DATABASE_URL`.
-5. Probar en staging con `kaleo_app` y luego en producción.
+5. Crear el rol de login `kaleo_app` con password y migrar la `DATABASE_URL`.
+6. Probar en staging con `kaleo_app` y luego en producción.
 
 **No cambiar la conexión a `kaleo_app` hasta completar 2 y 3.** Con `kaleo_app` y sin contexto, el login por email devuelve 0 filas por diseño.

@@ -49,11 +49,23 @@ export class TenantContextService {
     return this.als.getStore()?.companyId;
   }
 
+  getUserId(): string | undefined {
+    return this.als.getStore()?.userId;
+  }
+
   requireCompanyId(): string {
     const companyId = this.als.getStore()?.companyId;
     if (!companyId) {
       throw new Error('TenantContext sin companyId: falta x-company-id o no se inicializó el contexto');
     }
     return companyId;
+  }
+
+  requireUserId(): string {
+    const userId = this.als.getStore()?.userId;
+    if (!userId) {
+      throw new Error('TenantContext sin userId: no se inicializó el usuario autenticado');
+    }
+    return userId;
   }
 }
