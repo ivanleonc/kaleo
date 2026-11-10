@@ -5,10 +5,9 @@
  *   KALEO_RUNTIME_PASSWORD=... KALEO_AUTH_PASSWORD=... \
  *     npm run db:set-app-passwords -- production
  *
- * `DATABASE_URL` se toma del entorno o de `.env.<entorno>` (conexión admin).
- * No imprime las contraseñas.
+ * `DATABASE_URL` se toma SIEMPRE de `.env.<entorno>` para evitar escribir en
+ * la base local por accidente. No imprime contraseñas.
  */
-import 'dotenv/config';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,13 +28,18 @@ function databaseUrlFromFile(): string | undefined {
     .replace(/^["']|["']$/g, '');
 }
 
-const databaseUrl = process.env.DATABASE_URL || databaseUrlFromFile();
+const databaseUrl = databaseUrlFromFile() ?? process.env.DATABASE_URL;
 const runtimePassword = process.env.KALEO_RUNTIME_PASSWORD;
 const authPassword = process.env.KALEO_AUTH_PASSWORD;
 
 if (!databaseUrl) throw new Error(`DATABASE_URL no definida para "${environment}"`);
 if (!runtimePassword || !authPassword) {
   throw new Error('Define KALEO_RUNTIME_PASSWORD y KALEO_AUTH_PASSWORD');
+}
+
+function describeTarget(url: string): string {
+  const parsed = new URL(url);
+  return `${parsed.username}@${parsed.hostname}:${parsed.port || '(default)'}${parsed.pathname}`;
 }
 
 const client = new Client({ connectionString: databaseUrl, ssl: databaseSslOptions() });
@@ -49,9 +53,30 @@ async function setPassword(role: string, password: string) {
 async function main(): Promise<void> {
   await client.connect();
   try {
+    console.log(`→ Conectado a [${environment}]: ${describeTarget(databaseUrl!)}`);
+
+    const roles = await client.query<{
+      rolname: string;
+      rolcanlogin: boolean;
+      rolbypassrls: boolean;
+    }>(
+      `SELECT rolname, rolcanlogin, rolbypassrls
+       FROM pg_roles
+       WHERE rolname IN ('kaleo_runtime', 'kaleo_auth')`,
+    );
+
+    const names = new Set(roles.rows.map((r) => r.rolname));
+    if (!names.has('kaleo_runtime') || !names.has('kaleo_auth')) {
+      throw new Error(
+        'Faltan los roles kaleo_runtime/kaleo_auth. Aplica la migración 039 primero.',
+      );
+    }
+
     await setPassword('kaleo_runtime', runtimePassword!);
     await setPassword('kaleo_auth', authPassword!);
-    console.log(`Contraseñas actualizadas para kaleo_runtime y kaleo_auth [${environment}]`);
+
+    console.log('Contraseñas actualizadas para kaleo_runtime y kaleo_auth');
+    console.log('Siguiente paso: npm run db:check-app-roles -- ' + environment);
   } finally {
     await client.end();
   }
