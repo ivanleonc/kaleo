@@ -6,7 +6,7 @@
 -- sesiones activas durante el despliegue.
 
 ALTER TABLE public.refresh_tokens
-    ADD COLUMN IF NOT EXISTS family_id uuid;
+    ADD COLUMN IF NOT EXISTS family_id uuid DEFAULT gen_random_uuid();
 
 UPDATE public.refresh_tokens
 SET family_id = gen_random_uuid()
@@ -16,10 +16,10 @@ ALTER TABLE public.refresh_tokens
     ALTER COLUMN family_id SET NOT NULL;
 
 ALTER TABLE public.refresh_tokens
+    ALTER COLUMN family_id SET DEFAULT gen_random_uuid();
+
+ALTER TABLE public.refresh_tokens
     ADD COLUMN IF NOT EXISTS rotated_at timestamptz;
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family
     ON public.refresh_tokens (family_id);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uq_refresh_tokens_hash
-    ON public.refresh_tokens (token_hash);
