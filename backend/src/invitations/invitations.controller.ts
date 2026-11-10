@@ -28,7 +28,7 @@ export class InvitationsController {
   @Post()
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:create')
-  @Audit({ entityType: 'Invitation', resolveCreatedId: (r) => r?.data?.id, skipDiff: true })
+  @Audit({ entityType: 'Invitation', skip: true })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiOperation({
     summary: 'Invitar a un usuario por email',

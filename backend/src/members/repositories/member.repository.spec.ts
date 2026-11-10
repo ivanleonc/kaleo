@@ -252,3 +252,57 @@ describe('MemberRepository cross-company (super-admin)', () => {
     expect(queries[0]!.params[0]).toBe('company-1');
   });
 });
+
+describe('MemberRepository.removeMember', () => {
+  function createRunner(handlers: Array<{ match: RegExp; rows: any[] }>) {
+    const queries: Array<{ sql: string; params: any[] }> = [];
+    const query = vi.fn(async (sql: string, params: any[] = []) => {
+      queries.push({ sql, params });
+      return handlers.find((h) => h.match.test(sql))?.rows ?? [];
+    });
+    const runner = {
+      connect: vi.fn(async () => {}),
+      startTransaction: vi.fn(async () => {}),
+      query,
+      commitTransaction: vi.fn(async () => {}),
+      rollbackTransaction: vi.fn(async () => {}),
+      release: vi.fn(async () => {}),
+    };
+    return { dataSource: { createQueryRunner: () => runner }, runner, queries };
+  }
+
+  it('ejecuta el callback de auditoría dentro de la transacción', async () => {
+    const onRemoved = vi.fn(async () => {});
+    const { dataSource, runner } = createRunner([
+      { match: /FROM users WHERE id/, rows: [{ id: 'u-1', email: 'ana@x.co', name: 'Ana' }] },
+      { match: /COUNT\(\*\) AS total/, rows: [{ total: '1' }] },
+      { match: /SELECT 1 FROM user_contexts/, rows: [] },
+      { match: /DELETE FROM user_contexts/, rows: [{ id: 'uc-1' }] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    const result = await repo.removeMember('c-1', 'u-1', onRemoved);
+
+    expect(result.message).toContain('eliminado');
+    expect(onRemoved).toHaveBeenCalledWith(runner, {
+      id: 'u-1',
+      email: 'ana@x.co',
+      name: 'Ana',
+    });
+    expect(runner.commitTransaction).toHaveBeenCalled();
+  });
+
+  it('no llama al callback si es el único Owner', async () => {
+    const onRemoved = vi.fn(async () => {});
+    const { dataSource, runner } = createRunner([
+      { match: /FROM users WHERE id/, rows: [{ id: 'u-1', email: 'ana@x.co', name: 'Ana' }] },
+      { match: /COUNT\(\*\) AS total/, rows: [{ total: '0' }] },
+      { match: /SELECT 1 FROM user_contexts/, rows: [{ one: 1 }] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
+
+    await expect(repo.removeMember('c-1', 'u-1', onRemoved)).rejects.toThrow('único Owner');
+    expect(onRemoved).not.toHaveBeenCalled();
+    expect(runner.rollbackTransaction).toHaveBeenCalled();
+  });
+});

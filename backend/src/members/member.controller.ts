@@ -242,7 +242,7 @@ export class MemberController {
   @Delete(':userId')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:delete')
-  @Audit({ entityType: 'Member', idParam: 'userId' })
+  @Audit({ entityType: 'Member', idParam: 'userId', skip: true })
   @ApiOperation({ summary: 'Eliminar un miembro de la empresa', description: 'Requiere permiso users:delete. El userId debe ser un UUID válido.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'userId', description: 'UUID del usuario', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })

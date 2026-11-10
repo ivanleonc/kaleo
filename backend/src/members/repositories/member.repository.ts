@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
 import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
@@ -409,42 +409,63 @@ export class MemberRepository {
     return result;
   }
 
-  async removeMember(companyId: string, userId: string) {
-    // Impedir dejar la empresa sin ningún Owner: si este usuario es el
-    // único Owner activo el borrado se rechaza.
-    const ownerCheck = await this.dataSource.query(
-      `SELECT COUNT(*) AS total
-       FROM user_contexts uc
-       INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
-       WHERE uc.company_id = $1
-         AND r.name = 'Owner'
-         AND uc.user_id != $2`,
-      [companyId, userId],
-    );
-    const otherOwners = parseInt(ownerCheck[0]?.total ?? '0', 10);
-
-    // Verificar si el usuario a eliminar es Owner
-    const isOwner = await this.dataSource.query(
-      `SELECT 1 FROM user_contexts uc
-       INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
-       WHERE uc.user_id = $1 AND uc.company_id = $2 AND r.name = 'Owner'`,
-      [userId, companyId],
-    );
-
-    if (isOwner.length > 0 && otherOwners === 0) {
-      throw new ConflictException(
-        'No puedes eliminar al único Owner de la empresa. Asigna otro Owner primero.',
+  async removeMember(
+    companyId: string,
+    userId: string,
+    onRemoved?: (
+      queryRunner: QueryRunner,
+      removed: { id: string; email: string; name: string | null },
+    ) => Promise<void>,
+  ) {
+    await runInTransaction(this.dataSource, async (queryRunner) => {
+      const userRows = await queryRunner.query(
+        `SELECT id, email, name FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        [userId],
       );
-    }
+      if (userRows.length === 0) {
+        throw new NotFoundException('El usuario no es miembro de esta empresa');
+      }
 
-    const result = await this.dataSource.query(
-      `DELETE FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
-      [userId, companyId],
-    );
+      // Impedir dejar la empresa sin ningún Owner: si este usuario es el
+      // único Owner activo el borrado se rechaza.
+      const ownerCheck = await queryRunner.query(
+        `SELECT COUNT(*) AS total
+         FROM user_contexts uc
+         INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
+         WHERE uc.company_id = $1
+           AND r.name = 'Owner'
+           AND uc.user_id != $2`,
+        [companyId, userId],
+      );
+      const otherOwners = parseInt(ownerCheck[0]?.total ?? '0', 10);
 
-    if (result.rowCount === 0) {
-      throw new NotFoundException('El usuario no es miembro de esta empresa');
-    }
+      const isOwner = await queryRunner.query(
+        `SELECT 1 FROM user_contexts uc
+         INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
+         WHERE uc.user_id = $1 AND uc.company_id = $2 AND r.name = 'Owner'`,
+        [userId, companyId],
+      );
+
+      if (isOwner.length > 0 && otherOwners === 0) {
+        throw new ConflictException(
+          'No puedes eliminar al único Owner de la empresa. Asigna otro Owner primero.',
+        );
+      }
+
+      const deleted = await queryRunner.query(
+        `DELETE FROM user_contexts
+         WHERE user_id = $1 AND company_id = $2
+         RETURNING id`,
+        [userId, companyId],
+      );
+      if (deleted.length === 0) {
+        throw new NotFoundException('El usuario no es miembro de esta empresa');
+      }
+
+      if (onRemoved) {
+        await onRemoved(queryRunner, userRows[0]);
+      }
+    });
 
     return { message: 'Miembro eliminado de la empresa correctamente' };
   }

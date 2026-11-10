@@ -16,6 +16,9 @@ import { EmailService } from '../email/email.service.js';
 import { PasswordService } from '../auth/password.service.js';
 import { validatePasswordStrength } from '../auth/utils/password-validator.js';
 import { sha256 } from '../common/utils/crypto.js';
+import { AuditLogService } from '../audit/audit-log.service.js';
+import { OutboxService } from '../outbox/outbox.service.js';
+import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
 
 const INVITATION_TTL_DAYS = 7;
 
@@ -36,6 +39,9 @@ export class InvitationsService {
     private readonly emailService: EmailService,
     private readonly passwordService: PasswordService,
     private readonly configService: ConfigService,
+    private readonly auditLogService: AuditLogService,
+    private readonly outboxService: OutboxService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async create(companyId: string, invitedBy: string, input: CreateInvitationInput) {
@@ -62,15 +68,54 @@ export class InvitationsService {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
 
-    const invitation = await this.repository.create({
-      companyId,
-      invitedBy,
-      email,
-      name: input.name?.trim() || null,
-      tokenHash: sha256(token),
-      expiresAt,
-      roleIds,
-    });
+    const context = this.tenantContext.get();
+    const invitation = await this.repository.create(
+      {
+        companyId,
+        invitedBy,
+        email,
+        name: input.name?.trim() || null,
+        tokenHash: sha256(token),
+        expiresAt,
+        roleIds,
+      },
+      async (queryRunner, created) => {
+        await this.auditLogService.logInTransaction(queryRunner, {
+          companyId,
+          userId: invitedBy,
+          action: 'POST /api/companies/users/invitations',
+          entityType: 'Invitation',
+          entityId: created.id,
+          newValues: {
+            email: created.email,
+            name: created.name,
+            roleIds: created.roleIds,
+            expiresAt: created.expires_at,
+          },
+          responseStatus: 201,
+          moduleCode: 'core.members',
+          source: 'api',
+          requestId: context?.requestId,
+          actorType: 'user',
+          actorId: invitedBy,
+        });
+
+        await this.outboxService.enqueue(
+          {
+            companyId,
+            aggregateType: 'Invitation',
+            aggregateId: created.id,
+            eventType: 'invitation.created',
+            payload: {
+              invitationId: created.id,
+              email: created.email,
+              roleIds: created.roleIds,
+            },
+          },
+          queryRunner,
+        );
+      },
+    );
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
     const invitationUrl = `${frontendUrl}/accept-invitation?token=${encodeURIComponent(token)}`;

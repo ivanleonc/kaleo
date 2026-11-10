@@ -1,5 +1,5 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { rows } from '../common/utils/db.js';
 import { runInTransaction } from '../common/utils/transaction.helper.js';
 import { insertUserContexts } from '../common/utils/membership.helper.js';
@@ -45,15 +45,21 @@ export interface AcceptedUser {
 export class InvitationsRepository {
   constructor(private readonly dataSource: DataSource) {}
 
-  async create(input: {
-    companyId: string;
-    invitedBy: string;
-    email: string;
-    name?: string | null;
-    tokenHash: string;
-    expiresAt: Date;
-    roleIds: string[];
-  }): Promise<CreatedInvitation> {
+  async create(
+    input: {
+      companyId: string;
+      invitedBy: string;
+      email: string;
+      name?: string | null;
+      tokenHash: string;
+      expiresAt: Date;
+      roleIds: string[];
+    },
+    onCreated?: (
+      queryRunner: QueryRunner,
+      invitation: CreatedInvitation & { name: string | null; roleIds: string[] },
+    ) => Promise<void>,
+  ): Promise<CreatedInvitation> {
     let invitation: CreatedInvitation | undefined;
 
     await runInTransaction(this.dataSource, async (queryRunner) => {
@@ -88,6 +94,14 @@ export class InvitationsRepository {
            ON CONFLICT DO NOTHING`,
           [input.companyId, invitation.id, ...input.roleIds],
         );
+      }
+
+      if (onCreated) {
+        await onCreated(queryRunner, {
+          ...invitation,
+          name: input.name ?? null,
+          roleIds: input.roleIds,
+        });
       }
     });
 

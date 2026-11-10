@@ -8,6 +8,9 @@ import { MEMBER_EXPORT_COLUMNS, type MemberExportRow } from './member-export.col
 import { PasswordService } from '../auth/password.service.js';
 import { RefreshTokenRepository } from '../auth/repositories/refresh-token.repository.js';
 import { EmailService } from '../email/email.service.js';
+import { AuditLogService } from '../audit/audit-log.service.js';
+import { OutboxService } from '../outbox/outbox.service.js';
+import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
 
 @Injectable()
 export class MemberService {
@@ -17,6 +20,9 @@ export class MemberService {
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly emailService: EmailService,
     private readonly exportService: TabularExportService,
+    private readonly auditLogService: AuditLogService,
+    private readonly outboxService: OutboxService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async getMembers(
@@ -111,7 +117,38 @@ export class MemberService {
   }
 
   async removeMember(companyId: string, userId: string) {
-    const result = await this.memberRepository.removeMember(companyId, userId);
+    const context = this.tenantContext.get();
+    const result = await this.memberRepository.removeMember(
+      companyId,
+      userId,
+      async (queryRunner, removed) => {
+        await this.auditLogService.logInTransaction(queryRunner, {
+          companyId,
+          userId: context?.userId,
+          action: 'DELETE /api/companies/users/:id',
+          entityType: 'Member',
+          entityId: removed.id,
+          oldValues: { id: removed.id, email: removed.email, name: removed.name },
+          responseStatus: 200,
+          moduleCode: 'core.members',
+          source: 'api',
+          requestId: context?.requestId,
+          actorType: 'user',
+          actorId: context?.userId,
+        });
+
+        await this.outboxService.enqueue(
+          {
+            companyId,
+            aggregateType: 'Member',
+            aggregateId: removed.id,
+            eventType: 'member.removed',
+            payload: { userId: removed.id, email: removed.email },
+          },
+          queryRunner,
+        );
+      },
+    );
     await this.refreshTokenRepository.revokeAllForUser(userId);
     return result;
   }

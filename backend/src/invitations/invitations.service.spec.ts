@@ -23,6 +23,9 @@ function createDependencies() {
   const emailService = { sendInvitation: vi.fn() };
   const passwordService = { hashPassword: vi.fn() };
   const configService = { get: vi.fn().mockReturnValue('http://localhost:5173') };
+  const auditLogService = { logInTransaction: vi.fn() };
+  const outboxService = { enqueue: vi.fn() };
+  const tenantContext = { get: vi.fn().mockReturnValue({ requestId: 'req-1' }) };
   const service = new InvitationsService(
     repository as any,
     memberRepository as any,
@@ -30,8 +33,20 @@ function createDependencies() {
     emailService as any,
     passwordService as any,
     configService as any,
+    auditLogService as any,
+    outboxService as any,
+    tenantContext as any,
   );
-  return { service, repository, memberRepository, companyRepository, emailService, passwordService };
+  return {
+    service,
+    repository,
+    memberRepository,
+    companyRepository,
+    emailService,
+    passwordService,
+    auditLogService,
+    outboxService,
+  };
 }
 
 const future = new Date(Date.now() + 86400000).toISOString();
@@ -41,8 +56,11 @@ describe('InvitationsService.create', () => {
     const deps = createDependencies();
     deps.memberRepository.findInvalidRoleIds.mockResolvedValue([]);
     deps.companyRepository.findById.mockResolvedValue({ name: 'Acme' });
-    deps.repository.create.mockResolvedValue({
-      id: 'inv-1', email: 'ana@acme.com', expires_at: future,
+    deps.repository.create.mockImplementation(async (_input: any, onCreated: any) => {
+      await onCreated({ query: vi.fn() }, {
+        id: 'inv-1', email: 'ana@acme.com', expires_at: future, name: null, roleIds: ['role-1'],
+      });
+      return { id: 'inv-1', email: 'ana@acme.com', expires_at: future };
     });
     deps.emailService.sendInvitation.mockResolvedValue(undefined);
 
@@ -53,11 +71,19 @@ describe('InvitationsService.create', () => {
 
     expect(result.email).toBe('ana@acme.com');
     expect(result.emailSent).toBe(true);
-    expect(deps.repository.create).toHaveBeenCalledWith(expect.objectContaining({
-      companyId: 'company-1',
-      email: 'ana@acme.com',
-      roleIds: ['role-1'],
-    }));
+    expect(deps.repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        email: 'ana@acme.com',
+        roleIds: ['role-1'],
+      }),
+      expect.any(Function),
+    );
+    expect(deps.auditLogService.logInTransaction).toHaveBeenCalled();
+    expect(deps.outboxService.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'invitation.created' }),
+      expect.anything(),
+    );
     expect(deps.emailService.sendInvitation).toHaveBeenCalledWith(
       'ana@acme.com',
       'Acme',

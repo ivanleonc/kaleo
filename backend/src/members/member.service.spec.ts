@@ -37,6 +37,9 @@ describe('MemberService.attachMember', () => {
       refreshTokenRepository,
       emailService,
       exportService,
+      { logInTransaction: vi.fn() } as any,
+      { enqueue: vi.fn() } as any,
+      { get: vi.fn().mockReturnValue({ userId: 'u-1', requestId: 'req-1' }) } as any,
     );
   });
 
@@ -151,6 +154,9 @@ describe('MemberService.exportMembers', () => {
       { revokeAllForUser: vi.fn() } as any,
       { sendTemporaryPassword: vi.fn() } as any,
       new TabularExportService() as any,
+      { logInTransaction: vi.fn() } as any,
+      { enqueue: vi.fn() } as any,
+      { get: vi.fn().mockReturnValue({ userId: 'u-1', requestId: 'req-1' }) } as any,
     );
   });
 
@@ -185,5 +191,44 @@ describe('MemberService.exportMembers', () => {
     await expect(
       service.exportMembers('company-1', {}, {}, 'csv', ['columna_fantasma']),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('MemberService.removeMember', () => {
+  it('escribe auditoría y outbox en la misma transacción', async () => {
+    const memberRepository: any = {
+      removeMember: vi.fn(async (_companyId, _userId, onRemoved) => {
+        await onRemoved({ query: vi.fn() }, { id: 'u-1', email: 'ana@x.co', name: 'Ana' });
+        return { message: 'ok' };
+      }),
+    };
+    const refreshTokenRepository: any = { revokeAllForUser: vi.fn() };
+    const auditLogService: any = { logInTransaction: vi.fn() };
+    const outboxService: any = { enqueue: vi.fn() };
+    const tenantContext: any = {
+      get: vi.fn().mockReturnValue({ userId: 'admin-1', requestId: 'req-1' }),
+    };
+    const service = new MemberService(
+      memberRepository,
+      {} as any,
+      refreshTokenRepository,
+      {} as any,
+      {} as any,
+      auditLogService,
+      outboxService,
+      tenantContext,
+    );
+
+    await service.removeMember('company-1', 'u-1');
+
+    expect(auditLogService.logInTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ entityType: 'Member', entityId: 'u-1' }),
+    );
+    expect(outboxService.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'member.removed' }),
+      expect.anything(),
+    );
+    expect(refreshTokenRepository.revokeAllForUser).toHaveBeenCalledWith('u-1');
   });
 });
