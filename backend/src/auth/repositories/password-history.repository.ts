@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class PasswordHistoryRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(@InjectDataSource('auth') private dataSource: DataSource) {}
 
   async add(userId: string, passwordHash: string) {
     await this.dataSource.query(

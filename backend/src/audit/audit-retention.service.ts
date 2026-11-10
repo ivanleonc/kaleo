@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Injectable()
 export class AuditRetentionService {
@@ -7,7 +8,7 @@ export class AuditRetentionService {
   private readonly RETENTION_DAYS = 365;
   private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-  constructor(private dataSource: DataSource) {}
+  constructor(@InjectDataSource('auth') private dataSource: DataSource) {}
 
   onModuleInit() {
     this.logger.log(`Audit retention: logs older than ${this.RETENTION_DAYS} days will be cleaned`);

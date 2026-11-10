@@ -1,5 +1,6 @@
-import { Injectable, InternalServerErrorException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ConflictException, ForbiddenException, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
 import { rows, row } from '../../common/utils/db.js';
@@ -13,7 +14,12 @@ export class CompanyRepository {
   constructor(
     private dataSource: DataSource,
     private tenantContext: TenantContextService,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
+
+  private get privilegedDataSource(): DataSource {
+    return this.authDataSource ?? this.dataSource;
+  }
 
   private assertCompany(companyId: string): void {
     if (this.tenantContext.requireCompanyId() !== companyId) {
@@ -35,7 +41,7 @@ export class CompanyRepository {
       WHERE c.is_active = TRUE AND c.deleted_at IS NULL
       GROUP BY c.id, c.name, c.tax_id, c.slug
     `;
-    return rows<TenantRow>(await this.dataSource.query(sql, [userId]));
+    return rows<TenantRow>(await this.privilegedDataSource.query(sql, [userId]));
   }
 
   async createWithOwner(
@@ -47,7 +53,7 @@ export class CompanyRepository {
   ) {
     let newCompany: CompanyRow | undefined;
     try {
-      await runInTransaction(this.dataSource, async (queryRunner) => {
+      await runInTransaction(this.privilegedDataSource, async (queryRunner) => {
         const companyResult = rows<CompanyRow>(await queryRunner.query(
           `INSERT INTO companies (name, tax_id, slug) VALUES ($1, $2, $3) RETURNING *`,
           [name, taxId, slug ?? null],
@@ -84,7 +90,7 @@ export class CompanyRepository {
   }
 
   async verifyUserBelongsToCompany(userId: string, companyId: string) {
-    const result = rows<RoleNameRow>(await this.dataSource.query(
+    const result = rows<RoleNameRow>(await this.privilegedDataSource.query(
       `SELECT r.name as role_name
        FROM memberships m
        INNER JOIN membership_roles mr
@@ -137,7 +143,7 @@ export class CompanyRepository {
     // Chequeo de unicidad global entre empresas activas: debe ver empresas de
     // otros tenants, por eso se mantiene en el camino privilegiado (también se
     // usa en onboarding, antes de que exista TenantContext).
-    return row<IdRow>(await this.dataSource.query(
+    return row<IdRow>(await this.privilegedDataSource.query(
       `SELECT id FROM companies
        WHERE slug = $1 AND deleted_at IS NULL
          AND ($2::uuid IS NULL OR id != $2)
@@ -147,7 +153,7 @@ export class CompanyRepository {
   }
 
   async getAllCompanies(): Promise<CompanyRow[]> {
-    return rows<CompanyRow>(await this.dataSource.query(
+    return rows<CompanyRow>(await this.privilegedDataSource.query(
       `SELECT c.id, c.name, c.tax_id, c.slug, c.is_active,
               COUNT(DISTINCT m.user_id)::int AS member_count
        FROM companies c

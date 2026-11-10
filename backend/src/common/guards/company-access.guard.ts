@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { COMPANY_ID_HEADER } from '../constants/headers.js';
 import { TenantContextService } from '../tenancy/tenant-context.service.js';
 
@@ -30,7 +31,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 @Injectable()
 export class CompanyAccessGuard implements CanActivate {
   constructor(
-    private dataSource: DataSource,
+    @InjectDataSource('auth') private dataSource: DataSource,
     private tenantContext: TenantContextService,
   ) {}
 

@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, ConflictException, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, randomUUID } from 'crypto';
 import { EmailService } from '../email/email.service.js';
@@ -33,6 +34,7 @@ export class SessionService {
     private rbacService: RbacService,
     private emailService: EmailService,
     private dataSource: DataSource,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
 
   private get jwtSecret(): string {
@@ -206,7 +208,7 @@ export class SessionService {
 
     const tokenHash = sha256(refreshToken);
     let reuseDetected = false;
-    await runInTransaction(this.dataSource, async (runner) => {
+    await runInTransaction(this.authDataSource ?? this.dataSource, async (runner) => {
       const rotated = await runner.query(
         `UPDATE refresh_tokens
          SET revoked = TRUE, rotated_at = NOW(), last_used_at = NOW()

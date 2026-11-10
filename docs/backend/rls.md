@@ -172,15 +172,47 @@ Ya existen las piezas base:
 
 Los repositorios de negocio reciben `companyId` explícito y lo validan contra el `TenantContext` antes de abrir la transacción. Las consultas de auth/onboarding y las vistas cross-company siguen en `postgres` según la tabla de excepciones.
 
+## Conexión runtime y auth
+
+La app puede separar dos conexiones:
+
+| Variable | Rol | Uso |
+|---|---|---|
+| `DATABASE_URL` | `postgres` | Migraciones y scripts administrativos |
+| `DATABASE_APP_URL` | `kaleo_runtime` | Pool por defecto: RLS sin `BYPASSRLS` |
+| `DATABASE_AUTH_URL` | `kaleo_auth` | Login, onboarding, auditoría y outbox |
+
+`kaleo_runtime` hereda los grants de `kaleo_app`; sin `app.company_id` las
+consultas de negocio fallan cerradas. `kaleo_auth` tiene `BYPASSRLS` y solo se
+inyecta en repositorios/guards de auth, auditoría y outbox.
+
+Activación:
+
+1. Aplicar `039-app-runtime-roles.sql`.
+2. Configurar contraseñas:
+
+```bash
+DATABASE_URL=<admin> \
+KALEO_RUNTIME_PASSWORD=... \
+KALEO_AUTH_PASSWORD=... \
+npm run db:set-app-passwords
+```
+
+3. Definir `DATABASE_APP_URL` y `DATABASE_AUTH_URL` en el hosting.
+4. Reiniciar el backend y validar login, onboarding, miembros, auditoría y outbox.
+5. Rollback: quitar ambas variables; la app vuelve a usar `DATABASE_URL`.
+
+> `DATABASE_URL` sigue siendo la conexión administrativa de migraciones/scripts.
+> No la cambies al rol runtime.
+
 ## Rollout pendiente
 
 1. ✅ Políticas para todas las tablas de negocio.
 2. ✅ Pilot de `withTenantTransaction` + `SET LOCAL ROLE kaleo_app` en feature flags.
 3. ✅ Migrar los repositorios de negocio a `withTenantTransaction`.
-4. Resolver el flujo de autenticación sin contexto de empresa (login por email, registro y onboarding):
-   - opción A: funciones `SECURITY DEFINER` para lookups de auth;
-   - opción B: rol/DataSource `kaleo_auth` separado con permisos acotados.
-5. Crear el rol de login `kaleo_app` con password y migrar la `DATABASE_URL`.
-6. Probar con `kaleo_app` y luego en producción.
+4. ✅ DataSource `auth` separado con rol `kaleo_auth` (BYPASSRLS).
+5. ✅ Crear roles de login `kaleo_runtime` y `kaleo_auth` (`039`).
+6. Activar en producción: contraseñas, `DATABASE_APP_URL`/`DATABASE_AUTH_URL`, reinicio y validación.
 
-**No cambiar la conexión a `kaleo_app` hasta completar 4.** Con `kaleo_app` y sin contexto, el login por email devuelve 0 filas por diseño.
+El código ya funciona sin las variables nuevas (fallback a `DATABASE_URL`). La
+activación es reversible quitando `DATABASE_APP_URL` y `DATABASE_AUTH_URL`.

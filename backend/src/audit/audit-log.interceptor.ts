@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Observable, catchError, from, mergeMap, throwError } from 'rxjs';
 import { AuditLogService } from './audit-log.service.js';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
 import {
   AUDIT_CONTEXT_KEY,
@@ -15,7 +16,7 @@ export class AuditLogInterceptor implements NestInterceptor {
 
   constructor(
     private auditLogService: AuditLogService,
-    private dataSource: DataSource,
+    @InjectDataSource('auth') private dataSource: DataSource,
     private reflector: Reflector,
     private tenantContext: TenantContextService,
   ) {}

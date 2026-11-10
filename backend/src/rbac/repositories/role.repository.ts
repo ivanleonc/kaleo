@@ -1,5 +1,6 @@
-import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { PROTECTED_ROLES } from '../../common/constants/roles.js';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 import { rows, row } from '../../common/utils/db.js';
@@ -12,7 +13,12 @@ export class RoleRepository {
   constructor(
     private dataSource: DataSource,
     private tenantContext: TenantContextService,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
+
+  private get privilegedDataSource(): DataSource {
+    return this.authDataSource ?? this.dataSource;
+  }
 
   private assertCompany(companyId: string): void {
     if (this.tenantContext.requireCompanyId() !== companyId) {
@@ -48,13 +54,13 @@ export class RoleRepository {
 
   async findByName(name: string, companyId?: string): Promise<RoleRow | undefined> {
     if (companyId) {
-      return row<RoleRow>(await this.dataSource.query(
+      return row<RoleRow>(await this.privilegedDataSource.query(
         `SELECT id, name, description, color, company_id FROM roles
          WHERE lower(name) = lower($1) AND (company_id IS NULL OR company_id = $2) AND deleted_at IS NULL`,
         [name, companyId],
       ));
     }
-    return row<RoleRow>(await this.dataSource.query(
+    return row<RoleRow>(await this.privilegedDataSource.query(
       `SELECT id, name, description, color, company_id FROM roles WHERE lower(name) = lower($1) AND deleted_at IS NULL`,
       [name],
     ));
@@ -225,7 +231,7 @@ export class RoleRepository {
     userId: string,
     companyId: string,
   ): Promise<{ roles: string[]; permissions: string[]; tokenVersion: number }> {
-    const result = await this.dataSource.query(
+    const result = await this.privilegedDataSource.query(
       `SELECT
          COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.id IS NOT NULL), '{}'::text[]) AS roles,
          COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.id IS NOT NULL), '{}'::text[]) AS permissions,

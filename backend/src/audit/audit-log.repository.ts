@@ -1,5 +1,6 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { EXPORT_MAX_ROWS } from '../common/export/export.types.js';
 import { decodeAuditCursor, encodeAuditCursor } from './audit-cursor.js';
 import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
@@ -33,6 +34,7 @@ export class AuditLogRepository {
   constructor(
     private dataSource: DataSource,
     private tenantContext: TenantContextService,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
 
   private assertCompany(companyId: string): void {
@@ -42,7 +44,7 @@ export class AuditLogRepository {
   }
 
   async log(data: AuditLogData) {
-    await this.insert(this.dataSource, data);
+    await this.insert(this.authDataSource ?? this.dataSource, data);
   }
 
   /**

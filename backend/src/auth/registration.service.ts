@@ -1,6 +1,7 @@
-import { Injectable, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, Logger, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { UserRepository } from './repositories/user.repository.js';
@@ -27,6 +28,7 @@ export class RegistrationService {
     private rbacService: RbacService,
     private auditLogService: AuditLogService,
     private dataSource: DataSource,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
 
   async register(email: string, passwordPlain: string, name?: string) {
@@ -41,7 +43,7 @@ export class RegistrationService {
 
     let newUser: any;
     let refreshTokenValue = '';
-    await runInTransaction(this.dataSource, async (runner) => {
+    await runInTransaction(this.authDataSource ?? this.dataSource, async (runner) => {
       const result = await runner.query(
         `INSERT INTO users (email, password_hash, name, must_change_password)
          VALUES ($1, $2, $3, FALSE)

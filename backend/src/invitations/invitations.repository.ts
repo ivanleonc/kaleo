@@ -1,5 +1,6 @@
-import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { rows } from '../common/utils/db.js';
 import { runInTransaction } from '../common/utils/transaction.helper.js';
 import { upsertMembershipWithRoles } from '../common/utils/membership.helper.js';
@@ -48,7 +49,12 @@ export class InvitationsRepository {
   constructor(
     private readonly dataSource: DataSource,
     private readonly tenantContext: TenantContextService,
+    @Optional() @InjectDataSource('auth') private readonly authDataSource?: DataSource,
   ) {}
+
+  private get privilegedDataSource(): DataSource {
+    return this.authDataSource ?? this.dataSource;
+  }
 
   private assertCompany(companyId: string): void {
     if (this.tenantContext.requireCompanyId() !== companyId) {
@@ -121,7 +127,7 @@ export class InvitationsRepository {
   }
 
   async findPendingByTokenHash(tokenHash: string): Promise<PendingInvitation | undefined> {
-    return rows<PendingInvitation>(await this.dataSource.query(
+    return rows<PendingInvitation>(await this.privilegedDataSource.query(
       `SELECT i.id, i.company_id, c.name AS company_name, i.email, i.name, i.expires_at,
               COALESCE(array_agg(ir.role_id) FILTER (WHERE ir.role_id IS NOT NULL), '{}') AS role_ids
        FROM invitations i
@@ -135,7 +141,7 @@ export class InvitationsRepository {
   }
 
   async findUserByEmail(email: string): Promise<UserLookupRow | undefined> {
-    return rows<UserLookupRow>(await this.dataSource.query(
+    return rows<UserLookupRow>(await this.privilegedDataSource.query(
       `SELECT id, email, name FROM users
        WHERE lower(email) = lower($1) AND deleted_at IS NULL
        LIMIT 1`,
@@ -144,7 +150,7 @@ export class InvitationsRepository {
   }
 
   async findUserById(userId: string): Promise<UserLookupRow | undefined> {
-    return rows<UserLookupRow>(await this.dataSource.query(
+    return rows<UserLookupRow>(await this.privilegedDataSource.query(
       `SELECT id, email, name FROM users
        WHERE id = $1 AND deleted_at IS NULL`,
       [userId],
@@ -161,7 +167,7 @@ export class InvitationsRepository {
   }): Promise<AcceptedUser> {
     let user: AcceptedUser | undefined;
 
-    await runInTransaction(this.dataSource, async (queryRunner) => {
+    await runInTransaction(this.privilegedDataSource, async (queryRunner) => {
       const updated = rows<{ id: string }>(await queryRunner.query(
         `UPDATE invitations
          SET status = 'accepted', accepted_at = now(), updated_at = now()
@@ -199,7 +205,7 @@ export class InvitationsRepository {
   }): Promise<{ alreadyMember: boolean }> {
     let alreadyMember = false;
 
-    await runInTransaction(this.dataSource, async (queryRunner) => {
+    await runInTransaction(this.privilegedDataSource, async (queryRunner) => {
       const updated = rows<{ id: string }>(await queryRunner.query(
         `UPDATE invitations
          SET status = 'accepted', accepted_at = now(), accepted_by = $3, updated_at = now()

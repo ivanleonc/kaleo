@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 /**
  * Permite solo a super-administradores globales (`users.is_super_admin`).
@@ -15,7 +16,7 @@ import { DataSource } from 'typeorm';
  */
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
-  constructor(private dataSource: DataSource) {}
+  constructor(@InjectDataSource('auth') private dataSource: DataSource) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;

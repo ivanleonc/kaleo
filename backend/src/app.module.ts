@@ -45,12 +45,35 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        url: configService.get<string>('DATABASE_URL'),
+        // Conexión por defecto: rol runtime sin BYPASSRLS. Fallback al admin
+        // mientras se configura DATABASE_APP_URL.
+        url: configService.get<string>('DATABASE_APP_URL') || configService.get<string>('DATABASE_URL'),
         ssl: databaseSslOptions(),
         autoLoadEntities: true,
         synchronize: false,
         // Ninguna consulta espera eternamente: ante pooler saturado o
         // latencia (incidentes), se falla rápido en vez de colgar deploys.
+        extra: {
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+          statement_timeout: 10000,
+          query_timeout: 15000,
+        },
+      }),
+    }),
+    // DataSource privilegiado SOLO para auth/onboarding/auditoría/outbox.
+    // Con DATABASE_AUTH_URL apunta a kaleo_auth (BYPASSRLS); si falta,
+    // mantiene el comportamiento anterior usando DATABASE_URL.
+    TypeOrmModule.forRootAsync({
+      name: 'auth',
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        url: configService.get<string>('DATABASE_AUTH_URL') || configService.get<string>('DATABASE_URL'),
+        ssl: databaseSslOptions(),
+        entities: [],
+        synchronize: false,
         extra: {
           max: 10,
           idleTimeoutMillis: 30000,

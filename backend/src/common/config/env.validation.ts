@@ -18,6 +18,10 @@ export const envValidationSchema = Joi.object({
     .default('development'),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).required(),
+  // Conexión de la app (rol kaleo_runtime). Si falta, usa DATABASE_URL.
+  DATABASE_APP_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).optional(),
+  // Conexión del DataSource de auth/sistema (rol kaleo_auth). Fallback a DATABASE_URL.
+  DATABASE_AUTH_URL: Joi.string().uri({ scheme: ['postgres', 'postgresql'] }).optional(),
   // TLS del pooler de Supabase. `false` solo para PostgreSQL local sin TLS.
   DATABASE_SSL: Joi.string().valid('true', 'false').default('true'),
   DATABASE_SSL_CA: Joi.string().optional(),

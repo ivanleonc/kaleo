@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { rows } from '../common/utils/db.js';
 import type { OutboxEventInput, OutboxEventRow, OutboxHandler } from './outbox.types.js';
 
@@ -19,7 +20,10 @@ export class OutboxService {
   private readonly logger = new Logger(OutboxService.name);
   private readonly handlers = new Map<string, OutboxHandler[]>();
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() @InjectDataSource('auth') private readonly authDataSource?: DataSource,
+  ) {}
 
   registerHandler(eventType: string, handler: OutboxHandler): void {
     const current = this.handlers.get(eventType) ?? [];
@@ -28,7 +32,7 @@ export class OutboxService {
   }
 
   async enqueue(input: OutboxEventInput, queryRunner?: QueryRunner): Promise<string> {
-    const executor: QueryExecutor = queryRunner ?? this.dataSource;
+    const executor: QueryExecutor = queryRunner ?? this.authDataSource ?? this.dataSource;
     const inserted = rows<{ event_id: string }>(await executor.query(
       `INSERT INTO outbox_events
          (event_id, company_id, aggregate_type, aggregate_id, event_type, payload, occurred_at)
@@ -49,7 +53,7 @@ export class OutboxService {
   }
 
   async publishPending(limit = 50): Promise<number> {
-    const queryRunner = this.dataSource.createQueryRunner();
+    const queryRunner = (this.authDataSource ?? this.dataSource).createQueryRunner();
     await queryRunner.connect();
     let started = false;
 

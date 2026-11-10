@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { sha256 } from '../../common/utils/crypto.js';
 
 @Injectable()
 export class TokenBlacklistRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(@InjectDataSource('auth') private dataSource: DataSource) {}
 
   async add(token: string, expiresAt: Date) {
     const tokenHash = sha256(token);

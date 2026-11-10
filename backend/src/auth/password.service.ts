@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { UserRepository } from './repositories/user.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
@@ -42,6 +43,7 @@ export class PasswordService {
     private emailService: EmailService,
     private companyService: CompanyService,
     private dataSource: DataSource,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
 
   private get jwtSecret(): string {
@@ -58,7 +60,7 @@ export class PasswordService {
 
     await this.checkPasswordHistory(userId, newPasswordPlain);
 
-    await runInTransaction(this.dataSource, async (runner) => {
+    await runInTransaction(this.authDataSource ?? this.dataSource, async (runner) => {
       const newHash = await bcrypt.hash(newPasswordPlain, SALT_ROUNDS);
       await runner.query(
         `UPDATE users SET password_hash = $1, must_change_password = FALSE, password_changed_at = NOW() WHERE id = $2`,
@@ -100,7 +102,7 @@ export class PasswordService {
 
     await this.checkPasswordHistory(userId, newPasswordPlain);
 
-    await runInTransaction(this.dataSource, async (runner) => {
+    await runInTransaction(this.authDataSource ?? this.dataSource, async (runner) => {
       const newHash = await bcrypt.hash(newPasswordPlain, SALT_ROUNDS);
       await runner.query(
         `UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2`,
@@ -173,7 +175,7 @@ export class PasswordService {
 
     await this.checkPasswordHistory(user.id, newPasswordPlain);
 
-    await runInTransaction(this.dataSource, async (runner) => {
+    await runInTransaction(this.authDataSource ?? this.dataSource, async (runner) => {
       const newHash = await bcrypt.hash(newPasswordPlain, SALT_ROUNDS);
       await runner.query(
         `UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2`,
@@ -224,7 +226,7 @@ export class PasswordService {
 
     await this.checkPasswordHistory(targetUserId, tempPasswordPlain);
 
-    await runInTransaction(this.dataSource, async (runner) => {
+    await runInTransaction(this.authDataSource ?? this.dataSource, async (runner) => {
       const newHash = await bcrypt.hash(tempPasswordPlain, SALT_ROUNDS);
       await runner.query(
         `UPDATE users SET password_hash = $1, must_change_password = TRUE, password_changed_at = NOW() WHERE id = $2`,

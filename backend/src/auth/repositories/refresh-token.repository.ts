@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { sha256 } from '../../common/utils/crypto.js';
 
 export interface StoredRefreshToken {
@@ -18,7 +19,7 @@ export interface RefreshTokenMetadata {
 
 @Injectable()
 export class RefreshTokenRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(@InjectDataSource('auth') private dataSource: DataSource) {}
 
   async create(
     userId: string,

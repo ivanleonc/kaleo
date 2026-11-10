@@ -23,6 +23,7 @@ vi.mock('@nestjs/typeorm', () => ({
   TypeOrmModule: {
     forRootAsync: vi.fn().mockReturnValue({ module: class MockTypeOrmModule {} }),
   },
+  InjectDataSource: () => () => undefined,
 }));
 vi.mock('@nestjs/throttler', () => ({
   ThrottlerModule: { forRoot: vi.fn().mockReturnValue({ module: class MockThrottlerModule {} }) },

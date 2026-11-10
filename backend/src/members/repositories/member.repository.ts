@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException, InternalServerErrorException, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
 import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
@@ -21,7 +22,12 @@ export class MemberRepository {
   constructor(
     private dataSource: DataSource,
     private tenantContext: TenantContextService,
+    @Optional() @InjectDataSource('auth') private authDataSource?: DataSource,
   ) {}
+
+  private get privilegedDataSource(): DataSource {
+    return this.authDataSource ?? this.dataSource;
+  }
 
   private assertCompany(companyId: string): void {
     if (this.tenantContext.requireCompanyId() !== companyId) {
@@ -154,7 +160,7 @@ export class MemberRepository {
   }
 
   async isAlreadyMember(userId: string, companyId: string): Promise<boolean> {
-    const result = await this.dataSource.query(
+    const result = await this.privilegedDataSource.query(
       `SELECT 1 FROM memberships
        WHERE user_id = $1 AND company_id = $2 AND status = 'active'`,
       [userId, companyId],
@@ -175,7 +181,7 @@ export class MemberRepository {
     // El alta nueva debe ir por invitaciones.
     let result: any;
     try {
-      await runInTransaction(this.dataSource, async (queryRunner) => {
+      await runInTransaction(this.privilegedDataSource, async (queryRunner) => {
         let userResult = await queryRunner.query(
           `SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL`,
           [email],
@@ -311,14 +317,14 @@ export class MemberRepository {
   }
 
   async updatePassword(userId: string, passwordHash: string) {
-    await this.dataSource.query(
+    await this.privilegedDataSource.query(
       `UPDATE users SET password_hash = $1, must_change_password = TRUE, password_changed_at = NOW() WHERE id = $2`,
       [passwordHash, userId],
     );
   }
 
   async findUserById(userId: string) {
-    const result = await this.dataSource.query(
+    const result = await this.privilegedDataSource.query(
       `SELECT id, email, name FROM users WHERE id = $1 AND deleted_at IS NULL`,
       [userId],
     );
@@ -326,7 +332,7 @@ export class MemberRepository {
   }
 
   async findUserByEmail(email: string) {
-    const result = await this.dataSource.query(
+    const result = await this.privilegedDataSource.query(
       `SELECT id, email, name FROM users WHERE email = $1 AND deleted_at IS NULL`,
       [email],
     );
@@ -340,7 +346,7 @@ export class MemberRepository {
   async findInvalidRoleIds(roleIds: string[], companyId: string): Promise<string[]> {
     if (!roleIds || roleIds.length === 0) return [];
     const placeholders = roleIds.map((_, i) => `$${i + 1}`).join(', ');
-    const rows = await this.dataSource.query(
+    const rows = await this.privilegedDataSource.query(
       `SELECT id FROM roles
        WHERE id IN (${placeholders})
          AND (company_id IS NULL OR company_id = $${roleIds.length + 1})
@@ -359,7 +365,7 @@ export class MemberRepository {
     const unique: string[] = [...new Set(names.filter((n): n is string => !!n))];
     if (unique.length === 0) return { ids: [], missing: [] };
     const placeholders = unique.map((_, i) => `$${i + 1}`).join(', ');
-    const rows = await this.dataSource.query(
+    const rows = await this.privilegedDataSource.query(
       `SELECT id, name FROM roles
        WHERE name IN (${placeholders})
          AND (company_id IS NULL OR company_id = $${unique.length + 1})
@@ -409,7 +415,7 @@ export class MemberRepository {
   async getMemberCompanies(userId: string) {
     // Vista administrativa cross-company: se mantiene en el camino
     // privilegiado (postgres), no en una transacción de tenant.
-    const result = await this.dataSource.query(
+    const result = await this.privilegedDataSource.query(
       `SELECT c.id, c.name, c.slug,
               COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
        FROM companies c

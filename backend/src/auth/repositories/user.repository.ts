@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 // db.ts disponible para uso tipado: import { row, rows } from '../../common/utils/db.js'
 // Los métodos de este repositorio siguen el patrón legacy result[0]/result[]
@@ -8,7 +9,7 @@ import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 
 @Injectable()
 export class UserRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(@InjectDataSource('auth') private dataSource: DataSource) {}
 
   async findByEmail(email: string) {
     const result = await this.dataSource.query(
