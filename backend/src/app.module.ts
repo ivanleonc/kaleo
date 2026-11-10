@@ -20,6 +20,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware.js';
 import { envValidationSchema } from './common/config/env.validation.js';
+import { databaseSslOptions } from './common/config/database-ssl.js';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { envValidationSchema } from './common/config/env.validation.js';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
+        ssl: databaseSslOptions(),
         autoLoadEntities: true,
         synchronize: false,
         // Ninguna consulta espera eternamente: ante pooler saturado o

@@ -28,6 +28,8 @@ El servidor **falla al arrancar** si alguna de estas no está definida:
 | `SWAGGER_USER` | — | Usuario para Basic Auth de Swagger. |
 | `SWAGGER_PASSWORD` | — | Contraseña para Basic Auth de Swagger. |
 | `LOG_LEVEL` | Auto por NODE_ENV | Nivel pino: `debug` (dev) / `info` (prod). |
+| `DATABASE_SSL` | `true` | TLS hacia el pooler de Supabase. `false` solo para PostgreSQL local sin TLS. |
+| `DATABASE_SSL_CA` | `certs/prod-ca-2021.crt` | Ruta alternativa a la CA pública de Supabase. |
 
 ### Email transaccional
 
@@ -46,6 +48,12 @@ Kaleo elige el proveedor en este orden: **Brevo API → SMTP → Stub**.
 ::: warning
 Sin `BREVO_API_KEY` ni config SMTP, en **producción** el stub lanza un error (no finge éxito silencioso). En desarrollo, el stub loguea el email en consola.
 :::
+
+### TLS de base de datos
+
+Kaleo usa la CA pública de Supabase incluida en `backend/certs/prod-ca-2021.crt`. La conexión se verifica con `rejectUnauthorized: true` (certificado y hostname). No desactives TLS en Supabase.
+
+`DATABASE_SSL=false` existe solo para un PostgreSQL local que no soporte TLS. Si la CA no está y TLS está activo, el backend falla al arrancar: es intencional.
 
 ### Observabilidad
 

@@ -9,6 +9,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
+import { databaseSslOptions } from '../src/common/config/database-ssl.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +38,10 @@ const databaseUrl = readFileSync(envPath, 'utf8')
 
 if (!databaseUrl) throw new Error(`DATABASE_URL no definido en .env.${environment}`);
 
-const client = new Client({ connectionString: databaseUrl });
+const client = new Client({
+  connectionString: databaseUrl,
+  ssl: databaseSslOptions(),
+});
 await client.connect();
 
 try {

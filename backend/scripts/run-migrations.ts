@@ -20,6 +20,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
+import { databaseSslOptions } from '../src/common/config/database-ssl.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(__dirname, '../src/migrations');
@@ -92,7 +93,10 @@ function stateLabel(isApplied: boolean, stored: string | null | undefined, file:
 
 async function main(): Promise<void> {
   const { environment, only, mode } = parseArgs();
-  const client = new Client({ connectionString: loadDatabaseUrl(environment) });
+  const client = new Client({
+    connectionString: loadDatabaseUrl(environment),
+    ssl: databaseSslOptions(),
+  });
 
   await client.connect();
   console.log(`→ Conectado a [${environment}]`);

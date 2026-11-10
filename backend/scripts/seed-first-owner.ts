@@ -18,6 +18,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config as dotenvConfig } from 'dotenv';
 import pg from 'pg';
+import { databaseSslOptions } from '../src/common/config/database-ssl.js';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 
@@ -38,7 +39,10 @@ if (!email || !email.includes('@')) {
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString: DATABASE_URL });
+const client = new pg.Client({
+  connectionString: DATABASE_URL,
+  ssl: databaseSslOptions(),
+});
 
 async function main() {
   await client.connect();
