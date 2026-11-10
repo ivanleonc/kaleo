@@ -46,6 +46,12 @@ export const Permissions = {
   AUDIT: {
     READ: 'core.audit.read',
   },
+
+  AI: {
+    READ: 'core.ai.read',
+    RUN: 'core.ai.run',
+    APPROVE: 'core.ai.approve',
+  },
 } as const;
 
 /**

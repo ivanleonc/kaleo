@@ -21,6 +21,7 @@ import { JobsModule } from './kernel/jobs/jobs.module.js';
 import { OperationsModule } from './kernel/operations/operations.module.js';
 import { IdempotencyService } from './kernel/api/idempotency.service.js';
 import { IdempotencyInterceptor } from './kernel/api/idempotency.interceptor.js';
+import { AiModule } from './kernel/ai/ai.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -107,6 +108,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     CompanySettingsModule,
     JobsModule,
     OperationsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

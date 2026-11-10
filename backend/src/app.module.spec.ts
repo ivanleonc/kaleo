@@ -58,6 +58,7 @@ vi.mock('./kernel/jobs/jobs.module.js', () => ({
 vi.mock('./kernel/operations/operations.module.js', () => ({
   OperationsModule: class OperationsModule {},
 }));
+vi.mock('./kernel/ai/ai.module.js', () => ({ AiModule: class AiModule {} }));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));

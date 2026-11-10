@@ -8,6 +8,18 @@ export type ModuleVertical =
 
 export type ModuleStatus = 'enabled' | 'trial' | 'read_only' | 'disabled';
 
+export type AiToolRisk = 'read' | 'conversational' | 'business_write' | 'external';
+
+export interface AiToolDefinition {
+  code: string;
+  name: string;
+  description?: string;
+  risk: AiToolRisk;
+  requiresConfirmation: boolean;
+  permission?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
 export interface ModuleRoute {
   /** Ruta relativa dentro de la empresa, ej. "/members". */
   path: string;
@@ -32,6 +44,7 @@ export interface ModuleManifest {
   permissions: string[];
   routes: ModuleRoute[];
   featureFlags?: string[];
+  aiTools?: AiToolDefinition[];
 }
 
 export interface EnabledModule extends ModuleManifest {

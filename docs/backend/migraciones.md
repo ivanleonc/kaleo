@@ -106,6 +106,7 @@ npm run migrate -- production --accept-checksum 000
 | `046-operations.sql` | Operaciones asíncronas y artefactos de exports/reportes. |
 | `047-retention-indexes.sql` | Índices de retención para operaciones y jobs. |
 | `048-idempotency-keys.sql` | Idempotencia de POST por empresa/usuario con TTL. |
+| `049-core-ai.sql` | Catálogo de tools, runs y acciones HITL de `core.ai`. |
 
 ## Verificar el estado
 

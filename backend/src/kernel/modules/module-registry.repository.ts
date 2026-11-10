@@ -67,6 +67,43 @@ export class ModuleRegistryRepository {
           dependencies.flat(),
         );
       }
+
+      await queryRunner.query(
+        `UPDATE ai_tools SET is_active = FALSE WHERE module_code = ANY($1::text[])`,
+        [codes],
+      );
+
+      const aiTools = manifests.flatMap((manifest) =>
+        (manifest.aiTools ?? []).map((tool) => ({ ...tool, moduleCode: manifest.code })),
+      );
+      for (const tool of aiTools) {
+        await queryRunner.query(
+          `INSERT INTO ai_tools
+             (code, module_code, name, description, risk, requires_confirmation,
+              permission, input_schema, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, TRUE)
+           ON CONFLICT (code) DO UPDATE SET
+             module_code = EXCLUDED.module_code,
+             name = EXCLUDED.name,
+             description = EXCLUDED.description,
+             risk = EXCLUDED.risk,
+             requires_confirmation = EXCLUDED.requires_confirmation,
+             permission = EXCLUDED.permission,
+             input_schema = EXCLUDED.input_schema,
+             is_active = TRUE,
+             updated_at = now()`,
+          [
+            tool.code,
+            tool.moduleCode,
+            tool.name,
+            tool.description ?? null,
+            tool.risk,
+            tool.requiresConfirmation,
+            tool.permission ?? null,
+            JSON.stringify(tool.inputSchema ?? {}),
+          ],
+        );
+      }
     });
   }
 
