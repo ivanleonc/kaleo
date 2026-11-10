@@ -134,12 +134,13 @@ export class CompanyRepository {
   }
 
   async findBySlug(slug: string, excludeCompanyId?: string): Promise<IdRow | null> {
-    // Chequeo de unicidad global: debe ver empresas de otros tenants, por eso
-    // se mantiene en el camino privilegiado (también se usa en onboarding,
-    // antes de que exista TenantContext).
+    // Chequeo de unicidad global entre empresas activas: debe ver empresas de
+    // otros tenants, por eso se mantiene en el camino privilegiado (también se
+    // usa en onboarding, antes de que exista TenantContext).
     return row<IdRow>(await this.dataSource.query(
       `SELECT id FROM companies
-       WHERE slug = $1 AND ($2::uuid IS NULL OR id != $2)
+       WHERE slug = $1 AND deleted_at IS NULL
+         AND ($2::uuid IS NULL OR id != $2)
        LIMIT 1`,
       [slug, excludeCompanyId || null],
     )) ?? null;

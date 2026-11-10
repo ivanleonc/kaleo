@@ -238,7 +238,7 @@ Cada módulo sigue una estructura similar: controlador → servicio → reposito
 
 ### 7.2 Constraints y relaciones relevantes
 
-- `companies.slug` es único **incluyendo soft-deleted**.
+- `companies.slug` es único solo entre empresas activas (`deleted_at IS NULL`).
 - `users.email` es único solo para filas con `deleted_at IS NULL` y es **case-sensitive**.
 - `branches` tiene un unique parcial para una sola sede principal activa por empresa.
 - `memberships` tiene unique `(company_id, user_id)` y `(company_id, id)`; las tablas hijas usan FK compuesta y borrado en cascada.
