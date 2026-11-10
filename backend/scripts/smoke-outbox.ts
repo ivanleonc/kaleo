@@ -15,6 +15,7 @@ import { databaseSslOptions } from '../src/common/config/database-ssl.js';
 import { CompanyRepository } from '../src/company/repositories/company.repository.js';
 import { AuditLogRepository } from '../src/audit/audit-log.repository.js';
 import { OutboxService } from '../src/outbox/outbox.service.js';
+import { TenantContextService } from '../src/common/tenancy/tenant-context.service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const environment = process.argv[2] ?? 'staging';
@@ -38,8 +39,8 @@ const dataSource = new DataSource({
 
 async function main(): Promise<void> {
   await dataSource.initialize();
-  const companyRepository = new CompanyRepository(dataSource);
-  const auditRepository = new AuditLogRepository(dataSource);
+  const companyRepository = new CompanyRepository(dataSource, new TenantContextService());
+  const auditRepository = new AuditLogRepository(dataSource, new TenantContextService());
   const outbox = new OutboxService(dataSource);
 
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;

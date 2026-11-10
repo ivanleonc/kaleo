@@ -2,6 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuditLogRepository } from './audit-log.repository.js';
 import { encodeAuditCursor } from './audit-cursor.js';
 
+vi.mock('../common/tenancy/tenant-transaction.js', () => ({
+  withTenantTransaction: async (dataSource: any, _context: any, fn: any) =>
+    fn({ query: dataSource.query }),
+}));
+
+function createContext(companyId = 'company-1') {
+  return {
+    requireCompanyId: () => companyId,
+    getUserId: () => 'user-1',
+    get: () => ({ requestId: 'req-1', userId: 'user-1', isSuperAdmin: false }),
+    setCompany: vi.fn(),
+    setUser: vi.fn(),
+  } as any;
+}
+
 /**
  * Valida el SQL de la paginación por cursor con un DataSource falso que captura
  * las consultas. Es donde más fácil se cuela una numeración de placeholders
@@ -37,7 +52,7 @@ describe('AuditLogRepository.logInTransaction', () => {
         return [];
       }),
     };
-    const repository = new AuditLogRepository({} as any);
+    const repository = new AuditLogRepository({} as any, {} as any);
 
     await repository.logInTransaction(runner as any, {
       companyId: 'company-1',
@@ -69,7 +84,7 @@ describe('AuditLogRepository.findFiltered', () => {
   beforeEach(() => {
     const stub = createDataSourceStub();
     calls = stub.calls;
-    repository = new AuditLogRepository(stub.dataSource as any);
+    repository = new AuditLogRepository(stub.dataSource as any, createContext());
   });
 
   it('ordena por created_at e id para desempatar', async () => {
@@ -127,7 +142,7 @@ describe('AuditLogRepository.findFiltered', () => {
       { id: 'a1', created_at: new Date('2026-06-02T00:00:00.000Z') },
       { id: 'b2', created_at: new Date('2026-06-01T00:00:00.000Z') },
     ]);
-    const repo = new AuditLogRepository(stub.dataSource as any);
+    const repo = new AuditLogRepository(stub.dataSource as any, createContext());
 
     const result = await repo.findFiltered({ companyId: 'company-1', limit: 1 });
 
@@ -143,7 +158,7 @@ describe('AuditLogRepository.findFiltered', () => {
 
   it('no devuelve cursor en la última página', async () => {
     const stub = createDataSourceStub([{ id: 'a1', created_at: new Date('2026-06-01T00:00:00.000Z') }]);
-    const repo = new AuditLogRepository(stub.dataSource as any);
+    const repo = new AuditLogRepository(stub.dataSource as any, createContext());
 
     const result = await repo.findFiltered({ companyId: 'company-1', limit: 20 });
 

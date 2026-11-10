@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { EXPORT_MAX_ROWS } from '../common/export/export.types.js';
 import { decodeAuditCursor, encodeAuditCursor } from './audit-cursor.js';
+import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
+import { withTenantTransaction } from '../common/tenancy/tenant-transaction.js';
 
 export interface AuditLogData {
   userId?: string;
@@ -28,7 +30,16 @@ type QueryExecutor = { query(sql: string, parameters?: any[]): Promise<any> };
 
 @Injectable()
 export class AuditLogRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private assertCompany(companyId: string): void {
+    if (this.tenantContext.requireCompanyId() !== companyId) {
+      throw new ForbiddenException('La empresa no coincide con el TenantContext');
+    }
+  }
 
   async log(data: AuditLogData) {
     await this.insert(this.dataSource, data);
@@ -93,6 +104,7 @@ export class AuditLogRepository {
     cursor?: string;
   }) {
     const { companyId, entityType, action, userId, from, to, limit, cursor } = params;
+    this.assertCompany(companyId);
     const conditions: string[] = ['al.company_id = $1'];
     const values: any[] = [companyId];
     let idx = 2;
@@ -141,18 +153,23 @@ export class AuditLogRepository {
 
     // Se pide una fila extra: si viene, existe página siguiente y esa fila es
     // el cursor. Evita el COUNT(*) para saber si hay más.
-    const rows = await this.dataSource.query(
-      `SELECT al.id, al.action, al.entity_type, al.entity_id,
-              al.new_values, al.old_values, al.ip_address, al.user_agent, al.created_at,
-              al.response_status, al.response_data, al.duration_ms,
-              al.user_id,
-              u.name as user_name, u.email as user_email
-       FROM audit_logs al
-       LEFT JOIN users u ON al.user_id = u.id
-       WHERE ${where}
-       ORDER BY al.created_at DESC, al.id DESC
-       LIMIT $${idx}`,
-      [...values, limit + 1],
+    const rows = await withTenantTransaction(
+      this.dataSource,
+      this.tenantContext,
+      async (queryRunner) =>
+        queryRunner.query(
+          `SELECT al.id, al.action, al.entity_type, al.entity_id,
+                  al.new_values, al.old_values, al.ip_address, al.user_agent, al.created_at,
+                  al.response_status, al.response_data, al.duration_ms,
+                  al.user_id,
+                  u.name as user_name, u.email as user_email
+           FROM audit_logs al
+           LEFT JOIN users u ON al.user_id = u.id
+           WHERE ${where}
+           ORDER BY al.created_at DESC, al.id DESC
+           LIMIT $${idx}`,
+          [...values, limit + 1],
+        ),
     );
 
     const hasNext = rows.length > limit;
@@ -176,6 +193,7 @@ export class AuditLogRepository {
     to?: string;
   }) {
     const { companyId, entityType, action, userId, from, to } = params;
+    this.assertCompany(companyId);
     const conditions: string[] = ['al.company_id = $1'];
     const values: any[] = [companyId];
     let idx = 2;
@@ -214,38 +232,48 @@ export class AuditLogRepository {
 
     const where = conditions.join(' AND ');
 
-    return this.dataSource.query(
-      `SELECT al.action, al.entity_type, al.entity_id,
-              al.old_values, al.new_values, al.ip_address, al.user_agent, al.created_at,
-              al.response_status, al.duration_ms,
-              u.name as user_name, u.email as user_email
-       FROM audit_logs al
-       LEFT JOIN users u ON al.user_id = u.id
-       WHERE ${where}
-       ORDER BY al.created_at DESC, al.id DESC
-       LIMIT $${idx}`,
-      [...values, EXPORT_MAX_ROWS + 1],
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT al.action, al.entity_type, al.entity_id,
+                al.old_values, al.new_values, al.ip_address, al.user_agent, al.created_at,
+                al.response_status, al.duration_ms,
+                u.name as user_name, u.email as user_email
+         FROM audit_logs al
+         LEFT JOIN users u ON al.user_id = u.id
+         WHERE ${where}
+         ORDER BY al.created_at DESC, al.id DESC
+         LIMIT $${idx}`,
+        [...values, EXPORT_MAX_ROWS + 1],
+      ),
     );
   }
 
   async findByUser(userId: string, limit: number = 50) {
-    return this.dataSource.query(
-      `SELECT * FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-      [userId, limit],
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT * FROM audit_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+        [userId, limit],
+      ),
     );
   }
 
   async findByCompany(companyId: string, limit: number = 50) {
-    return this.dataSource.query(
-      `SELECT * FROM audit_logs WHERE company_id = $1 ORDER BY created_at DESC LIMIT $2`,
-      [companyId, limit],
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT * FROM audit_logs WHERE company_id = $1 ORDER BY created_at DESC LIMIT $2`,
+        [companyId, limit],
+      ),
     );
   }
 
   async getEntityTypes(companyId: string) {
-    return this.dataSource.query(
-      `SELECT DISTINCT entity_type FROM audit_logs WHERE company_id = $1 ORDER BY entity_type`,
-      [companyId],
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT DISTINCT entity_type FROM audit_logs WHERE company_id = $1 ORDER BY entity_type`,
+        [companyId],
+      ),
     );
   }
 }

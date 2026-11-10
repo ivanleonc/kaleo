@@ -1,14 +1,25 @@
-import { Injectable, InternalServerErrorException, ConflictException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
 import { rows, row } from '../../common/utils/db.js';
 import { insertUserContexts } from '../../common/utils/membership.helper.js';
+import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
+import { withTenantTransaction } from '../../common/tenancy/tenant-transaction.js';
 import type { CompanyRow, TenantRow, IdRow, RoleNameRow } from '../../common/types/db-rows.js';
 
 @Injectable()
 export class CompanyRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private assertCompany(companyId: string): void {
+    if (this.tenantContext.requireCompanyId() !== companyId) {
+      throw new ForbiddenException('La empresa no coincide con el TenantContext');
+    }
+  }
 
   async getUserCompanies(userId: string): Promise<TenantRow[]> {
     const sql = `
@@ -102,21 +113,30 @@ export class CompanyRepository {
     if (updates.length === 0) return null;
     values.push(companyId);
 
+    this.assertCompany(companyId);
     const sql = `UPDATE companies SET ${updates.join(', ')} WHERE id = $${startIndex} RETURNING *`;
-    return row<CompanyRow>(await this.dataSource.query(sql, values)) ?? null;
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      row<CompanyRow>(await queryRunner.query(sql, values)) ?? null,
+    );
   }
 
   async findById(companyId: string): Promise<CompanyRow | null> {
-    return row<CompanyRow>(await this.dataSource.query(
-      `SELECT id, name, tax_id, is_active, logo_url, phone, email, address,
-              city, state, country, postal_code, timezone, slug,
-              created_at, updated_at
-       FROM companies WHERE id = $1 AND deleted_at IS NULL`,
-      [companyId],
-    )) ?? null;
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      row<CompanyRow>(await queryRunner.query(
+        `SELECT id, name, tax_id, is_active, logo_url, phone, email, address,
+                city, state, country, postal_code, timezone, slug,
+                created_at, updated_at
+         FROM companies WHERE id = $1 AND deleted_at IS NULL`,
+        [companyId],
+      )) ?? null,
+    );
   }
 
   async findBySlug(slug: string, excludeCompanyId?: string): Promise<IdRow | null> {
+    // Chequeo de unicidad global: debe ver empresas de otros tenants, por eso
+    // se mantiene en el camino privilegiado (también se usa en onboarding,
+    // antes de que exista TenantContext).
     return row<IdRow>(await this.dataSource.query(
       `SELECT id FROM companies
        WHERE slug = $1 AND ($2::uuid IS NULL OR id != $2)

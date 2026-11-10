@@ -82,6 +82,11 @@ Repositorios migrados:
 - `FeatureFlagsRepository`
 - `BranchesRepository`
 - `AnalysisRepository`
+- `MemberRepository` (lecturas y CRUD de miembros)
+- `RoleRepository` (CRUD y catálogo de roles)
+- `InvitationsRepository` (administración; la aceptación pública queda en auth)
+- `AuditLogRepository` (listado, exportación y tipos de entidad)
+- `CompanyRepository` (`findById` y `update`; slug y super-admin quedan privilegiados)
 
 La app sigue conectando como `postgres`, pero dentro de esas transacciones actúa como `kaleo_app`, por lo que RLS se aplica.
 
@@ -96,6 +101,16 @@ La app sigue conectando como `postgres`, pero dentro de esas transacciones actú
 | Vistas cross-company de super-admin | `postgres` | Acceso administrativo explícito |
 
 Regla: una consulta de negocio que no pase por `withTenantTransaction` sigue sin RLS. Por eso la migración es incremental y cada repositorio migrado debe tener tests.
+
+### Excepciones documentadas
+
+| Consulta | Motivo |
+|---|---|
+| `PermissionRepository.findAll/findByIds/findByModule` | Catálogo global (`permissions` tiene política de solo lectura `USING (true)`), no es dato de tenant |
+| `CompanyRepository.findBySlug` | Debe ver slugs de otros tenants para validar unicidad; también se usa en onboarding sin contexto |
+| `CompanyRepository.getAllCompanies` | Vista cross-company de super-admin |
+| `AuditLogRepository.log` / `insert` | Lo escribe el interceptor en el camino privilegiado; la auditoría atómica usa el `QueryRunner` de la transacción de negocio |
+| `MemberRepository.addMember`, `isAlreadyMember`, búsquedas de usuario | Creación de usuario nuevo y validaciones de auth/onboarding |
 
 Validación:
 

@@ -17,7 +17,9 @@ describe('CompanyRepository.getAllCompanies', () => {
         return [{ id: 'c-1', name: 'Acme', member_count: 3 }];
       }),
     };
-    repository = new CompanyRepository(dataSource as any);
+    repository = new CompanyRepository(dataSource as any, {
+      requireCompanyId: () => 'c-1',
+    } as any);
   });
 
   it('lista todas sin filtro por usuario y con conteo de miembros', async () => {
