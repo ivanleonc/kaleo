@@ -165,17 +165,17 @@ Ya existen las piezas base:
 - `company-access.guard.ts`: publica `companyId` y `userId` en el contexto cuando valida `x-company-id`.
 - `tenant-transaction.ts`: `withTenantTransaction(dataSource, tenantContext, fn)` abre una transacción, ejecuta `set_config('app.company_id', $1, true)`, corre el callback con el `QueryRunner` y hace commit/rollback.
 
-Los repositorios existentes siguen recibiendo `companyId` explícito. La migración a `withTenantTransaction` será incremental, empezando por las tablas con RLS.
+Los repositorios de negocio reciben `companyId` explícito y lo validan contra el `TenantContext` antes de abrir la transacción. Las consultas de auth/onboarding y las vistas cross-company siguen en `postgres` según la tabla de excepciones.
 
 ## Rollout pendiente
 
 1. ✅ Políticas para todas las tablas de negocio.
 2. ✅ Pilot de `withTenantTransaction` + `SET LOCAL ROLE kaleo_app` en feature flags.
-3. Migrar el resto de repositorios de negocio a `withTenantTransaction`.
+3. ✅ Migrar los repositorios de negocio a `withTenantTransaction`.
 4. Resolver el flujo de autenticación sin contexto de empresa (login por email, registro y onboarding):
    - opción A: funciones `SECURITY DEFINER` para lookups de auth;
    - opción B: rol/DataSource `kaleo_auth` separado con permisos acotados.
 5. Crear el rol de login `kaleo_app` con password y migrar la `DATABASE_URL`.
-6. Probar en staging con `kaleo_app` y luego en producción.
+6. Probar con `kaleo_app` y luego en producción.
 
-**No cambiar la conexión a `kaleo_app` hasta completar 2 y 3.** Con `kaleo_app` y sin contexto, el login por email devuelve 0 filas por diseño.
+**No cambiar la conexión a `kaleo_app` hasta completar 4.** Con `kaleo_app` y sin contexto, el login por email devuelve 0 filas por diseño.
