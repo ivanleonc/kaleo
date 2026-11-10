@@ -17,7 +17,7 @@
       <UiTableFilters v-model="memberFilterValues" :filters="memberFilterDefs" />
 
       <section
-        v-if="memberStore.pendingInvitations.length > 0"
+        v-if="pendingInvitations.length > 0"
         class="pending-invitations"
         aria-labelledby="pending-invitations-title"
       >
@@ -25,7 +25,7 @@
           <h2 id="pending-invitations-title" class="pending-invitations-title">
             <IconMail :size="18" aria-hidden="true" />
             Invitaciones pendientes
-            <span class="pending-count">{{ memberStore.pendingInvitations.length }}</span>
+            <span class="pending-count">{{ pendingInvitations.length }}</span>
           </h2>
           <p class="pending-invitations-hint">
             Estas personas todavía no han aceptado la invitación.
@@ -34,7 +34,7 @@
 
         <ul class="pending-list">
           <li
-            v-for="invitation in memberStore.pendingInvitations"
+            v-for="invitation in pendingInvitations"
             :key="invitation.id"
             class="pending-item"
           >
@@ -952,6 +952,8 @@ const confirmResetPassword = async () => {
 };
 
 // --- INVITACIONES PENDIENTES ---
+const pendingInvitations = computed(() => memberStore.pendingInvitations ?? []);
+
 const revokeInvitationModal = useModal<PendingInvitation>();
 const isRevokeInvitationModalOpen = revokeInvitationModal.isOpen;
 const revokeInvitationTarget = revokeInvitationModal.target;
