@@ -1,23 +1,36 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PROTECTED_ROLES } from '../../common/constants/roles.js';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
-import { runInTransaction } from '../../common/utils/transaction.helper.js';
 import { rows, row } from '../../common/utils/db.js';
-import type { RoleRow, PermissionRow } from '../../common/types/db-rows.js';
+import type { RoleRow } from '../../common/types/db-rows.js';
+import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
+import { withTenantTransaction } from '../../common/tenancy/tenant-transaction.js';
 
 @Injectable()
 export class RoleRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private assertCompany(companyId: string): void {
+    if (this.tenantContext.requireCompanyId() !== companyId) {
+      throw new ForbiddenException('La empresa no coincide con el TenantContext');
+    }
+  }
 
   async findAll(companyId?: string): Promise<RoleRow[]> {
     if (companyId) {
-      return rows<RoleRow>(await this.dataSource.query(
-        `SELECT id, name, description, color, company_id FROM roles
-         WHERE (company_id IS NULL OR company_id = $1) AND deleted_at IS NULL
-         ORDER BY name`,
-        [companyId],
-      ));
+      this.assertCompany(companyId);
+      return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+        rows<RoleRow>(await queryRunner.query(
+          `SELECT id, name, description, color, company_id FROM roles
+           WHERE (company_id IS NULL OR company_id = $1) AND deleted_at IS NULL
+           ORDER BY name`,
+          [companyId],
+        )),
+      );
     }
     return rows<RoleRow>(await this.dataSource.query(
       `SELECT id, name, description, color, company_id FROM roles WHERE deleted_at IS NULL ORDER BY name`,
@@ -25,10 +38,12 @@ export class RoleRepository {
   }
 
   async findById(id: string): Promise<RoleRow | undefined> {
-    return row<RoleRow>(await this.dataSource.query(
-      `SELECT id, name, description, color, company_id FROM roles WHERE id = $1 AND deleted_at IS NULL`,
-      [id],
-    ));
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      row<RoleRow>(await queryRunner.query(
+        `SELECT id, name, description, color, company_id FROM roles WHERE id = $1 AND deleted_at IS NULL`,
+        [id],
+      )),
+    );
   }
 
   async findByName(name: string, companyId?: string): Promise<RoleRow | undefined> {
@@ -46,18 +61,32 @@ export class RoleRepository {
   }
 
   async create(name: string, companyId?: string, description?: string, color?: string) {
+    if (companyId) {
+      this.assertCompany(companyId);
+      return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+        const result = await queryRunner.query(
+          `INSERT INTO roles (name, company_id, description, color) VALUES ($1, $2, $3, $4) RETURNING id, name, description, color, company_id`,
+          [name, companyId, description || null, color || null],
+        );
+        return result[0];
+      });
+    }
+
+    // Rol global: operación privilegiada, no pertenece a un tenant.
     const result = await this.dataSource.query(
       `INSERT INTO roles (name, company_id, description, color) VALUES ($1, $2, $3, $4) RETURNING id, name, description, color, company_id`,
-      [name, companyId || null, description || null, color || null],
+      [name, null, description || null, color || null],
     );
     return result[0];
   }
 
   async updateName(id: string, name: string) {
-    await this.dataSource.query(
-      `UPDATE roles SET name = $1 WHERE id = $2`,
-      [name, id],
-    );
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await queryRunner.query(
+        `UPDATE roles SET name = $1 WHERE id = $2`,
+        [name, id],
+      );
+    });
   }
 
   async update(id: string, data: { name?: string; description?: string; color?: string }) {
@@ -69,48 +98,54 @@ export class RoleRepository {
 
     if (updates.length === 0) return;
     values.push(id);
-    await this.dataSource.query(
-      `UPDATE roles SET ${updates.join(', ')} WHERE id = $${startIndex}`,
-      values,
-    );
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      await queryRunner.query(
+        `UPDATE roles SET ${updates.join(', ')} WHERE id = $${startIndex}`,
+        values,
+      );
+    });
   }
 
   async delete(id: string) {
-    const placeholders = PROTECTED_ROLES.map((_, i) => `$${i + 2}`).join(', ');
-    await this.dataSource.query(
-      `UPDATE roles SET deleted_at = NOW() WHERE id = $1 AND name NOT IN (${placeholders})`,
-      [id, ...PROTECTED_ROLES],
-    );
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const placeholders = PROTECTED_ROLES.map((_, i) => `$${i + 2}`).join(', ');
+      await queryRunner.query(
+        `UPDATE roles SET deleted_at = NOW() WHERE id = $1 AND name NOT IN (${placeholders})`,
+        [id, ...PROTECTED_ROLES],
+      );
 
-    // Limpiar contextos huérfanos: miembros con este rol quedan sin acceso
-    // silenciosamente si no se reasignan. Registramos la cantidad para
-    // que el audit log del interceptor lo capture como new_values.
-    // (No eliminamos los user_contexts: el admin puede reasignar el rol.)
-    // Lo que sí hacemos es remover el rol de esos contextos para que
-    // getUserAccess no devuelva permisos de un rol invisible.
-    await this.dataSource.query(
-      `DELETE FROM membership_roles WHERE role_id = $1`,
-      [id],
-    );
-    await this.dataSource.query(
-      `DELETE FROM user_contexts WHERE role_id = $1`,
-      [id],
-    );
+      // Limpiar contextos huérfanos: miembros con este rol quedan sin acceso
+      // silenciosamente si no se reasignan. Registramos la cantidad para
+      // que el audit log del interceptor lo capture como new_values.
+      // (No eliminamos los user_contexts: el admin puede reasignar el rol.)
+      // Lo que sí hacemos es remover el rol de esos contextos para que
+      // getUserAccess no devuelva permisos de un rol invisible.
+      await queryRunner.query(
+        `DELETE FROM membership_roles WHERE role_id = $1`,
+        [id],
+      );
+      await queryRunner.query(
+        `DELETE FROM user_contexts WHERE role_id = $1`,
+        [id],
+      );
+    });
   }
 
   async getPermissions(roleId: string) {
-    return this.dataSource.query(
-      `SELECT p.id, p.code, p.name, p.module
-       FROM permissions p
-       INNER JOIN role_permissions rp ON p.id = rp.permission_id
-       WHERE rp.role_id = $1
-       ORDER BY p.module, p.code`,
-      [roleId],
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT p.id, p.code, p.name, p.module
+         FROM permissions p
+         INNER JOIN role_permissions rp ON p.id = rp.permission_id
+         WHERE rp.role_id = $1
+         ORDER BY p.module, p.code`,
+        [roleId],
+      ),
     );
   }
 
   async setPermissions(roleId: string, permissionIds: string[]) {
-    await runInTransaction(this.dataSource, async (queryRunner) => {
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       await queryRunner.query(
         `DELETE FROM role_permissions WHERE role_id = $1`,
         [roleId],
@@ -140,6 +175,7 @@ export class RoleRepository {
   async getRolesWithPermissions(companyId: string) {
     // Siempre filtrado por empresa: roles globales (company_id IS NULL) +
     // roles de esa empresa. Nunca devuelve roles de otras empresas.
+    this.assertCompany(companyId);
     const query = `
       SELECT r.id, r.name, r.company_id, r.description, r.color,
         COALESCE(
@@ -156,7 +192,9 @@ export class RoleRepository {
       GROUP BY r.id, r.name, r.company_id, r.description, r.color
       ORDER BY r.name
     `;
-    return this.dataSource.query(query, [companyId]);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(query, [companyId]),
+    );
   }
 
   /**
