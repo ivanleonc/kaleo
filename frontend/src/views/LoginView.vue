@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { STORAGE_KEYS } from '@/utils/storage-keys';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -12,6 +12,7 @@ import UiAlert from '@/components/ui/UiAlert.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const { companyId, companyDashboardPath } = useCompanyPath();
 
 const form = reactive({
@@ -39,6 +40,11 @@ onMounted(() => {
 const handleLogin = async () => {
   try {
     await authStore.login({ email: form.email.trim(), password: form.password });
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+    if (redirect.startsWith('/') && !redirect.startsWith('//')) {
+      router.push(redirect);
+      return;
+    }
     if (!companyId.value) {
       router.push({ name: 'Onboarding' });
       return;

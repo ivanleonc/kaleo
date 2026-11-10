@@ -99,6 +99,7 @@ export class InvitationsService {
 
     return {
       email: invitation.email,
+      name: invitation.name,
       companyName: invitation.company_name,
       requiresLogin: Boolean(user),
       expiresAt: invitation.expires_at,

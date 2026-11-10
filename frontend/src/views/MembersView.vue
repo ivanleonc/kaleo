@@ -65,11 +65,11 @@
       <UiFormModal
         v-model="isAddModalOpen"
         title="Invitar miembro"
-        description="Agrega una persona al equipo, vincula una cuenta existente o asígnala a varias empresas."
+        description="Invita por email a una persona nueva o vincula una cuenta existente (multiempresa)."
         size="large"
         :confirm-on-dirty="true"
         :dirty="isAddDirty"
-        submit-label="Agregar al Equipo"
+        submit-label="Enviar invitación"
         :loading="memberStore.isLoading"
         :footer-hint="addFooterHint"
         @submit="handleAddSubmit"
@@ -89,10 +89,12 @@
               required
               :error="addEmailError"
             />
-            <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
-            <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
-            <UiInput v-model="addForm.document_type" label="Tipo Doc. (opcional)" type="text" placeholder="CC" />
-            <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
+            <template v-if="assignableCompanies.length > 1">
+              <UiInput v-model="addForm.phone" label="Teléfono (Opcional)" type="text" autocomplete="tel" />
+              <UiInput v-model="addForm.position" label="Cargo (Opcional)" type="text" />
+              <UiInput v-model="addForm.document_type" label="Tipo Doc. (opcional)" type="text" placeholder="CC" />
+              <UiInput v-model="addForm.document_number" label="Núm. Documento (Opcional)" type="text" />
+            </template>
           </div>
         </UiFormSection>
 
@@ -100,43 +102,48 @@
           title="Acceso y vinculación"
           description="Vincula una cuenta existente o invita a una persona nueva."
         >
-          <p v-if="selectedUser" class="assign-picked">
-            <span class="assign-picked-icon" aria-hidden="true">
-              <IconUserCheck :size="16" />
-            </span>
-            Usuario existente: <strong>{{ selectedUser.name }} ({{ selectedUser.email }})</strong>
-            <button type="button" class="link-btn" @click="clearSelectedUser">Quitar</button>
-          </p>
+          <template v-if="assignableCompanies.length > 1">
+            <p v-if="selectedUser" class="assign-picked">
+              <span class="assign-picked-icon" aria-hidden="true">
+                <IconUserCheck :size="16" />
+              </span>
+              Usuario existente: <strong>{{ selectedUser.name }} ({{ selectedUser.email }})</strong>
+              <button type="button" class="link-btn" @click="clearSelectedUser">Quitar</button>
+            </p>
 
-          <details v-else class="link-existing">
-            <summary class="link-existing-summary">
-              <span>¿La persona ya tiene cuenta? Vincular usuario existente</span>
-              <IconChevronDown :size="16" class="link-existing-chevron" aria-hidden="true" />
-            </summary>
-            <div class="link-existing-body">
-              <UiSearchInput
-                v-model="userSearchQuery"
-                placeholder="Busca por nombre o email..."
-                @input="onUserSearchInput"
-              />
-              <ul
-                v-if="userSearchResults.length > 0"
-                class="user-results"
-                aria-label="Usuarios encontrados"
-              >
-                <li v-for="u in userSearchResults" :key="u.id">
-                  <button type="button" class="user-result" @click="pickExistingUser(u)">
-                    <span class="user-result-name">{{ u.name }}</span>
-                    <span class="user-result-email">{{ u.email }}</span>
-                  </button>
-                </li>
-              </ul>
-              <p v-if="isSearching" class="assign-hint" role="status">Buscando…</p>
-              <p v-else-if="userSearchQuery.trim().length >= 2 && userSearchResults.length === 0" class="assign-hint">
-                No encontramos usuarios con ese nombre o correo.
-              </p>
-            </div>
-          </details>
+            <details v-else class="link-existing">
+              <summary class="link-existing-summary">
+                <span>¿La persona ya tiene cuenta? Vincular usuario existente</span>
+                <IconChevronDown :size="16" class="link-existing-chevron" aria-hidden="true" />
+              </summary>
+              <div class="link-existing-body">
+                <UiSearchInput
+                  v-model="userSearchQuery"
+                  placeholder="Busca por nombre o email..."
+                  @input="onUserSearchInput"
+                />
+                <ul
+                  v-if="userSearchResults.length > 0"
+                  class="user-results"
+                  aria-label="Usuarios encontrados"
+                >
+                  <li v-for="u in userSearchResults" :key="u.id">
+                    <button type="button" class="user-result" @click="pickExistingUser(u)">
+                      <span class="user-result-name">{{ u.name }}</span>
+                      <span class="user-result-email">{{ u.email }}</span>
+                    </button>
+                  </li>
+                </ul>
+                <p v-if="isSearching" class="assign-hint" role="status">Buscando…</p>
+                <p v-else-if="userSearchQuery.trim().length >= 2 && userSearchResults.length === 0" class="assign-hint">
+                  No encontramos usuarios con ese nombre o correo.
+                </p>
+              </div>
+            </details>
+          </template>
+          <p v-else class="assign-hint">
+            Se enviará una invitación al correo indicado. La persona definirá su contraseña al aceptar.
+          </p>
         </UiFormSection>
 
         <UiFormSection
@@ -661,27 +668,24 @@ const handleAddSubmit = async () => {
   const useLegacy =
     !selectedUser.value && targets.length === 1 && targets[0] === companyId.value;
 
-  // Flujo original intacto: una empresa (la activa), usuario nuevo por email.
+  // Flujo de invitación: una empresa (la activa) y email.
   if (useLegacy) {
     try {
-      const payload = {
-        name: addForm.name,
-        email: addForm.email,
+      const data = await memberStore.inviteMember({
+        name: addForm.name.trim(),
+        email: addForm.email.trim(),
         roleIds: addForm.roleIds,
-        phone: emptyToUndefined(addForm.phone),
-        position: emptyToUndefined(addForm.position),
-        document_type: emptyToUndefined(addForm.document_type),
-        document_number: emptyToUndefined(addForm.document_number),
-      };
+      });
+      if (!data) {
+        memberStore.error = 'No se pudo enviar la invitación';
+        return;
+      }
 
-      const data = await memberStore.addMember(payload);
-
-      // La contraseña temporal ya no se muestra en pantalla: se envía por email.
       addModal.close();
       toast.success(
-        data?.isNewUser
-          ? `Miembro agregado. Contraseña temporal enviada a ${addForm.email}.`
-          : `Miembro existente añadido a la empresa.`,
+        data.emailSent
+          ? `Invitación enviada a ${addForm.email}.`
+          : 'Invitación creada, pero no se pudo enviar el correo. Revisa la configuración de email.',
       );
 
       addForm.name = '';

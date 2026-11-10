@@ -44,9 +44,17 @@ Header obligatorio: `x-company-id`.
 - Aceptar una invitación ya aceptada o revocada devuelve `409`.
 - Si el email ya tiene cuenta, el endpoint público devuelve `409` con `code: INVITATION_REQUIRES_LOGIN`.
 
+## Frontend
+
+- `MembersView` usa “Enviar invitación” y llama a `invitationService.create`.
+- `AcceptInvitationView` (`/accept-invitation?token=...`) muestra la empresa y el email invitado.
+  - Si el email no tiene cuenta: pide nombre, contraseña y confirmación.
+  - Si ya tiene cuenta: redirige al login con `redirect` y, tras autenticarse, acepta la invitación.
+- `LoginView` respeta `?redirect=` para volver a la invitación después de iniciar sesión.
+
 ## Pendiente
 
-- Pantalla de aceptación en el frontend.
-- Reemplazar el flujo de “agregar miembro” por “invitar” en `MembersView`.
 - Tests de integración con base real.
 - Política RLS para lookup público por token cuando la app use `kaleo_app`.
+- Listado/revocación de invitaciones en la UI (los endpoints ya existen).
+- Reemplazar por completo el flujo multiempresa de “vincular usuario existente” si se decide eliminarlo.

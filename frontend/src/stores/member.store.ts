@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { memberService } from '@/services/member.service';
+import { invitationService } from '@/services/invitation.service';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { usePaginatedSetup } from '@/composables/createPaginatedStore';
 import type { Member, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, MemberCompany, UserSearchResult } from '@/types/member';
+import type { CreateInvitationPayload } from '@/types/invitation';
 
 export interface MemberFilters extends Record<string, unknown> {
   search?: string;
@@ -41,6 +43,14 @@ export const useMemberStore = defineStore('member', () => {
       return response.data;
     }, 'Error al agregar el miembro');
     return result;
+  };
+
+  const inviteMember = async (payload: CreateInvitationPayload) => {
+    if (!companyId.value) throw new Error('No hay una empresa activa seleccionada');
+    return paginated.withLoading(async () => {
+      const response = await invitationService.create(companyId.value!, payload);
+      return response.data;
+    }, 'Error al enviar la invitación');
   };
 
   const updateMember = async (userId: string, payload: UpdateMemberPayload) => {
@@ -132,6 +142,7 @@ export const useMemberStore = defineStore('member', () => {
     fetchMembers,
     // --- CRUD de dominio ---
     addMember,
+    inviteMember,
     updateMember,
     removeMember,
     resetPassword,

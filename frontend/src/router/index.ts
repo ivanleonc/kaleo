@@ -35,6 +35,13 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresGuest: true, title: 'Restablecer contraseña' },
   },
   {
+    path: '/accept-invitation',
+    name: 'AcceptInvitation',
+    // Pública: el enlace llega al correo y puede abrirse con o sin sesión.
+    component: () => import('@/views/AcceptInvitationView.vue'),
+    meta: { title: 'Aceptar invitación' },
+  },
+  {
     path: '/onboarding',
     name: 'Onboarding',
     component: () => import('@/views/OnboardingView.vue'),
@@ -188,6 +195,10 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresGuest && isAuthenticated) {
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '';
+    if (redirect.startsWith('/') && !redirect.startsWith('//')) {
+      return { path: redirect };
+    }
     const tenant =
       resolveTenantByParam(tenants, authStore.activeTenantId ?? undefined) ?? tenants?.[0];
     if (tenant) {
