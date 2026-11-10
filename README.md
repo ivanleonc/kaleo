@@ -105,6 +105,8 @@ Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm 
 | `018-create-analyses-table.sql` | Tabla `analyses` del pack energía |
 | `019-seed-analyses-permissions.sql` | Permisos `analyses:*` y asignación a roles |
 | `020-create-feature-flags.sql` | Feature flags por empresa |
+| `021-rls-pilot.sql` | Rol `kaleo_app` y política RLS piloto en `branches` |
+| `022-fix-rls-empty-setting.sql` | Corrige RLS cuando no hay `app.company_id` |
 
 ### Reglas de oro
 

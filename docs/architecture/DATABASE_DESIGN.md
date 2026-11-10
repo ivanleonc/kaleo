@@ -1432,9 +1432,11 @@ ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY projects_tenant_isolation ON projects
-  USING (company_id = current_setting('app.company_id', true)::uuid)
-  WITH CHECK (company_id = current_setting('app.company_id', true)::uuid);
+  USING (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid)
+  WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::uuid);
 ```
+
+> `NULLIF(..., '')` evita el error `invalid input syntax for type uuid: ""` cuando el GUC se define y luego se resetea. Sin contexto, la comparación es `NULL` y la política falla cerrada.
 
 5. `users` y `companies` requieren políticas especiales basadas en memberships.
 6. Jobs y AI deben setear el contexto antes de consultar.
