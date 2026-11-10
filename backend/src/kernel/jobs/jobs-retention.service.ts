@@ -34,7 +34,7 @@ export class JobsRetentionService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async runCleanup(): Promise<{ operations: number; jobs: number }> {
+  async runCleanup(): Promise<{ operations: number; jobs: number; idempotency: number }> {
     const operationDays = this.numberFromEnv('OPERATIONS_RETENTION_DAYS', 7);
     const jobDays = this.numberFromEnv('JOBS_RETENTION_DAYS', 30);
 
@@ -52,13 +52,18 @@ export class JobsRetentionService implements OnModuleInit, OnModuleDestroy {
       [jobDays],
     );
 
+    const idempotency = await this.db.query(
+      `DELETE FROM idempotency_keys WHERE expires_at < now()`,
+    );
+
     const result = {
       operations: operations.rowCount ?? 0,
       jobs: jobs.rowCount ?? 0,
+      idempotency: idempotency.rowCount ?? 0,
     };
-    if (result.operations > 0 || result.jobs > 0) {
+    if (result.operations > 0 || result.jobs > 0 || result.idempotency > 0) {
       this.logger.log(
-        `Retención: ${result.operations} operaciones y ${result.jobs} jobs eliminados`,
+        `Retención: ${result.operations} operaciones, ${result.jobs} jobs y ${result.idempotency} idempotency keys eliminados`,
       );
     }
     return result;

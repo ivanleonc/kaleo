@@ -99,6 +99,17 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { bodyParser: false });
 
+  // Alias /api/v1 -> /api sin duplicar controllers. Los clientes nuevos usan
+  // /api/v1; los antiguos siguen funcionando en /api.
+  app.use((req: any, res: any, next: () => void) => {
+    const url = req.url ?? '';
+    if (url === '/api/v1' || url.startsWith('/api/v1/')) {
+      req.url = `/api${url.slice('/api/v1'.length)}`;
+      res.setHeader('X-API-Version', '1');
+    }
+    next();
+  });
+
   app.use(json({ limit: '2mb' }));
   app.use(urlencoded({ extended: true, limit: '2mb' }));
 

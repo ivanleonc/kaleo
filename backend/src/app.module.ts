@@ -19,6 +19,8 @@ import { EntitlementModule } from './kernel/billing/entitlement.module.js';
 import { CompanySettingsModule } from './kernel/tenancy/company-settings.module.js';
 import { JobsModule } from './kernel/jobs/jobs.module.js';
 import { OperationsModule } from './kernel/operations/operations.module.js';
+import { IdempotencyService } from './kernel/api/idempotency.service.js';
+import { IdempotencyInterceptor } from './kernel/api/idempotency.interceptor.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -109,6 +111,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
   controllers: [AppController],
   providers: [
     AppService,
+    IdempotencyService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
@@ -124,6 +127,10 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     {
       provide: APP_GUARD,
       useClass: CompanyAccessGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotencyInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,
