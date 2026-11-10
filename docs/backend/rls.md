@@ -77,7 +77,25 @@ Crea dos empresas con datos de varios módulos, cambia a `kaleo_app` con context
 4. Ejecuta el callback con el `QueryRunner`.
 5. Hace commit/rollback y libera la conexión.
 
-El primer repositorio migrado es `FeatureFlagsRepository`. La app sigue conectando como `postgres`, pero dentro de esa transacción actúa como `kaleo_app`, por lo que RLS se aplica.
+Repositorios migrados:
+
+- `FeatureFlagsRepository`
+- `BranchesRepository`
+- `AnalysisRepository`
+
+La app sigue conectando como `postgres`, pero dentro de esas transacciones actúa como `kaleo_app`, por lo que RLS se aplica.
+
+### Criterio de migración
+
+| Tipo de consulta | Rol | Motivo |
+|---|---|---|
+| CRUD de negocio con `companyId` | `kaleo_app` vía `withTenantTransaction` | Debe respetar RLS |
+| Login, refresh, claims, búsqueda de usuario por email/id | `postgres` | Ocurre antes de tener contexto de empresa |
+| Validaciones de roles y chequeos de auth | `postgres` | No son lecturas de negocio del tenant |
+| Onboarding/creación de empresa y usuario nuevo | `postgres` | Necesita crear filas antes de que exista membership |
+| Vistas cross-company de super-admin | `postgres` | Acceso administrativo explícito |
+
+Regla: una consulta de negocio que no pase por `withTenantTransaction` sigue sin RLS. Por eso la migración es incremental y cada repositorio migrado debe tener tests.
 
 Validación:
 
