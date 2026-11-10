@@ -89,6 +89,7 @@ npm run migrate -- production --accept-checksum 000
 | `029-drop-user-contexts.sql` | Elimina `user_contexts` y los triggers de sincronización. |
 | `030-membership-token-version.sql` | `memberships.token_version` para invalidar claims por empresa. |
 | `031-role-name-unique.sql` | Names de rol únicos por empresa (case-insensitive) y para globales. |
+| `032-users-email-unique-ci.sql` | Email de usuario único sin distinguir mayúsculas. |
 
 ## Verificar el estado
 

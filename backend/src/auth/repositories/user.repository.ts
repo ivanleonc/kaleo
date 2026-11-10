@@ -16,7 +16,7 @@ export class UserRepository {
               failed_login_attempts, locked_until, password_changed_at,
               phone, avatar_url, position, document_type, document_number,
               timezone, locale, pending_email, is_super_admin
-       FROM users WHERE email = $1 AND deleted_at IS NULL`,
+       FROM users WHERE lower(email) = lower($1) AND deleted_at IS NULL`,
       [email],
     );
     return result[0];
@@ -53,7 +53,7 @@ export class UserRepository {
       `INSERT INTO users (email, password_hash, name, must_change_password) 
        VALUES ($1, $2, $3, FALSE) 
        RETURNING id, email, name, must_change_password`,
-      [email, passwordHash, name || null],
+      [email.trim().toLowerCase(), passwordHash, name || null],
     );
     return result[0];
   }
@@ -135,7 +135,7 @@ export class UserRepository {
     await this.dataSource.query(
       `UPDATE users SET pending_email = $1, email_verification_token = $2,
               email_verification_expires_at = NOW() + INTERVAL '24 hours' WHERE id = $3`,
-      [pendingEmail, token, userId],
+      [pendingEmail.trim().toLowerCase(), token, userId],
     );
   }
 
@@ -144,7 +144,7 @@ export class UserRepository {
       `UPDATE users SET email = $1, pending_email = NULL,
               email_verified = TRUE, email_verification_token = NULL
        WHERE id = $2`,
-      [newEmail, userId],
+      [newEmail.trim().toLowerCase(), userId],
     );
   }
 
@@ -161,8 +161,11 @@ export class UserRepository {
     position?: string; document_type?: string; document_number?: string;
     timezone?: string; locale?: string;
   }): Promise<void> {
+    const normalized = data.email
+      ? { ...data, email: data.email.trim().toLowerCase() }
+      : data;
     const { updates, values, startIndex } = buildDynamicUpdate(
-      data,
+      normalized,
       ['name', 'email', 'phone', 'avatar_url', 'position', 'document_type', 'document_number', 'timezone', 'locale'],
       { nullEmptyStrings: true, extraSet: ['updated_at = NOW()'] },
     );
