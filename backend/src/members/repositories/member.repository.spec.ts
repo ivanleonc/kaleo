@@ -226,35 +226,29 @@ describe('MemberRepository cross-company (super-admin)', () => {
     expect(queries[0].sql).toContain('uc.user_id = $1');
   });
 
-  it('searchUsers limita y pagina con ILIKE en nombre/email', async () => {
+  it('searchUsers filtra por empresa, limita y pagina con ILIKE', async () => {
     const { dataSource, queries } = createRunnerStub([
       { match: /FROM users/, rows: [{ id: 'u-1', name: 'Juan', email: 'juan@x.co' }] },
     ]);
     const repo = new MemberRepository(dataSource as any);
 
-    const result = await repo.searchUsers('ju', 99);
+    const result = await repo.searchUsers('company-1', 'ju', 99);
 
     expect(result).toHaveLength(1);
-    expect(queries[0].params).toEqual(['%ju%', 20]);
-    expect(queries[0].sql).toContain('name ILIKE $1 OR email ILIKE $1');
+    expect(queries[0]!.params).toEqual(['company-1', '%ju%', 20]);
+    expect(queries[0]!.sql).toContain('uc.company_id = $1');
+    expect(queries[0]!.sql).toContain('u.name ILIKE $2 OR u.email ILIKE $2');
   });
 
-  // Deuda P0-1 (CURRENT_STATE.md): la búsqueda global devuelve usuarios de
-  // cualquier empresa. `it.fails` mantiene el CI verde mientras el bug existe;
-  // cuando se corrija en Fase 1, este test empezará a fallar y obligará a
-  // quitar el marcador y actualizar el test anterior.
-  it.fails(
-    'searchUsers debe aislar por empresa (hoy busca en todos los tenants)',
-    async () => {
-      const { dataSource, queries } = createRunnerStub([
-        { match: /FROM users/, rows: [] },
-      ]);
-      const repo = new MemberRepository(dataSource as any);
+  it('searchUsers no puede devolver usuarios de otra empresa (fix P0-1)', async () => {
+    const { dataSource, queries } = createRunnerStub([
+      { match: /FROM users/, rows: [] },
+    ]);
+    const repo = new MemberRepository(dataSource as any);
 
-      await repo.searchUsers('ju');
+    await repo.searchUsers('company-1', 'ju');
 
-      const sql = queries[0]!.sql.toLowerCase();
-      expect(sql).toMatch(/company_id|user_contexts/);
-    },
-  );
+    expect(queries[0]!.sql).toContain('uc.company_id = $1');
+    expect(queries[0]!.params[0]).toBe('company-1');
+  });
 });

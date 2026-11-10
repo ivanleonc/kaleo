@@ -127,11 +127,12 @@ describe('MemberService.attachMember', () => {
     expect(memberRepository.attachExistingUser).not.toHaveBeenCalled();
   });
 
-  it('searchUsers exige mínimo 2 caracteres', async () => {
-    await expect(service.searchUsers('a')).rejects.toThrow(BadRequestException);
+  it('searchUsers exige empresa y mínimo 2 caracteres', async () => {
+    await expect(service.searchUsers('', 'an')).rejects.toThrow(BadRequestException);
+    await expect(service.searchUsers('company-1', 'a')).rejects.toThrow(BadRequestException);
     memberRepository.searchUsers = vi.fn(async () => []);
-    await service.searchUsers('an');
-    expect(memberRepository.searchUsers).toHaveBeenCalledWith('an');
+    await service.searchUsers('company-1', 'an');
+    expect(memberRepository.searchUsers).toHaveBeenCalledWith('company-1', 'an');
   });
 });
 

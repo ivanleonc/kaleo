@@ -184,13 +184,19 @@ export class MemberService {
     return this.memberRepository.getMemberCompanies(targetUserId);
   }
 
-  /** Búsqueda de usuarios para autocompletar (solo id/nombre/email). */
-  async searchUsers(query: string) {
+  /**
+   * Búsqueda de usuarios para autocompletar (solo id/nombre/email).
+   * Se limita a miembros de la empresa para no filtrar usuarios de otros tenants.
+   */
+  async searchUsers(companyId: string, query: string) {
+    if (!companyId) {
+      throw new BadRequestException('Falta el header x-company-id');
+    }
     const q = (query ?? '').trim();
     if (q.length < 2) {
       throw new BadRequestException('La búsqueda requiere al menos 2 caracteres');
     }
-    return this.memberRepository.searchUsers(q);
+    return this.memberRepository.searchUsers(companyId, q);
   }
 
   private generateTempPassword(): string {

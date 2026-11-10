@@ -388,16 +388,23 @@ export class MemberRepository {
 
   /**
    * Búsqueda de usuarios para autocompletar (flujo de asignación).
+   * Solo devuelve usuarios que ya pertenecen a la empresa: cerrar la fuga
+   * cross-tenant P0-1. El alta de usuarios nuevos va por invitación.
    * Solo id/nombre/email: nunca hashes, roles ni tokens.
    */
-  async searchUsers(query: string, limit = 10) {
+  async searchUsers(companyId: string, query: string, limit = 10) {
     const result = await this.dataSource.query(
-      `SELECT id, name, email FROM users
-       WHERE deleted_at IS NULL
-         AND (name ILIKE $1 OR email ILIKE $1)
-       ORDER BY name
-       LIMIT $2`,
-      [`%${query}%`, Math.min(Math.max(limit, 1), 20)],
+      `SELECT u.id, u.name, u.email
+       FROM users u
+       WHERE u.deleted_at IS NULL
+         AND EXISTS (
+           SELECT 1 FROM user_contexts uc
+           WHERE uc.user_id = u.id AND uc.company_id = $1
+         )
+         AND (u.name ILIKE $2 OR u.email ILIKE $2)
+       ORDER BY u.name
+       LIMIT $3`,
+      [companyId, `%${query}%`, Math.min(Math.max(limit, 1), 20)],
     );
     return result;
   }

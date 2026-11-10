@@ -262,12 +262,19 @@ export class MemberController {
   @Get('search')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:create')
-  @ApiOperation({ summary: 'Buscar usuarios para asignar', description: 'Autocompletado por nombre o email (mínimo 2 caracteres). Solo id/nombre/email. Requiere permiso users:create.' })
+  @ApiOperation({
+    summary: 'Buscar miembros de la empresa para asignar',
+    description: 'Autocompletado por nombre o email (mínimo 2 caracteres). Solo devuelve usuarios que ya pertenecen a la empresa. Requiere permiso users:create.',
+  })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiQuery({ name: 'q', description: 'Texto a buscar', example: 'juan' })
   @ApiResponse({ status: 200, description: 'Lista de usuarios coincidentes (máximo 10)' })
-  @ApiResponse({ status: 400, description: 'Búsqueda muy corta' })
-  async searchUsers(@Query('q') q: string) {
-    const result = await this.memberService.searchUsers(q ?? '');
+  @ApiResponse({ status: 400, description: 'Búsqueda muy corta o falta x-company-id' })
+  async searchUsers(
+    @Headers('x-company-id') companyId: string,
+    @Query('q') q: string,
+  ) {
+    const result = await this.memberService.searchUsers(companyId, q ?? '');
     return Ok(result);
   }
 
