@@ -39,13 +39,17 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 # dotenv environment variable files
-# Solo development/production existen (ver README: 2 ambientes).
+# Cada ambiente tiene su archivo y su propio JWT_SECRET/DATABASE_URL.
 .env
 .env.development
+.env.staging
 .env.production
+.env.sandbox
 .env.development.local
+.env.staging.local
 .env.test.local
 .env.production.local
+.env.sandbox.local
 .env.local
 
 # temp directory

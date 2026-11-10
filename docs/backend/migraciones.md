@@ -1,142 +1,138 @@
 # Migraciones SQL
 
-Kaleo gestiona el esquema de base de datos con **archivos SQL versionados** aplicados manualmente en el SQL Editor de Supabase.
+Kaleo gestiona el esquema con **archivos SQL versionados**. El runner `backend/scripts/run-migrations.ts` los aplica en orden, registra cada versión en `public.schema_migrations` y guarda un checksum SHA-256 para detectar ediciones posteriores.
+
+## Ambientes
+
+| Ambiente | Archivo de entorno | Base de datos | Uso |
+|---|---|---|---|
+| Desarrollo | `backend/.env.development` | `kaleo-dev` | Desarrollo diario |
+| Staging | `backend/.env.staging` | `kaleo-staging` | Validar antes de producción |
+| Producción | `backend/.env.production` | `kaleo-prod` | Clientes reales |
+
+Regla: **development → staging → production**. Nunca aplicar primero en producción.
 
 ## Convención de nombres
 
-```
+```text
 NNN-descripcion-kebab-case.sql
 ```
 
-Ejemplos:
-- `000-baseline-schema.sql`
-- `010-add-audit-log.sql`
-- `017-add-super-admin-flag.sql`
+- `NNN` es correlativo y no se reutiliza.
+- El número `001` no existe; el baseline es `000` y los deltas empiezan en `002`.
+- El nombre completo del archivo es la versión que se guarda en `schema_migrations`.
+
+## Comandos del runner
+
+Desde `backend/`:
+
+```bash
+# Ver estado (aplicadas, pendientes y checksums)
+npm run migrate -- development --status
+npm run migrate -- staging --status
+npm run migrate -- production --status
+
+# Aplicar todas las pendientes
+npm run migrate -- development
+npm run migrate -- staging
+npm run migrate -- production
+
+# Aplicar solo una migración pendiente por prefijo
+npm run migrate -- staging 017
+
+# Registrar checksums que falten (no modifica migraciones)
+npm run migrate -- production --backfill-checksums
+
+# Aceptar una edición intencional de una migración ya aplicada
+npm run migrate -- production --accept-checksum 000
+```
+
+### Cómo funciona el checksum
+
+- Al aplicar una migración se guarda el SHA-256 del archivo.
+- `--status` muestra `✓` si coincide, `? checksum sin registrar` si falta y `! checksum distinto` si cambió.
+- Si hay un checksum distinto, el runner **no aplica nada** hasta restaurar el archivo o aceptar la edición de forma explícita.
+- `--accept-checksum <prefijo>` solo debe usarse para fixes documentados del baseline. No es un atajo para editar migraciones aplicadas.
 
 ## Migraciones actuales
 
 | Archivo | Descripción |
 |---|---|
-| `000-baseline-schema.sql` | Esquema completo inicial. **Re-ejecutable** (usa `CREATE TABLE IF NOT EXISTS`). |
-| `002-add-soft-delete.sql` | Agrega `deleted_at` a las tablas principales |
-| `003-add-user-context.sql` | Tabla `user_contexts` para membresías multi-empresa |
-| `004-seed-permissions-roles.sql` | Datos iniciales de permisos y roles del sistema |
-| `005-add-refresh-tokens.sql` | Tabla de refresh tokens |
-| `006-add-token-blacklist.sql` | Blacklist de access tokens revocados |
-| `007-add-password-history.sql` | Historial de contraseñas (últimas 3) |
-| `008-add-company-slug.sql` | Campo `slug` en `companies` |
-| `009-add-email-verification.sql` | Tabla de verificación de email |
-| `010-add-audit-log.sql` | Tabla `audit_logs` particionada |
-| `011-add-branch-fields.sql` | Campos adicionales en `branches` |
-| `012-add-user-profile-fields.sql` | Campos de perfil en `users` |
-| `013-add-schema-migrations.sql` | Tabla `schema_migrations` para tracking |
-| `014-add-user-timezone.sql` | Campo `timezone` en `users` |
-| `015-add-email-verification-expiry.sql` | Expiración de tokens de verificación |
-| `016-add-pending-email.sql` | Campo `pending_email` para cambio de email pendiente |
-| `017-add-super-admin-flag.sql` | Campo `is_super_admin` en `users` |
+| `000-baseline-schema.sql` | Esquema completo inicial. Re-ejecutable e idempotente. |
+| `002-add-auth-improvements.sql` | Columnas de auth, refresh tokens, blacklist e historial de contraseñas. |
+| `003-add-rbac-permissions.sql` | Permisos base y roles Owner/Admin. |
+| `004-seed-permissions-roles.sql` | Seed completo: Owner/Admin/Viewer y 28 permisos. |
+| `005-expand-audit-action-column.sql` | Amplía `audit_logs.action` a 255 caracteres. |
+| `006-create-branches-table.sql` | Tabla de sedes. |
+| `007-add-permission-name.sql` | Nombre legible en permisos. |
+| `008-add-audit-response-columns.sql` | `response_status`, `response_data`, `duration_ms`. |
+| `009-add-audit-indexes.sql` | Índices de auditoría. |
+| `010-cleanup-audit-response-bloat.sql` | Limpia `response_data` de GET/OPTIONS/HEAD. |
+| `011-extended-profile-fields.sql` | Campos extendidos de perfil, empresa, sedes y roles. |
+| `012-add-missing-indexes.sql` | Índices faltantes de rendimiento. |
+| `013-add-audit-keyset-index.sql` | Índice keyset para paginación por cursor. |
+| `014-backfill-company-slugs.sql` | Rellena slugs de empresas existentes. |
+| `015-add-email-verification-expiry.sql` | Expiración de verificación de email. |
+| `016-cleanup-orphan-user-contexts.sql` | Limpia contextos con roles borrados. |
+| `017-add-super-admin-flag.sql` | Flag `users.is_super_admin`. |
+| `018-create-analyses-table.sql` | Tabla `analyses` del pack energía. |
+| `019-seed-analyses-permissions.sql` | Permisos `analyses:*` y asignación a Owner/Admin/Viewer. |
 
-## Aplicar migraciones
-
-### Opción A — SQL Editor de Supabase (recomendado)
-
-1. Abre tu proyecto en [supabase.com/dashboard](https://supabase.com/dashboard)
-2. Ve a **SQL Editor**
-3. Copia el contenido del archivo de migración
-4. Ejecuta
-
-**Orden obligatorio:** 000 → 002 → 003 → ... (siempre de menor a mayor)
-
-### Opción B — Runner automatizado
-
-```bash
-# Ver estado (qué está aplicado, qué está pendiente)
-npm run migrate -- development --status
-
-# Aplicar todas las pendientes
-npm run migrate -- development
-
-# Aplicar solo una migración específica
-npm run migrate -- development --only 017-add-super-admin-flag.sql
-```
-
-El runner usa la tabla `schema_migrations` para saber qué ya fue aplicado.
-
-## Verificar estado
+## Verificar el estado
 
 ```sql
-SELECT version FROM schema_migrations ORDER BY version;
+SELECT version, checksum, applied_at
+FROM public.schema_migrations
+ORDER BY version;
 ```
 
-Debe retornar una fila por cada migración aplicada.
-
-## Crear una nueva migración
-
-### 1. Nombrar el archivo
-
-```
-018-descripcion-del-cambio.sql
-```
-
-Usa el número siguiente al último archivo existente.
-
-### 2. Escribir el SQL
-
-```sql
--- 018-add-invoices.sql
-
--- Tabla nueva
-CREATE TABLE IF NOT EXISTS invoices (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  number      TEXT NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'draft',
-  amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
-  due_date    DATE,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  deleted_at  TIMESTAMPTZ
-);
-
--- Índices
-CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(company_id, status);
-
--- Registrar en schema_migrations
-INSERT INTO schema_migrations (version) VALUES ('018');
-```
-
-### 3. Probar en development
-
-Siempre aplica primero en `kaleo-dev`. Nunca en producción directamente.
+Debe haber una fila por archivo aplicado, sin checksums nulos y sin versiones extra.
 
 ## Reglas importantes
 
 ::: danger No editar migraciones aplicadas
-Una vez que una migración está en `schema_migrations`, **nunca la edites**. Crea una nueva migración con el número siguiente para corregir o extender.
+Una migración registrada en `schema_migrations` no se edita. Crea una nueva con el número siguiente.
+
+**Excepción documentada:** el baseline `000` puede corregirse si el fix es necesario para instalaciones limpias. En ese caso:
+1. Documentar el motivo en la cabecera del archivo.
+2. Verificar que el cambio es no-op en las bases existentes.
+3. Ejecutar `--accept-checksum 000` en cada ambiente.
 :::
 
 ::: tip `000` es especial
-La migración `000-baseline-schema.sql` usa `CREATE TABLE IF NOT EXISTS` en todos lados. Puedes ejecutarla en una base de datos nueva sin errores — es idempotente.
+`000-baseline-schema.sql` usa `CREATE TABLE IF NOT EXISTS` y guards. En una base limpia se ejecuta `000` y luego `002..019` en orden. El runner lo hace automáticamente.
+
+Nota: los guards de constraints deben calificar por esquema/tabla. Supabase tiene `auth.users_pkey` y `auth.refresh_tokens_pkey`; un guard global por `conname` se salta las PK de `public` y rompe las FK.
 :::
 
 ## `audit_logs` — tabla particionada
 
-La tabla `audit_logs` es una **tabla particionada por rango de fecha** (PostgreSQL range partitioning). Tiene particiones:
+`audit_logs` está particionada por rango de fecha:
+
 - `audit_logs_y2026h2` (julio-diciembre 2026)
-- `audit_logs_y2027` (año completo 2027)
+- `audit_logs_y2027` (año 2027)
 - `audit_logs_default` (overflow)
 
 ::: warning
 Al modificar `audit_logs` con `ALTER TABLE`:
-- Los cambios van **solo en la tabla padre** (`audit_logs`), no en las particiones
-- Nunca ejecutes `ALTER TABLE audit_logs_y2026h2` directamente
-- Los nuevos registros se insertan automáticamente en la partición correcta
+- Los cambios van **solo en la tabla padre** (`audit_logs`).
+- Nunca ejecutes `ALTER TABLE audit_logs_y2026h2` directamente.
+- Los nuevos registros se insertan automáticamente en la partición correcta.
 :::
 
-Agregar una nueva partición para 2028:
+Agregar una partición nueva:
 
 ```sql
 CREATE TABLE audit_logs_y2028
 PARTITION OF audit_logs
 FOR VALUES FROM ('2028-01-01') TO ('2029-01-01');
 ```
+
+## Rollback
+
+Las migraciones son aditivas. Para revertir un cambio:
+
+1. Restaurar el backup más reciente verificado.
+2. O crear una migración nueva que revierta el cambio de forma controlada.
+
+No se hace `DROP TABLE` en producción sin backup y ventana explícita.

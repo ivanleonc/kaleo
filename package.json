@@ -5,6 +5,12 @@
     "packages/*",
     "docs"
   ],
+  "devEngines": {
+    "packageManager": {
+      "name": "npm",
+      "version": "11.16.0"
+    }
+  },
   "scripts": {
     "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:prod": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,green\" \"npm run dev:prod --prefix backend\" \"npm run dev --prefix frontend\"",

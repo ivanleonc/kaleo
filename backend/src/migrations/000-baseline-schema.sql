@@ -1,8 +1,14 @@
 -- ============================================================
 -- Baseline 000: esquema public extraído del backup de producción.
--- Generado automáticamente: NO EDITAR A MANO.
--- Para una BD nueva: correr 000 y luego deltas 002..011 en orden.
+-- Generado automáticamente: NO EDITAR A MANO salvo fixes documentados.
+-- Para una BD nueva: correr 000 y luego deltas 002..019 en orden.
 -- Las tablas de auth/storage/realtime las provee Supabase.
+--
+-- FIX 2026-11-10: los guards de PK buscaban `conname` sin calificar por
+-- esquema. Supabase ya tiene `auth.users_pkey` y `auth.refresh_tokens_pkey`,
+-- así que en una base limpia se saltaba la creación de las PK de
+-- `public.users` y `public.refresh_tokens` y fallaban las FK. Ambos guards
+-- quedaron calificados por esquema y tabla. Es un no-op en producción.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
@@ -512,7 +518,15 @@ END $$;
 -- Baseline: refresh_tokens refresh_tokens_pkey [CONSTRAINT]
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'refresh_tokens_pkey') THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE c.conname = 'refresh_tokens_pkey'
+      AND n.nspname = 'public'
+      AND t.relname = 'refresh_tokens'
+  ) THEN
     --
 
 ALTER TABLE ONLY public.refresh_tokens
@@ -596,7 +610,15 @@ END $$;
 -- Baseline: users users_pkey [CONSTRAINT]
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_pkey') THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE c.conname = 'users_pkey'
+      AND n.nspname = 'public'
+      AND t.relname = 'users'
+  ) THEN
     --
 
 ALTER TABLE ONLY public.users

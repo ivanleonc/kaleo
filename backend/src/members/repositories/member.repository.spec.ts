@@ -238,4 +238,23 @@ describe('MemberRepository cross-company (super-admin)', () => {
     expect(queries[0].params).toEqual(['%ju%', 20]);
     expect(queries[0].sql).toContain('name ILIKE $1 OR email ILIKE $1');
   });
+
+  // Deuda P0-1 (CURRENT_STATE.md): la búsqueda global devuelve usuarios de
+  // cualquier empresa. `it.fails` mantiene el CI verde mientras el bug existe;
+  // cuando se corrija en Fase 1, este test empezará a fallar y obligará a
+  // quitar el marcador y actualizar el test anterior.
+  it.fails(
+    'searchUsers debe aislar por empresa (hoy busca en todos los tenants)',
+    async () => {
+      const { dataSource, queries } = createRunnerStub([
+        { match: /FROM users/, rows: [] },
+      ]);
+      const repo = new MemberRepository(dataSource as any);
+
+      await repo.searchUsers('ju');
+
+      const sql = queries[0]!.sql.toLowerCase();
+      expect(sql).toMatch(/company_id|user_contexts/);
+    },
+  );
 });

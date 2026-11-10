@@ -35,10 +35,10 @@ npm run docs:dev   # → http://localhost:5173
 |---|---|---|---|---|
 | **Local dev** | localhost:5173 | localhost:3000 | `kaleo-dev` | `npm run dev` — desarrollo diario |
 | **Local prod** | localhost:5173 | localhost:3000 | `kaleo-prod` (datos reales) | `npm run dev:prod` — depurar producción |
-| **Staging** | Pages staging | Render Free + UptimeRobot | `kaleo-prod` | Validar antes de prod |
+| **Staging** | Pages staging | Render Free + UptimeRobot | `kaleo-staging` | Validar antes de prod |
 | **Prod** | Pages prod + dominio | Render + dominio | `kaleo-prod` | Clientes reales |
 
-Regla: **local → dev** para romper sin miedo; **staging** para validar; **prod** solo con CI verde + humo verde en staging.
+Regla: **local → dev** para romper sin miedo; **staging** para validar; **prod** solo con CI verde + humo verde en staging. Staging nunca comparte base de datos con producción.
 
 ## Arranque en local (una sola terminal)
 
@@ -72,12 +72,12 @@ Flujo inicial: registro → onboarding (crear empresa) → dashboard. Detalles e
 
 1. Trabaja en ramas `feat/*`; push a `main` = auto-deploy a staging y activa el CI.
 2. **Antes de cada push**: CI corre typecheck + lint + tests + build automáticamente. El push pasa si todo está verde.
-3. **Migraciones**: ver sección "Migraciones" abajo. Orden: development → production.
+3. **Migraciones**: ver sección "Migraciones" abajo. Orden: development → staging → production.
 4. **Secretos**: cada ambiente con su `JWT_SECRET` distinto. Rotarlo cierra todas las sesiones activas — avisar a los usuarios. Nada sensible en git.
 
 ## Migraciones de base de datos
 
-Los archivos viven en `backend/src/migrations/`. Se aplican **a mano** en el SQL editor de Supabase, en orden numérico estricto.
+Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm run migrate -- <entorno>`), que registra versión y checksum en `schema_migrations`. El SQL Editor de Supabase queda como alternativa manual, no como flujo principal. Orden: development → staging → production.
 
 ### Migraciones disponibles
 
@@ -100,10 +100,13 @@ Los archivos viven en `backend/src/migrations/`. Se aplican **a mano** en el SQL
 | `015-add-email-verification-expiry.sql` | Expiración de enlaces de verificación (24h) |
 | `016-cleanup-orphan-user-contexts.sql` | Limpia contextos huérfanos de roles borrados |
 | `017-add-super-admin-flag.sql` | Flag `users.is_super_admin` (super-admin global) |
+| `018-create-analyses-table.sql` | Tabla `analyses` del pack energía |
+| `019-seed-analyses-permissions.sql` | Permisos `analyses:*` y asignación a roles |
 
 ### Reglas de oro
 
 - **Nunca editar** una migración ya aplicada — crear un archivo nuevo numerado.
+- Excepción: un fix documentado del baseline `000` puede aceptarse con `--accept-checksum 000` tras verificar que es no-op en las bases existentes.
 - **`000` es la base**: re-ejecutable sin errores, representa el esquema completo.
 - **Tablas particionadas** (`audit_logs_*`): los `ALTER TABLE` van siempre a la tabla padre.
 - **Verificar antes de aplicar a prod**:
