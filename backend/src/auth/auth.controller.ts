@@ -115,8 +115,12 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Refresh token inválido o expirado' })
-  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
-    const data = await this.authService.refresh(refreshTokenDto.refreshToken);
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto, @Req() req: any) {
+    const data = await this.authService.refresh(
+      refreshTokenDto.refreshToken,
+      req.ip,
+      req.headers['user-agent'],
+    );
     return Ok(data);
   }
 

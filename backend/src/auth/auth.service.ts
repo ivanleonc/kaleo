@@ -19,8 +19,8 @@ export class AuthService {
     return this.sessionService.login(email, passwordPlain, ip, userAgent);
   }
 
-  refresh(refreshToken: string) {
-    return this.sessionService.refresh(refreshToken);
+  refresh(refreshToken: string, ip?: string, userAgent?: string) {
+    return this.sessionService.refresh(refreshToken, ip, userAgent);
   }
 
   logout(userId: string, accessToken: string, refreshToken?: string) {

@@ -105,6 +105,9 @@ Cada refresh rota el token dentro de la misma familia. Si se presenta un token
 ya rotado o revocado, se revoca la familia completa y se responde `401`.
 El cliente debe volver a iniciar sesión.
 
+Cada refresh token guarda IP, user-agent y fecha de último uso para auditoría
+de sesiones.
+
 ---
 
 ## `POST /api/auth/logout`

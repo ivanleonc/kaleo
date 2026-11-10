@@ -310,7 +310,6 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 ### 8.5 Debilidades
 
 - Tokens en `localStorage`.
-- Sin metadata de sesión/dispositivo.
 - CSP desactivada globalmente.
 
 ---

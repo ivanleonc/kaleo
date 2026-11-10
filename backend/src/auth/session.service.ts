@@ -97,7 +97,7 @@ export class SessionService {
       roles: defaultRoles,
       permissions: defaultPermissions,
       isSuperAdmin: user.is_super_admin === true,
-    });
+    }, { ipAddress: ip, userAgent });
 
     const passwordExpired = await this.checkPasswordExpiry(user);
 
@@ -139,7 +139,7 @@ export class SessionService {
     };
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, ip?: string, userAgent?: string) {
     let decoded: any;
     try {
       decoded = this.jwtService.verify(refreshToken);
@@ -209,7 +209,7 @@ export class SessionService {
     await runInTransaction(this.dataSource, async (runner) => {
       const rotated = await runner.query(
         `UPDATE refresh_tokens
-         SET revoked = TRUE, rotated_at = NOW()
+         SET revoked = TRUE, rotated_at = NOW(), last_used_at = NOW()
          WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()
          RETURNING id`,
         [tokenHash],
@@ -220,9 +220,17 @@ export class SessionService {
         return;
       }
       await runner.query(
-        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id)
-         VALUES ($1, $2, $3, $4)`,
-        [user.id, sha256(newRefreshToken), newRefreshExpiresAt, storedToken.family_id],
+        `INSERT INTO refresh_tokens
+           (user_id, token_hash, expires_at, family_id, ip_address, user_agent, last_used_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [
+          user.id,
+          sha256(newRefreshToken),
+          newRefreshExpiresAt,
+          storedToken.family_id,
+          ip ?? null,
+          userAgent ?? null,
+        ],
       );
     });
 
@@ -455,7 +463,11 @@ export class SessionService {
     return { companyRoles, companyPermissions, companyVersions };
   }
 
-  private async generateTokenPair(userId: string, payload: Record<string, any>) {
+  private async generateTokenPair(
+    userId: string,
+    payload: Record<string, any>,
+    metadata: { ipAddress?: string; userAgent?: string } = {},
+  ) {
     const accessToken = this.jwtService.sign(payload, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
     const refreshPayload = { sub: userId, type: 'refresh', jti: randomUUID() };
@@ -465,7 +477,7 @@ export class SessionService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
-    await this.refreshTokenRepository.create(userId, refreshToken, expiresAt);
+    await this.refreshTokenRepository.create(userId, refreshToken, expiresAt, metadata);
 
     return { accessToken, refreshToken };
   }

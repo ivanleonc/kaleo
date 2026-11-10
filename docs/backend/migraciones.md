@@ -92,6 +92,7 @@ npm run migrate -- production --accept-checksum 000
 | `032-users-email-unique-ci.sql` | Email de usuario único sin distinguir mayúsculas. |
 | `033-refresh-token-families.sql` | Familias de refresh tokens para detectar reuso. |
 | `034-company-slug-active-unique.sql` | Slug de empresa único solo entre activas. |
+| `035-refresh-token-session-metadata.sql` | IP, user-agent y último uso en refresh tokens. |
 
 ## Verificar el estado
 

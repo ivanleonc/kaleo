@@ -10,17 +10,36 @@ export interface StoredRefreshToken {
   family_id: string;
 }
 
+export interface RefreshTokenMetadata {
+  familyId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 @Injectable()
 export class RefreshTokenRepository {
   constructor(private dataSource: DataSource) {}
 
-  async create(userId: string, token: string, expiresAt: Date, familyId?: string) {
+  async create(
+    userId: string,
+    token: string,
+    expiresAt: Date,
+    metadata: RefreshTokenMetadata = {},
+  ) {
     const tokenHash = sha256(token);
     const result = await this.dataSource.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id)
-       VALUES ($1, $2, $3, COALESCE($4::uuid, gen_random_uuid()))
+      `INSERT INTO refresh_tokens
+         (user_id, token_hash, expires_at, family_id, ip_address, user_agent, last_used_at)
+       VALUES ($1, $2, $3, COALESCE($4::uuid, gen_random_uuid()), $5, $6, NOW())
        RETURNING id, user_id, expires_at, created_at, family_id`,
-      [userId, tokenHash, expiresAt, familyId ?? null],
+      [
+        userId,
+        tokenHash,
+        expiresAt,
+        metadata.familyId ?? null,
+        metadata.ipAddress ?? null,
+        metadata.userAgent ?? null,
+      ],
     );
     return result[0];
   }
