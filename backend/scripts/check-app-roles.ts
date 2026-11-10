@@ -51,6 +51,7 @@ function roleUrl(role: string, password: string): string {
 }
 
 async function withClient<T>(url: string, fn: (client: Client) => Promise<T>): Promise<T> {
+<<<<<<< HEAD
   const maxAttempts = 15;
   let lastError: unknown;
 
@@ -74,6 +75,15 @@ async function withClient<T>(url: string, fn: (client: Client) => Promise<T>): P
   }
 
   throw lastError;
+=======
+  const client = new Client({ connectionString: url, ssl: databaseSslOptions() });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    await client.end();
+  }
+>>>>>>> 38a4994c9be4b51d40f75ded82d77c4eeaa2a5e4
 }
 
 async function main(): Promise<void> {
