@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { COMPANY_ID_HEADER } from '../constants/headers.js';
+import { TenantContextService } from '../tenancy/tenant-context.service.js';
 
 /**
  * Valida que el usuario autenticado pertenezca a la empresa que declara en
@@ -27,7 +28,10 @@ import { COMPANY_ID_HEADER } from '../constants/headers.js';
  */
 @Injectable()
 export class CompanyAccessGuard implements CanActivate {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private tenantContext: TenantContextService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     if (context.getType() !== 'http') return true;
@@ -36,12 +40,15 @@ export class CompanyAccessGuard implements CanActivate {
     const user = request.user;
     if (!user) return true;
 
+    this.tenantContext.setUser(user.id, user.isSuperAdmin === true);
+
     const companyId = request.headers?.[COMPANY_ID_HEADER];
     if (!companyId) return true;
 
     const companies: string[] = Array.isArray(user.companies) ? user.companies : [];
     if (companies.includes(companyId)) {
       request.companyId = companyId;
+      this.tenantContext.setCompany(companyId, user.id, false);
       return true;
     }
 
@@ -50,6 +57,7 @@ export class CompanyAccessGuard implements CanActivate {
     if (user.isSuperAdmin === true) {
       request.companyId = companyId;
       request.isSuperAdmin = true;
+      this.tenantContext.setCompany(companyId, user.id, true);
       return true;
     }
     if (user.id) {
@@ -60,6 +68,7 @@ export class CompanyAccessGuard implements CanActivate {
       if (rows[0]?.is_super_admin === true) {
         request.companyId = companyId;
         request.isSuperAdmin = true;
+        this.tenantContext.setCompany(companyId, user.id, true);
         return true;
       }
     }

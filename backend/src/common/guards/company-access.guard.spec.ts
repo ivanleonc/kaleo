@@ -4,6 +4,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { CompanyAccessGuard } from './company-access.guard.js';
 import { PermissionsGuard } from './permissions.guard.js';
 import { SuperAdminGuard } from './super-admin.guard.js';
+import { TenantContextService } from '../tenancy/tenant-context.service.js';
 
 function httpContext(request: Record<string, any>): ExecutionContext {
   return {
@@ -22,7 +23,7 @@ function dataSourceStub(isSuperAdmin: boolean) {
 }
 
 describe('CompanyAccessGuard', () => {
-  const guard = new CompanyAccessGuard(dataSourceStub(false));
+  const guard = new CompanyAccessGuard(dataSourceStub(false), new TenantContextService());
 
   it('deja pasar rutas públicas sin usuario', async () => {
     const request: any = { headers: { 'x-company-id': 'empresa-b' } };
@@ -43,6 +44,21 @@ describe('CompanyAccessGuard', () => {
     expect(request.companyId).toBe('empresa-a');
   });
 
+  it('publica empresa y usuario en el TenantContext', async () => {
+    const tenantContext = new TenantContextService();
+    const contextGuard = new CompanyAccessGuard(dataSourceStub(false), tenantContext);
+    const request: any = {
+      user: { id: 'u-1', companies: ['empresa-a'] },
+      headers: { 'x-company-id': 'empresa-a' },
+    };
+
+    await tenantContext.run({ requestId: 'req-1', isSuperAdmin: false }, async () => {
+      await contextGuard.canActivate(httpContext(request));
+      expect(tenantContext.getCompanyId()).toBe('empresa-a');
+      expect(tenantContext.get()?.userId).toBe('u-1');
+    });
+  });
+
   it('bloquea cuando el usuario NO pertenece a la empresa del header', async () => {
     const request: any = {
       user: { companies: ['empresa-a'] },
@@ -53,7 +69,7 @@ describe('CompanyAccessGuard', () => {
 
   it('super-admin por claim accede a empresa ajena sin query extra y marca el flag', async () => {
     const ds = dataSourceStub(false);
-    const superGuard = new CompanyAccessGuard(ds);
+    const superGuard = new CompanyAccessGuard(ds, new TenantContextService());
     const request: any = {
       user: { id: 'u-1', companies: ['empresa-a'], isSuperAdmin: true },
       headers: { 'x-company-id': 'empresa-b' },
@@ -64,7 +80,7 @@ describe('CompanyAccessGuard', () => {
   });
 
   it('super-admin por DB accede a empresa ajena aunque el claim venga stale', async () => {
-    const superGuard = new CompanyAccessGuard(dataSourceStub(true));
+    const superGuard = new CompanyAccessGuard(dataSourceStub(true), new TenantContextService());
     const request: any = {
       user: { id: 'u-1', companies: ['empresa-a'], isSuperAdmin: false },
       headers: { 'x-company-id': 'empresa-b' },

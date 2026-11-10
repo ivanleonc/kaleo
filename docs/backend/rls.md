@@ -79,11 +79,22 @@ Resultado esperado:
 RESULTADO: RLS OK
 ```
 
+## `TenantContext` y transacciones
+
+Ya existen las piezas base:
+
+- `backend/src/common/tenancy/tenant-context.service.ts`: `AsyncLocalStorage` con `requestId`, `userId`, `companyId` e `isSuperAdmin`.
+- `tenant-context.middleware.ts`: inicializa el contexto por request, después del logger.
+- `company-access.guard.ts`: publica `companyId` y `userId` en el contexto cuando valida `x-company-id`.
+- `tenant-transaction.ts`: `withTenantTransaction(dataSource, tenantContext, fn)` abre una transacción, ejecuta `set_config('app.company_id', $1, true)`, corre el callback con el `QueryRunner` y hace commit/rollback.
+
+Los repositorios existentes siguen recibiendo `companyId` explícito. La migración a `withTenantTransaction` será incremental, empezando por las tablas con RLS.
+
 ## Rollout pendiente
 
-1. Implementar `TenantContext` y un wrapper de transacción que haga `set_config('app.company_id', ...)`.
-2. Extender políticas a tablas con `company_id`: `branches`, `analyses`, `feature_flags`, `audit_logs`.
-3. Diseñar políticas especiales para `users`, `companies`, `user_contexts` y `roles` (login y memberships ocurren antes de tener contexto de empresa).
+1. Extender políticas a tablas con `company_id`: `branches`, `analyses`, `feature_flags`, `audit_logs`.
+2. Diseñar políticas especiales para `users`, `companies`, `user_contexts` y `roles` (login y memberships ocurren antes de tener contexto de empresa).
+3. Migrar los repositorios de las tablas con RLS a `withTenantTransaction`.
 4. Crear el rol de login de la aplicación y migrar la `DATABASE_URL`.
 5. Probar con `kaleo_app` en staging antes de producción.
 

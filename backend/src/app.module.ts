@@ -19,6 +19,8 @@ import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware.js';
+import { TenantContextModule } from './common/tenancy/tenant-context.module.js';
+import { TenantContextMiddleware } from './common/tenancy/tenant-context.middleware.js';
 import { envValidationSchema } from './common/config/env.validation.js';
 import { databaseSslOptions } from './common/config/database-ssl.js';
 
@@ -56,6 +58,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
         },
       }),
     }),
+    TenantContextModule,
     AuditLogModule,
     EmailModule,
     AuthModule,
@@ -95,6 +98,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // El middleware de logging se aplica a todas las rutas y es el primero
     // en la cadena: así el request-id existe cuando llegan los guards.
-    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+    consumer.apply(RequestLoggerMiddleware, TenantContextMiddleware).forRoutes('*');
   }
 }
