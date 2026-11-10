@@ -1,7 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { COMPANY_ID_HEADER } from '../constants/headers.js';
 import { TenantContextService } from '../tenancy/tenant-context.service.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Valida que el usuario autenticado pertenezca a la empresa que declara en
@@ -44,6 +46,9 @@ export class CompanyAccessGuard implements CanActivate {
 
     const companyId = request.headers?.[COMPANY_ID_HEADER];
     if (!companyId) return true;
+    if (!UUID_RE.test(companyId)) {
+      throw new BadRequestException('x-company-id debe ser un UUID válido');
+    }
 
     const companies: string[] = Array.isArray(user.companies) ? user.companies : [];
     if (companies.includes(companyId)) {
