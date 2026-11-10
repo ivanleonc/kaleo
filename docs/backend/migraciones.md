@@ -97,6 +97,7 @@ npm run migrate -- production --accept-checksum 000
 | `037-permissions-namespace.sql` | Migra permisos a `core.*` e invalida claims para refrescar. |
 | `038-remove-ghost-permissions.sql` | Elimina permisos sin endpoints reales. |
 | `039-app-runtime-roles.sql` | Crea `kaleo_runtime` y `kaleo_auth` para separar runtime de auth. |
+| `040-module-registry.sql` | Catálogo de módulos, dependencias y habilitación por empresa. |
 
 ## Verificar el estado
 
