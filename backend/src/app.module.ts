@@ -16,6 +16,7 @@ import { FeatureFlagsModule } from './features/feature-flags.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
 import { ModuleRegistryModule } from './kernel/modules/module-registry.module.js';
 import { EntitlementModule } from './kernel/billing/entitlement.module.js';
+import { CompanySettingsModule } from './kernel/tenancy/company-settings.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -99,6 +100,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     InvitationsModule,
     ModuleRegistryModule,
     EntitlementModule,
+    CompanySettingsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -100,6 +100,7 @@ npm run migrate -- production --accept-checksum 000
 | `040-module-registry.sql` | Catálogo de módulos, dependencias y habilitación por empresa. |
 | `041-plans-entitlements.sql` | Planes, suscripciones, overrides y contadores de uso. |
 | `042-core-plan-analyses-limit.sql` | Límite mensual de creación de análisis en el plan core. |
+| `043-company-settings.sql` | Preferencias regionales por empresa y trigger de alta. |
 
 ## Verificar el estado
 

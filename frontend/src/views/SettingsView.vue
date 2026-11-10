@@ -122,6 +122,54 @@
         </div>
       </UiCard>
 
+      <UiCard class="regional-card">
+        <template #header>
+          <div>
+            <h3 class="card-title">Preferencias regionales</h3>
+            <p class="card-description">
+              Moneda e idioma que usará la empresa en reportes y documentos.
+            </p>
+          </div>
+        </template>
+
+        <UiAlert v-if="settingsError || settingsSaveError" type="error">
+          {{ settingsSaveError || settingsError }}
+        </UiAlert>
+
+        <div v-if="isLoadingSettings" class="plan-skeleton" aria-hidden="true">
+          <UiSkeleton variant="text" width="100%" />
+          <UiSkeleton variant="text" width="80%" />
+        </div>
+
+        <template v-else>
+          <div class="form-grid">
+            <UiSelect
+              v-model="regionalForm.currencyCode"
+              label="Moneda"
+              :options="currencyOptions"
+              :clearable="false"
+            />
+            <UiSelect
+              v-model="regionalForm.locale"
+              label="Idioma / locale"
+              :options="localeOptions"
+              :clearable="false"
+            />
+          </div>
+
+          <div class="regional-actions">
+            <UiButton
+              v-permission="Permissions.COMPANY.UPDATE"
+              width="auto"
+              :loading="isSavingSettings"
+              @click="saveRegionalSettings"
+            >
+              Guardar preferencias
+            </UiButton>
+          </div>
+        </template>
+      </UiCard>
+
       <!-- Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isEditModalOpen"
@@ -220,13 +268,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCompanyStore } from '@/stores/company.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { companyService } from '@/services/company.service';
 import { entitlementService } from '@/services/entitlement.service';
-import type { EntitlementLimit, EntitlementsSnapshot } from '@saas/shared';
+import { companySettingsService } from '@/services/company-settings.service';
+import type { CompanySettings, EntitlementLimit, EntitlementsSnapshot } from '@saas/shared';
 import { useModal } from '@/composables/useModal';
 import { useAsyncData } from '@/composables/useAsyncData';
 import type { CompanyDetail } from '@/types/company';
@@ -235,6 +284,7 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiInput from '@/components/ui/UiInput.vue';
+import UiSelect from '@/components/ui/UiSelect.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
@@ -252,6 +302,7 @@ import { useToast } from '@/composables/useToast';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useDirtyForm } from '@/composables/useDirtyForm';
 import { emptyToUndefined } from '@/utils/text';
+import { apiErrorMessage } from '@/utils/error';
 import { Permissions } from '@/constants/permissions';
 
 const companyStore = useCompanyStore();
@@ -302,6 +353,77 @@ const {
     errorMessage: 'No pudimos cargar el plan',
   },
 );
+const {
+  data: companySettings,
+  isLoading: isLoadingSettings,
+  error: settingsError,
+  reload: reloadSettings,
+} = useAsyncData(
+  async () => {
+    if (!companyId.value) return null;
+    const result = await companySettingsService.get();
+    return result.data as CompanySettings;
+  },
+  {
+    watch: computed(() => authStore.activeTenantId),
+    errorMessage: 'No pudimos cargar las preferencias',
+  },
+);
+
+const regionalForm = reactive({
+  currencyCode: 'COP',
+  locale: 'es-CO',
+});
+const isSavingSettings = ref(false);
+const settingsSaveError = ref<string | null>(null);
+
+watch(
+  companySettings,
+  (value) => {
+    if (!value) return;
+    regionalForm.currencyCode = value.currencyCode;
+    regionalForm.locale = value.locale;
+  },
+  { immediate: true },
+);
+
+const currencyOptions = [
+  { label: 'COP — Peso colombiano', value: 'COP' },
+  { label: 'USD — Dólar estadounidense', value: 'USD' },
+  { label: 'EUR — Euro', value: 'EUR' },
+  { label: 'MXN — Peso mexicano', value: 'MXN' },
+  { label: 'CLP — Peso chileno', value: 'CLP' },
+  { label: 'PEN — Sol peruano', value: 'PEN' },
+  { label: 'ARS — Peso argentino', value: 'ARS' },
+  { label: 'BRL — Real brasileño', value: 'BRL' },
+];
+
+const localeOptions = [
+  { label: 'Español (Colombia) — es-CO', value: 'es-CO' },
+  { label: 'Español (México) — es-MX', value: 'es-MX' },
+  { label: 'Español (Chile) — es-CL', value: 'es-CL' },
+  { label: 'Español (Perú) — es-PE', value: 'es-PE' },
+  { label: 'Español (Argentina) — es-AR', value: 'es-AR' },
+  { label: 'English (US) — en-US', value: 'en-US' },
+  { label: 'Português (Brasil) — pt-BR', value: 'pt-BR' },
+];
+
+async function saveRegionalSettings() {
+  isSavingSettings.value = true;
+  settingsSaveError.value = null;
+  try {
+    await companySettingsService.update({
+      currencyCode: regionalForm.currencyCode,
+      locale: regionalForm.locale,
+    });
+    toast.success('Preferencias regionales actualizadas');
+    await reloadSettings();
+  } catch (error) {
+    settingsSaveError.value = apiErrorMessage(error, 'No se pudieron guardar las preferencias');
+  } finally {
+    isSavingSettings.value = false;
+  }
+}
 const form = reactive({
   name: '',
   tax_id: '',
@@ -563,5 +685,11 @@ const handleSubmit = async () => {
   font-size: var(--text-sm);
   color: var(--text-muted);
   font-family: var(--font-mono);
+}
+
+.regional-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
 }
 </style>
