@@ -6,6 +6,14 @@
         subtitle="Administra la información general y fiscal de tu organización."
       >
         <template #actions>
+          <UiButton
+            v-if="authStore.isSuperAdmin"
+            variant="outline"
+            width="auto"
+            @click="goToModules"
+          >
+            Módulos
+          </UiButton>
           <UiButton v-permission="Permissions.COMPANY.UPDATE" @click="openEditModal" width="auto">
             <IconEdit :size="16" /> Editar Empresa
           </UiButton>
@@ -252,6 +260,10 @@ const toast = useToast();
 const route = useRoute();
 const router = useRouter();
 const { companyId, companyPath } = useCompanyPath();
+
+function goToModules() {
+  router.push(companyPath('/modules'));
+}
 
 // useModal en lugar de ref(false) — patrón consistente con Members/Branches
 const editModal = useModal();

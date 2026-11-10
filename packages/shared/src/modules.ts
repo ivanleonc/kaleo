@@ -17,6 +17,8 @@ export interface ModuleRoute {
   permission?: string;
   /** Token de icono; el frontend lo mapea a su librería. */
   icon?: string;
+  /** Si aparece en el sidebar. Las rutas de detalle deben omitirlo. */
+  nav?: boolean;
   order?: number;
 }
 

@@ -100,9 +100,12 @@ Reglas:
 ## Frontend shell
 
 - `useModulesStore` carga `GET /api/modules` al cambiar de empresa en `AuthenticatedLayout`.
-- El sidebar consulta `modulesStore.isEnabled(code)` antes de mostrar cada entrada.
+- El sidebar mantiene la navegación core y añade las rutas `nav` de cada pack habilitado.
+- Si hay más de un pack con navegación, aparece un selector de módulo.
 - Las rutas llevan `meta.moduleCode`; el router bloquea módulos de pack/shared no habilitados.
 - Los `core.*` pasan siempre, incluso antes de que termine la carga.
+- Super-admin: `/companies/:companyId/modules` permite activar/desactivar packs.
+- En Ajustes aparece el botón “Módulos” solo para super-admin.
 
 ## Agregar un módulo
 

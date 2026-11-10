@@ -96,6 +96,16 @@ const routes: Array<RouteRecordRaw> = [
     }),
   },
   {
+    path: '/companies/:companyId/modules',
+    name: 'ModulesAdmin',
+    component: () => import('@/views/ModulesAdminView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresSuperAdmin: true,
+      title: 'Módulos',
+    },
+  },
+  {
     path: '/companies/:companyId/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
@@ -269,6 +279,11 @@ router.beforeEach(async (to) => {
       const path = companyPathFor(activeTenant, '/dashboard');
       if (path) return { path };
     }
+  }
+
+  if (to.meta.requiresSuperAdmin && !authStore.isSuperAdmin) {
+    const path = companyPathFor(activeTenant, '/dashboard');
+    if (path) return { path };
   }
 
   // Módulos de pack/shared: core siempre pasa; el resto requiere habilitación.

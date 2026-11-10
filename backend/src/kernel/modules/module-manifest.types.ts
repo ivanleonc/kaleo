@@ -20,6 +20,7 @@ export interface ModuleRoute {
   title: string;
   permission?: string;
   icon?: string;
+  nav?: boolean;
   order?: number;
 }
 

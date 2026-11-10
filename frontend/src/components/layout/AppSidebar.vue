@@ -21,6 +21,15 @@
       <IconX :size="18" stroke-width="1.8" />
     </button>
     <nav class="sidebar-nav" aria-label="Navegación principal">
+      <div v-if="switchableModules.length > 1" class="module-switcher">
+        <label class="module-switcher-label" for="sidebar-module">Módulo</label>
+        <select id="sidebar-module" v-model="selectedModule" class="module-switcher-select">
+          <option value="all">Todos</option>
+          <option v-for="module in switchableModules" :key="module.code" :value="module.code">
+            {{ module.name }}
+          </option>
+        </select>
+      </div>
       <router-link
         :to="companyPath('/dashboard')"
         class="nav-link"
@@ -60,6 +69,25 @@
         <IconSettings :size="22" stroke-width="1.8" />
         <span class="nav-label">Ajustes</span>
       </router-link>
+      <router-link
+        v-for="item in visiblePackItems"
+        :key="item.name"
+        :to="companyPath(item.path)"
+        class="nav-link"
+        active-class="active"
+      >
+        <component :is="moduleIcon(item.icon)" :size="22" stroke-width="1.8" />
+        <span class="nav-label">{{ item.title }}</span>
+      </router-link>
+      <router-link
+        v-if="authStore.isSuperAdmin"
+        :to="companyPath('/modules')"
+        class="nav-link"
+        active-class="active"
+      >
+        <IconPuzzle :size="22" stroke-width="1.8" />
+        <span class="nav-label">Módulos</span>
+      </router-link>
     </nav>
 
     <div class="sidebar-bottom">
@@ -94,12 +122,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
 import { useModulesStore } from '@/stores/modules.store';
+import { useAuthStore } from '@/stores/auth.store';
+import { moduleIcon } from './module-icons';
 import { Permissions } from '@/constants/permissions';
 import {
   IconLayoutDashboard,
@@ -115,12 +145,52 @@ import {
   IconX,
   IconBook,
   IconBuildingCommunity,
+  IconPuzzle,
 } from '@tabler/icons-vue';
 
 const route = useRoute();
 const { companyPath } = useCompanyPath();
 const { isDarkMode, toggleTheme } = useTheme();
 const modulesStore = useModulesStore();
+const authStore = useAuthStore();
+const selectedModule = ref<'all' | string>('all');
+
+const switchableModules = computed(() =>
+  modulesStore.modules.filter(
+    (module) => !module.isCore && module.routes.some((item) => item.nav),
+  ),
+);
+
+const packNavItems = computed(() =>
+  modulesStore.modules
+    .filter((module) => !module.isCore)
+    .flatMap((module) =>
+      module.routes
+        .filter((item) => item.nav && !item.path.includes(':'))
+        .filter((item) => !item.permission || authStore.hasPermission(item.permission))
+        .map((item) => ({ ...item, moduleCode: module.code })),
+    )
+    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100)),
+);
+
+const visiblePackItems = computed(() =>
+  selectedModule.value === 'all'
+    ? packNavItems.value
+    : packNavItems.value.filter((item) => item.moduleCode === selectedModule.value),
+);
+
+watch(
+  switchableModules,
+  (modules) => {
+    if (
+      selectedModule.value !== 'all' &&
+      !modules.some((module) => module.code === selectedModule.value)
+    ) {
+      selectedModule.value = 'all';
+    }
+  },
+  { immediate: true },
+);
 const isAnalysesActive = computed(() => route.path.includes('/analyses'));
 const {
   isSidebarExpanded,
@@ -292,5 +362,36 @@ const {
     padding: var(--space-2) var(--space-3);
     gap: var(--space-3);
   }
+}
+
+.module-switcher {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) var(--space-3) var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar.is-expanded .module-switcher,
+.sidebar.mobile-open .module-switcher {
+  display: flex;
+}
+
+.module-switcher-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.module-switcher-select {
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-size: var(--text-sm);
 }
 </style>
