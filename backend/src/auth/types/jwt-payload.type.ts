@@ -21,6 +21,12 @@ export interface JwtPayload {
    * El guard de permisos lee este mapa contra el x-company-id del request.
    */
   companyPermissions: Record<string, string[]>;
+  /**
+   * Versión de acceso por empresa: { [companyId]: number }
+   * CompanyAccessGuard compara este valor con memberships.token_version para
+   * invalidar claims desactualizados sin afectar a otras empresas.
+   */
+  companyVersions?: Record<string, number>;
   /** Roles del tenant por defecto (primer tenant) — para compatibilidad */
   roles: string[];
   /** Permisos del tenant por defecto (primer tenant) — para compatibilidad */

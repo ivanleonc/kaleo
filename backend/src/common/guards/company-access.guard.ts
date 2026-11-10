@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { COMPANY_ID_HEADER } from '../constants/headers.js';
 import { TenantContextService } from '../tenancy/tenant-context.service.js';
@@ -23,10 +23,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Cuando no viene el header los repositorios filtran por `company_id = NULL`,
  * que no devuelve filas, así que ese caso falla cerrado por sí solo.
  *
- * Excepción super-admin: si la empresa del header no está en el JWT pero el
- * usuario es super-admin global, se permite el acceso virtual (sin
- * membership). La verificación es solo en el miss-path: el caso común
- * (miembro real) no agrega ninguna query.
+ * El caso común (miembro con `x-company-id`) valida la membership activa y su
+ * `token_version` contra la base: es el precio de revocar accesos/roles sin
+ * esperar a que expire el access token. El super-admin no paga esa query.
  */
 @Injectable()
 export class CompanyAccessGuard implements CanActivate {
@@ -51,20 +50,45 @@ export class CompanyAccessGuard implements CanActivate {
     }
 
     const companies: string[] = Array.isArray(user.companies) ? user.companies : [];
-    if (companies.includes(companyId)) {
-      request.companyId = companyId;
-      this.tenantContext.setCompany(companyId, user.id, false);
-      return true;
-    }
 
-    // Miss-path: ¿super-admin global? Claim primero (rápido), DB como
-    // fuente de verdad (cubre tokens emitidos antes de otorgar el flag).
+    // Super-admin global: acceso virtual, sin membership ni versión.
     if (user.isSuperAdmin === true) {
       request.companyId = companyId;
       request.isSuperAdmin = true;
       this.tenantContext.setCompany(companyId, user.id, true);
       return true;
     }
+
+    if (companies.includes(companyId)) {
+      // La lista `companies` del JWT puede estar desactualizada: la membership
+      // activa es la fuente de verdad. Además, `token_version` invalida claims
+      // de esa empresa (roles/permisos) sin tocar las sesiones de otras.
+      const rows = await this.dataSource.query(
+        `SELECT token_version
+         FROM memberships
+         WHERE company_id = $1 AND user_id = $2 AND status = 'active'
+         LIMIT 1`,
+        [companyId, user.id],
+      );
+      if (rows.length === 0) {
+        throw new ForbiddenException('Ya no perteneces a esta empresa');
+      }
+
+      const dbVersion = Number(rows[0].token_version ?? 0);
+      const tokenVersion = Number(user.companyVersions?.[companyId] ?? 0);
+      if (dbVersion !== tokenVersion) {
+        // 401 para que el cliente refresque el access token y reciba los
+        // claims actuales de esta empresa. El refresh no afecta a las demás.
+        throw new UnauthorizedException('Permisos desactualizados. Vuelve a iniciar sesión.');
+      }
+
+      request.companyId = companyId;
+      this.tenantContext.setCompany(companyId, user.id, false);
+      return true;
+    }
+
+    // Miss-path: ¿super-admin global? Claim ya descartado arriba; la DB es la
+    // fuente de verdad para tokens emitidos antes de otorgar el flag.
     if (user.id) {
       const rows = await this.dataSource.query(
         `SELECT is_super_admin FROM users WHERE id = $1 AND deleted_at IS NULL`,

@@ -23,7 +23,10 @@ export async function upsertMembershipWithRoles(
     `INSERT INTO memberships (company_id, user_id, status)
      VALUES ($1, $2, 'active')
      ON CONFLICT (company_id, user_id)
-     DO UPDATE SET status = 'active', updated_at = now()
+     DO UPDATE SET
+       status = 'active',
+       token_version = memberships.token_version + 1,
+       updated_at = now()
      RETURNING id`,
     [companyId, userId],
   );

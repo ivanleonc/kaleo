@@ -6,7 +6,6 @@ import { TabularExportService } from '../common/export/tabular-export.service.js
 import type { ExportFile, ExportFormat } from '../common/export/export.types.js';
 import { MEMBER_EXPORT_COLUMNS, type MemberExportRow } from './member-export.columns.js';
 import { PasswordService } from '../auth/password.service.js';
-import { RefreshTokenRepository } from '../auth/repositories/refresh-token.repository.js';
 import { EmailService } from '../email/email.service.js';
 import { AuditLogService } from '../audit/audit-log.service.js';
 import { OutboxService } from '../outbox/outbox.service.js';
@@ -17,7 +16,6 @@ export class MemberService {
   constructor(
     private readonly memberRepository: MemberRepository,
     private readonly passwordService: PasswordService,
-    private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly emailService: EmailService,
     private readonly exportService: TabularExportService,
     private readonly auditLogService: AuditLogService,
@@ -88,9 +86,8 @@ export class MemberService {
     },
   ) {
     const result = await this.memberRepository.updateMember(companyId, userId, data);
-    if (data.status === 'inactive') {
-      await this.refreshTokenRepository.revokeAllForUser(userId);
-    }
+    // No se revocan los refresh tokens globales: la membership inactiva basta
+    // para que CompanyAccessGuard bloquee esa empresa, sin afectar a otras.
     return result;
   }
 
@@ -149,7 +146,9 @@ export class MemberService {
         );
       },
     );
-    await this.refreshTokenRepository.revokeAllForUser(userId);
+    // La membership eliminada bloquea el acceso de inmediato vía guard.
+    // No se revocan tokens globales para no expulsar al usuario de otras
+    // empresas donde sigue siendo miembro.
     return result;
   }
 

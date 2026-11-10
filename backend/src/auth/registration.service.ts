@@ -64,7 +64,7 @@ export class RegistrationService {
 
     const tenants = await this.companyService.getUserCompanies(newUser.id);
     const companyIds = tenants.map((t: any) => t.id);
-    const { companyRoles, companyPermissions } = await this.buildCompanyRolesAndPermissions(newUser.id, tenants);
+    const { companyRoles, companyPermissions, companyVersions } = await this.buildCompanyRolesAndPermissions(newUser.id, tenants);
     const firstCompanyId = companyIds[0];
     const defaultRoles = firstCompanyId ? (companyRoles[firstCompanyId] || []) : [];
     const defaultPermissions = firstCompanyId ? (companyPermissions[firstCompanyId] || []) : [];
@@ -75,6 +75,7 @@ export class RegistrationService {
       companies: companyIds,
       companyRoles,
       companyPermissions,
+      companyVersions,
       roles: defaultRoles,
       permissions: defaultPermissions,
       // Un usuario recién registrado nunca es super-admin.
@@ -118,12 +119,14 @@ export class RegistrationService {
 
     const companyRoles: Record<string, string[]> = {};
     const companyPermissions: Record<string, string[]> = {};
+    const companyVersions: Record<string, number> = {};
     tenants.forEach((tenant, index) => {
       companyRoles[tenant.id] = results[index].roles;
       companyPermissions[tenant.id] = results[index].permissions;
+      companyVersions[tenant.id] = results[index].tokenVersion ?? 0;
     });
 
-    return { companyRoles, companyPermissions };
+    return { companyRoles, companyPermissions, companyVersions };
   }
 
   private async generateTokenPair(userId: string, payload: Record<string, any>) {

@@ -15,7 +15,7 @@ export type SystemRoleName = (typeof SystemRoles)[keyof typeof SystemRoles];
 /**
  * Role names that are protected from deletion.
  */
-export const PROTECTED_ROLES: readonly SystemRoleName[] = [SystemRoles.OWNER, SystemRoles.ADMIN];
+export const PROTECTED_ROLES: readonly SystemRoleName[] = [SystemRoles.OWNER, SystemRoles.ADMIN, SystemRoles.VIEWER];
 
 /**
  * Role names that are protected from permission modification.

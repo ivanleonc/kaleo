@@ -27,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const companyRoles = payload.companyRoles || {};
     const companyPermissions = payload.companyPermissions || {};
+    const companyVersions = payload.companyVersions || {};
 
     return {
       id: payload.id,
@@ -34,6 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       companies: payload.companies,
       companyRoles,
       companyPermissions,
+      companyVersions,
       roles: payload.roles || [],
       permissions: payload.permissions || [],
       isSuperAdmin: payload.isSuperAdmin === true,

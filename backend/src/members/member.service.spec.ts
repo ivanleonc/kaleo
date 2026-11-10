@@ -19,7 +19,6 @@ describe('MemberService.attachMember', () => {
     addMember: vi.fn(),
   };
   const passwordService: any = { hashPassword: vi.fn(async () => 'hash') };
-  const refreshTokenRepository: any = { revokeAllForUser: vi.fn(async () => {}) };
   const emailService: any = { sendTemporaryPassword: vi.fn(async () => {}) };
   const exportService: any = {
     resolveColumns: vi.fn((columns) => columns),
@@ -34,7 +33,6 @@ describe('MemberService.attachMember', () => {
     service = new MemberService(
       memberRepository,
       passwordService,
-      refreshTokenRepository,
       emailService,
       exportService,
       { logInTransaction: vi.fn() } as any,
@@ -151,7 +149,6 @@ describe('MemberService.exportMembers', () => {
     service = new MemberService(
       memberRepository,
       { hashPassword: vi.fn() } as any,
-      { revokeAllForUser: vi.fn() } as any,
       { sendTemporaryPassword: vi.fn() } as any,
       new TabularExportService() as any,
       { logInTransaction: vi.fn() } as any,
@@ -202,7 +199,6 @@ describe('MemberService.removeMember', () => {
         return { message: 'ok' };
       }),
     };
-    const refreshTokenRepository: any = { revokeAllForUser: vi.fn() };
     const auditLogService: any = { logInTransaction: vi.fn() };
     const outboxService: any = { enqueue: vi.fn() };
     const tenantContext: any = {
@@ -211,7 +207,6 @@ describe('MemberService.removeMember', () => {
     const service = new MemberService(
       memberRepository,
       {} as any,
-      refreshTokenRepository,
       {} as any,
       {} as any,
       auditLogService,
@@ -229,6 +224,5 @@ describe('MemberService.removeMember', () => {
       expect.objectContaining({ eventType: 'member.removed' }),
       expect.anything(),
     );
-    expect(refreshTokenRepository.revokeAllForUser).toHaveBeenCalledWith('u-1');
   });
 });

@@ -114,9 +114,19 @@ export class RoleRepository {
         [id, ...PROTECTED_ROLES],
       );
 
-      // Limpiar contextos huérfanos: miembros con este rol quedan sin acceso
-      // silenciosamente si no se reasignan. Registramos la cantidad para
-      // que el audit log del interceptor lo capture como new_values.
+      // Invalidar claims de los miembros con este rol antes de quitarlo.
+      await queryRunner.query(
+        `UPDATE memberships m
+         SET token_version = m.token_version + 1, updated_at = now()
+         WHERE EXISTS (
+           SELECT 1 FROM membership_roles mr
+           WHERE mr.company_id = m.company_id
+             AND mr.membership_id = m.id
+             AND mr.role_id = $1
+         )`,
+        [id],
+      );
+
       await queryRunner.query(
         `DELETE FROM membership_roles WHERE role_id = $1`,
         [id],
@@ -139,11 +149,22 @@ export class RoleRepository {
 
   async setPermissions(roleId: string, permissionIds: string[]) {
     await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      // Cambiar permisos invalida los claims de los miembros con este rol.
+      await queryRunner.query(
+        `UPDATE memberships m
+         SET token_version = m.token_version + 1, updated_at = now()
+         WHERE EXISTS (
+           SELECT 1 FROM membership_roles mr
+           WHERE mr.company_id = m.company_id
+             AND mr.membership_id = m.id
+             AND mr.role_id = $1
+         )`,
+        [roleId],
+      );
       await queryRunner.query(
         `DELETE FROM role_permissions WHERE role_id = $1`,
         [roleId],
       );
-
       if (permissionIds.length > 0) {
         const placeholders = permissionIds.map((_, i) => `$${i + 1}`).join(', ');
         const validRows = await queryRunner.query(
@@ -194,11 +215,15 @@ export class RoleRepository {
    * Resuelve roles y permisos de un usuario en una empresa con una sola query.
    * Evita el N+1 de consultar memberships dos veces por cada tenant.
    */
-  async getUserAccess(userId: string, companyId: string): Promise<{ roles: string[]; permissions: string[] }> {
+  async getUserAccess(
+    userId: string,
+    companyId: string,
+  ): Promise<{ roles: string[]; permissions: string[]; tokenVersion: number }> {
     const result = await this.dataSource.query(
       `SELECT
          COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.id IS NOT NULL), '{}'::text[]) AS roles,
-         COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.id IS NOT NULL), '{}'::text[]) AS permissions
+         COALESCE(array_agg(DISTINCT p.code) FILTER (WHERE p.id IS NOT NULL), '{}'::text[]) AS permissions,
+         MAX(m.token_version)::int AS token_version
        FROM memberships m
        INNER JOIN membership_roles mr
          ON mr.membership_id = m.id AND mr.company_id = m.company_id
@@ -212,6 +237,7 @@ export class RoleRepository {
     return {
       roles: result[0]?.roles ?? [],
       permissions: result[0]?.permissions ?? [],
+      tokenVersion: result[0]?.token_version ?? 0,
     };
   }
 }

@@ -79,7 +79,8 @@ export class SessionService {
     const tenants = await this.companyService.getUserCompanies(user.id);
     const companyIds = tenants.map((t: any) => t.id);
 
-    const { companyRoles, companyPermissions } = await this.buildCompanyRolesAndPermissions(user.id, tenants);
+    const { companyRoles, companyPermissions, companyVersions } =
+      await this.buildCompanyRolesAndPermissions(user.id, tenants);
 
     const firstCompanyId = companyIds[0];
     const defaultRoles = firstCompanyId ? (companyRoles[firstCompanyId] || []) : [];
@@ -91,6 +92,7 @@ export class SessionService {
       companies: companyIds,
       companyRoles,
       companyPermissions,
+      companyVersions,
       roles: defaultRoles,
       permissions: defaultPermissions,
       isSuperAdmin: user.is_super_admin === true,
@@ -166,7 +168,8 @@ export class SessionService {
     const tenants = await this.companyService.getUserCompanies(user.id);
     const companyIds = tenants.map((t: any) => t.id);
 
-    const { companyRoles, companyPermissions } = await this.buildCompanyRolesAndPermissions(user.id, tenants);
+    const { companyRoles, companyPermissions, companyVersions } =
+      await this.buildCompanyRolesAndPermissions(user.id, tenants);
 
     const firstCompanyId = companyIds[0];
     const defaultRoles = firstCompanyId ? (companyRoles[firstCompanyId] || []) : [];
@@ -178,6 +181,7 @@ export class SessionService {
       companies: companyIds,
       companyRoles,
       companyPermissions,
+      companyVersions,
       roles: defaultRoles,
       permissions: defaultPermissions,
       isSuperAdmin: user.is_super_admin === true,
@@ -416,12 +420,14 @@ export class SessionService {
 
     const companyRoles: Record<string, string[]> = {};
     const companyPermissions: Record<string, string[]> = {};
+    const companyVersions: Record<string, number> = {};
     tenants.forEach((tenant, index) => {
       companyRoles[tenant.id] = results[index].roles;
       companyPermissions[tenant.id] = results[index].permissions;
+      companyVersions[tenant.id] = results[index].tokenVersion ?? 0;
     });
 
-    return { companyRoles, companyPermissions };
+    return { companyRoles, companyPermissions, companyVersions };
   }
 
   private async generateTokenPair(userId: string, payload: Record<string, any>) {

@@ -15,10 +15,18 @@ function httpContext(request: Record<string, any>): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-/** DataSource falso: solo responde a la query de is_super_admin. */
-function dataSourceStub(isSuperAdmin: boolean) {
+/** DataSource falso: responde a membership y a la query de is_super_admin. */
+function dataSourceStub(
+  isSuperAdmin: boolean,
+  membership: { tokenVersion?: number } | null = { tokenVersion: 0 },
+) {
   return {
-    query: vi.fn(async () => [{ is_super_admin: isSuperAdmin }]),
+    query: vi.fn(async (sql: string) => {
+      if (sql.includes('FROM memberships')) {
+        return membership ? [{ token_version: membership.tokenVersion ?? 0 }] : [];
+      }
+      return [{ is_super_admin: isSuperAdmin }];
+    }),
   } as any;
 }
 
@@ -80,6 +88,45 @@ describe('CompanyAccessGuard', () => {
     await expect(uuidGuard.canActivate(httpContext(request))).rejects.toThrow(
       'x-company-id debe ser un UUID válido',
     );
+    expect(ds.query).not.toHaveBeenCalled();
+  });
+
+  it('bloquea si la membership fue eliminada aunque el JWT aún la liste', async () => {
+    const revokedGuard = new CompanyAccessGuard(
+      dataSourceStub(false, null),
+      new TenantContextService(),
+    );
+    const request: any = {
+      user: { id: 'u-1', companies: [COMPANY_A], companyVersions: { [COMPANY_A]: 0 } },
+      headers: { 'x-company-id': COMPANY_A },
+    };
+    await expect(revokedGuard.canActivate(httpContext(request))).rejects.toThrow(
+      'Ya no perteneces a esta empresa',
+    );
+  });
+
+  it('exige refresh si token_version cambió para esa empresa', async () => {
+    const staleGuard = new CompanyAccessGuard(
+      dataSourceStub(false, { tokenVersion: 2 }),
+      new TenantContextService(),
+    );
+    const request: any = {
+      user: { id: 'u-1', companies: [COMPANY_A], companyVersions: { [COMPANY_A]: 1 } },
+      headers: { 'x-company-id': COMPANY_A },
+    };
+    await expect(staleGuard.canActivate(httpContext(request))).rejects.toThrow(
+      'Permisos desactualizados',
+    );
+  });
+
+  it('super-admin no consulta membership ni versión', async () => {
+    const ds = dataSourceStub(false, null);
+    const superGuard = new CompanyAccessGuard(ds, new TenantContextService());
+    const request: any = {
+      user: { id: 'u-1', companies: [COMPANY_A], isSuperAdmin: true },
+      headers: { 'x-company-id': COMPANY_A },
+    };
+    await expect(superGuard.canActivate(httpContext(request))).resolves.toBe(true);
     expect(ds.query).not.toHaveBeenCalled();
   });
 
