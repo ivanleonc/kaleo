@@ -1,8 +1,10 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { rows } from '../common/utils/db.js';
 import { runInTransaction } from '../common/utils/transaction.helper.js';
 import { insertUserContexts } from '../common/utils/membership.helper.js';
+import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
+import { withTenantTransaction } from '../common/tenancy/tenant-transaction.js';
 
 export interface CreatedInvitation {
   id: string;
@@ -43,7 +45,16 @@ export interface AcceptedUser {
 
 @Injectable()
 export class InvitationsRepository {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly tenantContext: TenantContextService,
+  ) {}
+
+  private assertCompany(companyId: string): void {
+    if (this.tenantContext.requireCompanyId() !== companyId) {
+      throw new ForbiddenException('La empresa no coincide con el TenantContext');
+    }
+  }
 
   async create(
     input: {
@@ -60,9 +71,10 @@ export class InvitationsRepository {
       invitation: CreatedInvitation & { name: string | null; roleIds: string[] },
     ) => Promise<void>,
   ): Promise<CreatedInvitation> {
+    this.assertCompany(input.companyId);
     let invitation: CreatedInvitation | undefined;
 
-    await runInTransaction(this.dataSource, async (queryRunner) => {
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       // Una sola pendiente por email: la anterior se invalida.
       await queryRunner.query(
         `UPDATE invitations
@@ -215,28 +227,34 @@ export class InvitationsRepository {
   }
 
   async listPending(companyId: string): Promise<InvitationListRow[]> {
-    return rows<InvitationListRow>(await this.dataSource.query(
-      `SELECT i.id, i.email, i.name, i.expires_at, i.created_at,
-              COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
-       FROM invitations i
-       LEFT JOIN invitation_roles ir
-         ON ir.invitation_id = i.id AND ir.company_id = i.company_id
-       LEFT JOIN roles r ON r.id = ir.role_id
-       WHERE i.company_id = $1 AND i.status = 'pending'
-       GROUP BY i.id
-       ORDER BY i.created_at DESC`,
-      [companyId],
-    ));
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      rows<InvitationListRow>(await queryRunner.query(
+        `SELECT i.id, i.email, i.name, i.expires_at, i.created_at,
+                COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+         FROM invitations i
+         LEFT JOIN invitation_roles ir
+           ON ir.invitation_id = i.id AND ir.company_id = i.company_id
+         LEFT JOIN roles r ON r.id = ir.role_id
+         WHERE i.company_id = $1 AND i.status = 'pending'
+         GROUP BY i.id
+         ORDER BY i.created_at DESC`,
+        [companyId],
+      )),
+    );
   }
 
   async revoke(companyId: string, invitationId: string): Promise<boolean> {
-    const updated = rows<{ id: string }>(await this.dataSource.query(
-      `UPDATE invitations
-       SET status = 'revoked', updated_at = now()
-       WHERE company_id = $1 AND id = $2 AND status = 'pending'
-       RETURNING id`,
-      [companyId, invitationId],
-    ));
-    return updated.length > 0;
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const updated = rows<{ id: string }>(await queryRunner.query(
+        `UPDATE invitations
+         SET status = 'revoked', updated_at = now()
+         WHERE company_id = $1 AND id = $2 AND status = 'pending'
+         RETURNING id`,
+        [companyId, invitationId],
+      ));
+      return updated.length > 0;
+    });
   }
 }

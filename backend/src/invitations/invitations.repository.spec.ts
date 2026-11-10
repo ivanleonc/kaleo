@@ -2,6 +2,34 @@ import { ConflictException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { InvitationsRepository } from './invitations.repository.js';
 
+vi.mock('../common/tenancy/tenant-transaction.js', () => ({
+  withTenantTransaction: async (dataSource: any, _context: any, fn: any) => {
+    const runner = dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const result = await fn(runner);
+      await runner.commitTransaction();
+      return result;
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  },
+}));
+
+function createContext(companyId = 'company-1') {
+  return {
+    requireCompanyId: () => companyId,
+    getUserId: () => 'user-1',
+    get: () => ({ requestId: 'req-1', userId: 'user-1', isSuperAdmin: false }),
+    setCompany: vi.fn(),
+    setUser: vi.fn(),
+  } as any;
+}
+
 function createRunnerStub(handlers: Array<{ match: RegExp; rows: any[] }>) {
   const queries: Array<{ sql: string; params: any[] }> = [];
   const query = vi.fn(async (sql: string, params: any[] = []) => {
@@ -28,7 +56,7 @@ describe('InvitationsRepository', () => {
       { match: /INSERT INTO invitations/, rows: [{ id: 'inv-1', email: 'a@b.com', expires_at: '2026-12-01T00:00:00Z' }] },
       { match: /INSERT INTO invitation_roles/, rows: [] },
     ]);
-    const repository = new InvitationsRepository(dataSource as any);
+    const repository = new InvitationsRepository(dataSource as any, createContext());
 
     const result = await repository.create({
       companyId: 'company-1',
@@ -55,7 +83,7 @@ describe('InvitationsRepository', () => {
         }],
       },
     ]);
-    const repository = new InvitationsRepository(dataSource as any);
+    const repository = new InvitationsRepository(dataSource as any, createContext());
 
     const result = await repository.findPendingByTokenHash('hash');
 
@@ -71,7 +99,7 @@ describe('InvitationsRepository', () => {
       { match: /INSERT INTO user_contexts/, rows: [] },
       { match: /SET accepted_by/, rows: [] },
     ]);
-    const repository = new InvitationsRepository(dataSource as any);
+    const repository = new InvitationsRepository(dataSource as any, createContext());
 
     const result = await repository.acceptForNewUser({
       invitationId: 'inv-1',
@@ -91,7 +119,7 @@ describe('InvitationsRepository', () => {
     const { dataSource, runner } = createRunnerStub([
       { match: /UPDATE invitations[\s\S]*status = 'accepted'/, rows: [] },
     ]);
-    const repository = new InvitationsRepository(dataSource as any);
+    const repository = new InvitationsRepository(dataSource as any, createContext());
 
     await expect(repository.acceptForNewUser({
       invitationId: 'inv-1',
@@ -107,7 +135,7 @@ describe('InvitationsRepository', () => {
 
   it('revoke devuelve false si no había pendiente', async () => {
     const { dataSource } = createRunnerStub([{ match: /UPDATE invitations/, rows: [] }]);
-    const repository = new InvitationsRepository(dataSource as any);
+    const repository = new InvitationsRepository(dataSource as any, createContext());
 
     await expect(repository.revoke('company-1', 'inv-1')).resolves.toBe(false);
   });
