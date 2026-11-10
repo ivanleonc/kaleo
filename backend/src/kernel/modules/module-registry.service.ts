@@ -1,7 +1,8 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
 import { ModuleRegistryRepository } from './module-registry.repository.js';
 import { MODULE_MANIFESTS, MODULE_MANIFESTS_TOKEN } from './module-manifests.js';
 import { validateManifests } from './module-manifest.validator.js';
+import { EntitlementService } from '../billing/entitlement.service.js';
 import type { EnabledModule, ModuleManifest, ModuleStatus } from './module-manifest.types.js';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class ModuleRegistryService implements OnModuleInit {
   constructor(
     private readonly repository: ModuleRegistryRepository,
     @Inject(MODULE_MANIFESTS_TOKEN) private readonly manifests: ModuleManifest[] = MODULE_MANIFESTS,
+    @Optional() private readonly entitlements?: EntitlementService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -24,12 +26,17 @@ export class ModuleRegistryService implements OnModuleInit {
    * tienen una fila habilitada/trial/read_only en `company_modules`.
    */
   async getEnabledModules(companyId: string): Promise<EnabledModule[]> {
-    const statuses = await this.repository.getCompanyModuleStatuses(companyId);
+    const [statuses, planModules] = await Promise.all([
+      this.repository.getCompanyModuleStatuses(companyId),
+      this.entitlements?.getPlanModuleCodes(companyId) ?? Promise.resolve([]),
+    ]);
+    const planSet = new Set(planModules);
 
     return this.manifests.flatMap((manifest) => {
+      const explicitStatus = statuses.get(manifest.code);
       const status: ModuleStatus | undefined = manifest.isCore
         ? 'enabled'
-        : statuses.get(manifest.code);
+        : explicitStatus ?? (planSet.has(manifest.code) ? 'enabled' : undefined);
 
       if (status === undefined || status === 'disabled') return [];
       return [{ ...manifest, status }];

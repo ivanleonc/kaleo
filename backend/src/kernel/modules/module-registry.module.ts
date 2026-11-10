@@ -3,8 +3,10 @@ import { ModuleRegistryController } from './module-registry.controller.js';
 import { ModuleRegistryRepository } from './module-registry.repository.js';
 import { ModuleRegistryService } from './module-registry.service.js';
 import { MODULE_MANIFESTS, MODULE_MANIFESTS_TOKEN } from './module-manifests.js';
+import { EntitlementModule } from '../billing/entitlement.module.js';
 
 @Module({
+  imports: [EntitlementModule],
   controllers: [ModuleRegistryController],
   providers: [
     ModuleRegistryRepository,

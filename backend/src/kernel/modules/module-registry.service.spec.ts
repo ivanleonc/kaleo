@@ -19,6 +19,7 @@ function manifest(overrides: Partial<ModuleManifest> = {}): ModuleManifest {
 function createService(
   statuses: Map<string, ModuleStatus>,
   manifests: ModuleManifest[] = [manifest({ code: 'core.users' })],
+  planModules: string[] = [],
 ) {
   const repository = {
     syncCatalog: vi.fn(async () => {}),
@@ -27,7 +28,10 @@ function createService(
       enabled ? 'enabled' : 'disabled',
     ),
   } as any;
-  return new ModuleRegistryService(repository, manifests);
+  const entitlements = {
+    getPlanModuleCodes: vi.fn(async () => planModules),
+  } as any;
+  return new ModuleRegistryService(repository, manifests, entitlements);
 }
 
 describe('ModuleRegistryService.getEnabledModules', () => {
@@ -70,6 +74,25 @@ describe('ModuleRegistryService.getEnabledModules', () => {
     const modules = await service.getEnabledModules('company-1');
 
     expect(modules.map((m) => m.code)).toEqual(['core.users']);
+  });
+
+  it('incluye un pack si el plan lo aporta aunque no tenga fila explícita', async () => {
+    const service = createService(
+      new Map(),
+      [
+        manifest({ code: 'core.users' }),
+        manifest({
+          code: 'construction.projects',
+          isCore: false,
+          vertical: 'construction',
+        }),
+      ],
+      ['construction.projects'],
+    );
+    const modules = await service.getEnabledModules('company-1');
+
+    expect(modules.some((m) => m.code === 'construction.projects' && m.status === 'enabled'))
+      .toBe(true);
   });
 });
 
