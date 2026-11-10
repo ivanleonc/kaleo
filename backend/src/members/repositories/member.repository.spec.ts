@@ -2,19 +2,59 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemberRepository } from './member.repository.js';
 
 /**
+ * En los tests no ejecutamos SET LOCAL ROLE ni set_config: se mockea el
+ * wrapper para que use el runner del stub y se mantengan los índices de
+ * `calls`. El wrapper real se valida en tenant-transaction.spec.ts.
+ */
+vi.mock('../../common/tenancy/tenant-transaction.js', () => ({
+  withTenantTransaction: async (dataSource: any, _context: any, fn: any) => {
+    const runner = dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const result = await fn(runner);
+      await runner.commitTransaction();
+      return result;
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
+  },
+}));
+
+function createContext(companyId = 'company-1') {
+  return {
+    requireCompanyId: () => companyId,
+    getUserId: () => 'user-1',
+    get: () => ({ requestId: 'req-1', userId: 'user-1', isSuperAdmin: false }),
+    setCompany: vi.fn(),
+    setUser: vi.fn(),
+  } as any;
+}
+
+/**
  * Valida el SQL que genera el repository usando un DataSource falso que
  * captura las consultas. Así se detectan errores de numeración de
  * placeholders ($1, $2...) sin necesitar una base de datos.
  */
 function createDataSourceStub() {
   const calls: Array<{ sql: string; params: any[] }> = [];
-  const dataSource = {
-    query: vi.fn(async (sql: string, params: any[] = []) => {
-      calls.push({ sql, params });
-      // COUNT devuelve una fila; la consulta de datos devuelve vacío.
-      return sql.includes('COUNT') ? [{ total: '0' }] : [];
-    }),
+  const query = vi.fn(async (sql: string, params: any[] = []) => {
+    calls.push({ sql, params });
+    // COUNT devuelve una fila; la consulta de datos devuelve vacío.
+    return sql.includes('COUNT') ? [{ total: '0' }] : [];
+  });
+  const runner = {
+    connect: vi.fn(async () => {}),
+    startTransaction: vi.fn(async () => {}),
+    query,
+    commitTransaction: vi.fn(async () => {}),
+    rollbackTransaction: vi.fn(async () => {}),
+    release: vi.fn(async () => {}),
   };
+  const dataSource = { query, createQueryRunner: () => runner };
   return { dataSource, calls };
 }
 
@@ -29,7 +69,7 @@ describe('MemberRepository.getMembersByCompany', () => {
   beforeEach(() => {
     const stub = createDataSourceStub();
     calls = stub.calls;
-    repository = new MemberRepository(stub.dataSource as any);
+    repository = new MemberRepository(stub.dataSource as any, createContext());
   });
 
   it('pagina sin filtros usando placeholders correlativos', async () => {
@@ -175,7 +215,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
     const { dataSource, queries } = createRunnerStub([
       { match: /FROM roles/, rows: [{ id: 'r-global' }, { id: 'r-mine' }] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext());
 
     const invalid = await repo.findInvalidRoleIds(['r-global', 'r-mine', 'r-foreign'], 'company-1');
 
@@ -189,7 +229,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
     const { dataSource, queries, runner } = createRunnerStub([
       { match: /FROM memberships/, rows: [] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext('company-9'));
 
     const result = await repo.attachExistingUser('company-9', 'user-7', ['r-1']);
 
@@ -204,7 +244,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
     const { dataSource, runner } = createRunnerStub([
       { match: /FROM memberships/, rows: [{ '1': 1 }] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext('company-9'));
 
     await expect(repo.attachExistingUser('company-9', 'user-7', ['r-1'])).rejects.toThrow(
       'El usuario ya es miembro de esta empresa',
@@ -217,7 +257,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
     const { dataSource, queries } = createRunnerStub([
       { match: /FROM companies c/, rows: [{ id: 'c-1', name: 'Acme', slug: 'acme', roles: ['Owner'] }] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext());
 
     const result = await repo.getMemberCompanies('user-7');
 
@@ -230,7 +270,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
     const { dataSource, queries } = createRunnerStub([
       { match: /FROM users/, rows: [{ id: 'u-1', name: 'Juan', email: 'juan@x.co' }] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext());
 
     const result = await repo.searchUsers('company-1', 'ju', 99);
 
@@ -244,7 +284,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
     const { dataSource, queries } = createRunnerStub([
       { match: /FROM users/, rows: [] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext());
 
     await repo.searchUsers('company-1', 'ju');
 
@@ -279,7 +319,7 @@ describe('MemberRepository.removeMember', () => {
       { match: /SELECT 1[\s\S]*FROM memberships/, rows: [] },
       { match: /DELETE FROM user_contexts/, rows: [{ id: 'uc-1' }] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext('c-1'));
 
     const result = await repo.removeMember('c-1', 'u-1', onRemoved);
 
@@ -299,7 +339,7 @@ describe('MemberRepository.removeMember', () => {
       { match: /COUNT\(\*\) AS total/, rows: [{ total: '0' }] },
       { match: /SELECT 1[\s\S]*FROM memberships/, rows: [{ one: 1 }] },
     ]);
-    const repo = new MemberRepository(dataSource as any);
+    const repo = new MemberRepository(dataSource as any, createContext('c-1'));
 
     await expect(repo.removeMember('c-1', 'u-1', onRemoved)).rejects.toThrow('único Owner');
     expect(onRemoved).not.toHaveBeenCalled();

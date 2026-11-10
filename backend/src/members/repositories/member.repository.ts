@@ -5,6 +5,8 @@ import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.d
 import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
 import { assertMember, insertUserContexts } from '../../common/utils/membership.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
+import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
+import { withTenantTransaction } from '../../common/tenancy/tenant-transaction.js';
 
 /** Orden server-side: solo estas claves son válidas; `status` ordena por bloqueo. */
 const MEMBER_SORT_COLUMNS: Record<string, string> = {
@@ -16,7 +18,16 @@ const MEMBER_SORT_COLUMNS: Record<string, string> = {
 
 @Injectable()
 export class MemberRepository {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  private assertCompany(companyId: string): void {
+    if (this.tenantContext.requireCompanyId() !== companyId) {
+      throw new ForbiddenException('La empresa no coincide con el TenantContext');
+    }
+  }
 
   async getMembersByCompany(
     companyId: string,
@@ -52,39 +63,43 @@ export class MemberRepository {
 
     const orderBy = buildOrderBy(MEMBER_SORT_COLUMNS, sort, 'name');
 
-    const countResult = await this.dataSource.query(
-      `SELECT COUNT(DISTINCT u.id) as total
-       FROM users u
-       INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
-       WHERE ${where}`,
-      values,
-    );
-    const total = parseInt(countResult[0]?.total || '0', 10);
+    this.assertCompany(companyId);
 
-    const data = await this.dataSource.query(
-      `SELECT
-         u.id, u.email, u.name, u.created_at,
-         u.phone, u.position, u.avatar_url,
-         u.document_type, u.document_number,
-         u.must_change_password,
-         COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
-         ${statusExpr} as status
-       FROM users u
-       INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
-       LEFT JOIN membership_roles mr
-         ON mr.membership_id = m.id AND mr.company_id = m.company_id
-       LEFT JOIN roles r ON mr.role_id = r.id
-       WHERE ${where}
-       GROUP BY u.id, u.email, u.name, u.created_at, u.locked_until,
-                u.phone, u.position, u.avatar_url,
-                u.document_type, u.document_number,
-                u.must_change_password
-       ORDER BY ${orderBy}, u.name, u.email
-       LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,
-      [...values, safeLimit, offset],
-    );
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const countResult = await queryRunner.query(
+        `SELECT COUNT(DISTINCT u.id) as total
+         FROM users u
+         INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
+         WHERE ${where}`,
+        values,
+      );
+      const total = parseInt(countResult[0]?.total || '0', 10);
 
-    return { data, total, page: safePage, limit: safeLimit };
+      const data = await queryRunner.query(
+        `SELECT
+           u.id, u.email, u.name, u.created_at,
+           u.phone, u.position, u.avatar_url,
+           u.document_type, u.document_number,
+           u.must_change_password,
+           COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
+           ${statusExpr} as status
+         FROM users u
+         INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
+         LEFT JOIN membership_roles mr
+           ON mr.membership_id = m.id AND mr.company_id = m.company_id
+         LEFT JOIN roles r ON mr.role_id = r.id
+         WHERE ${where}
+         GROUP BY u.id, u.email, u.name, u.created_at, u.locked_until,
+                  u.phone, u.position, u.avatar_url,
+                  u.document_type, u.document_number,
+                  u.must_change_password
+         ORDER BY ${orderBy}, u.name, u.email
+         LIMIT $${nextIndex} OFFSET $${nextIndex + 1}`,
+        [...values, safeLimit, offset],
+      );
+
+      return { data, total, page: safePage, limit: safeLimit };
+    });
   }
 
   /**
@@ -114,24 +129,27 @@ export class MemberRepository {
       1,
     );
 
+    this.assertCompany(companyId);
     const statusExpr = `CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW() THEN 'inactive' ELSE 'active' END`;
     const orderBy = buildOrderBy(MEMBER_SORT_COLUMNS, sort, 'name');
 
-    return this.dataSource.query(
-      `SELECT
-         u.id, u.email, u.name,
-         COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
-         ${statusExpr} as status
-       FROM users u
-       INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
-       LEFT JOIN membership_roles mr
-         ON mr.membership_id = m.id AND mr.company_id = m.company_id
-       LEFT JOIN roles r ON mr.role_id = r.id
-       WHERE ${where}
-       GROUP BY u.id, u.email, u.name, u.locked_until
-       ORDER BY ${orderBy}, u.name, u.email
-       LIMIT $${nextIndex}`,
-      [...values, EXPORT_MAX_ROWS + 1],
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT
+           u.id, u.email, u.name,
+           COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
+           ${statusExpr} as status
+         FROM users u
+         INNER JOIN memberships m ON u.id = m.user_id AND m.status = 'active'
+         LEFT JOIN membership_roles mr
+           ON mr.membership_id = m.id AND mr.company_id = m.company_id
+         LEFT JOIN roles r ON mr.role_id = r.id
+         WHERE ${where}
+         GROUP BY u.id, u.email, u.name, u.locked_until
+         ORDER BY ${orderBy}, u.name, u.email
+         LIMIT $${nextIndex}`,
+        [...values, EXPORT_MAX_ROWS + 1],
+      ),
     );
   }
 
@@ -152,6 +170,9 @@ export class MemberRepository {
     passwordHash: string,
     extra?: { phone?: string; position?: string; document_type?: string; document_number?: string },
   ) {
+    // Flujo legacy de creación de usuario nuevo: se mantiene privilegiado
+    // (postgres) porque RLS exige una membership activa para insertar en users.
+    // El alta nueva debe ir por invitaciones.
     let result: any;
     try {
       await runInTransaction(this.dataSource, async (queryRunner) => {
@@ -231,8 +252,9 @@ export class MemberRepository {
       document_number?: string;
     },
   ) {
+    this.assertCompany(companyId);
     try {
-      await runInTransaction(this.dataSource, async (queryRunner) => {
+      await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
         await assertMember(
           (sql, params) => queryRunner.query(sql, params),
           userId,
@@ -360,9 +382,10 @@ export class MemberRepository {
    * ni enviarle correos: su acceso actual no cambia).
    */
   async attachExistingUser(companyId: string, userId: string, roleIds: string[]) {
+    this.assertCompany(companyId);
     let result: any;
     try {
-      await runInTransaction(this.dataSource, async (queryRunner) => {
+      await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
         const memberCheck = await queryRunner.query(
           `SELECT 1 FROM memberships
            WHERE user_id = $1 AND company_id = $2 AND status = 'active'`,
@@ -389,6 +412,8 @@ export class MemberRepository {
    * versión es para administración (detalle del miembro).
    */
   async getMemberCompanies(userId: string) {
+    // Vista administrativa cross-company: se mantiene en el camino
+    // privilegiado (postgres), no en una transacción de tenant.
     const result = await this.dataSource.query(
       `SELECT c.id, c.name, c.slug,
               COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
@@ -413,20 +438,22 @@ export class MemberRepository {
    * Solo id/nombre/email: nunca hashes, roles ni tokens.
    */
   async searchUsers(companyId: string, query: string, limit = 10) {
-    const result = await this.dataSource.query(
-      `SELECT u.id, u.name, u.email
-       FROM users u
-       WHERE u.deleted_at IS NULL
-         AND EXISTS (
-           SELECT 1 FROM memberships m
-           WHERE m.user_id = u.id AND m.company_id = $1 AND m.status = 'active'
-         )
-         AND (u.name ILIKE $2 OR u.email ILIKE $2)
-       ORDER BY u.name
-       LIMIT $3`,
-      [companyId, `%${query}%`, Math.min(Math.max(limit, 1), 20)],
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) =>
+      queryRunner.query(
+        `SELECT u.id, u.name, u.email
+         FROM users u
+         WHERE u.deleted_at IS NULL
+           AND EXISTS (
+             SELECT 1 FROM memberships m
+             WHERE m.user_id = u.id AND m.company_id = $1 AND m.status = 'active'
+           )
+           AND (u.name ILIKE $2 OR u.email ILIKE $2)
+         ORDER BY u.name
+         LIMIT $3`,
+        [companyId, `%${query}%`, Math.min(Math.max(limit, 1), 20)],
+      ),
     );
-    return result;
   }
 
   async removeMember(
@@ -437,7 +464,8 @@ export class MemberRepository {
       removed: { id: string; email: string; name: string | null },
     ) => Promise<void>,
   ) {
-    await runInTransaction(this.dataSource, async (queryRunner) => {
+    this.assertCompany(companyId);
+    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       const userRows = await queryRunner.query(
         `SELECT id, email, name FROM users WHERE id = $1 AND deleted_at IS NULL`,
         [userId],
