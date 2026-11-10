@@ -48,26 +48,56 @@
             <span v-if="module.isCore" class="module-note">
               Los módulos core siempre están activos.
             </span>
-            <UiButton
-              v-else
-              variant="outline"
-              size="sm"
-              width="auto"
-              :loading="savingCode === module.code"
-              :disabled="savingCode !== null"
-              @click="toggle(module)"
-            >
-              {{ isEnabled(module.code) ? 'Desactivar' : 'Activar' }}
-            </UiButton>
+            <div class="module-actions">
+              <UiButton
+                variant="ghost"
+                size="sm"
+                width="auto"
+                @click="openConfig(module)"
+              >
+                Configurar
+              </UiButton>
+              <UiButton
+                v-if="!module.isCore"
+                variant="outline"
+                size="sm"
+                width="auto"
+                :loading="savingCode === module.code"
+                :disabled="savingCode !== null"
+                @click="toggle(module)"
+              >
+                {{ isEnabled(module.code) ? 'Desactivar' : 'Activar' }}
+              </UiButton>
+            </div>
           </div>
         </UiCard>
       </div>
+
+      <UiFormModal
+        v-model="isConfigModalOpen"
+        title="Configuración del módulo"
+        :description="configModule ? `${configModule.name} · ${configModule.code}` : ''"
+        submit-label="Guardar configuración"
+        :loading="isSavingConfig"
+        @submit="saveConfig"
+      >
+        <UiAlert v-if="configError" type="error">{{ configError }}</UiAlert>
+        <UiTextarea
+          v-model="configText"
+          label="Configuración JSON"
+          :rows="12"
+          :disabled="isLoadingConfig || isSavingConfig"
+        />
+        <p class="config-hint">
+          Usa un objeto JSON. La configuración se guarda por empresa y módulo.
+        </p>
+      </UiFormModal>
     </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { EnabledModule, ModuleManifest } from '@saas/shared';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
@@ -77,6 +107,8 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiTextarea from '@/components/ui/UiTextarea.vue';
 import { moduleService } from '@/services/module.service';
 import { useToast } from '@/composables/useToast';
 import { apiErrorMessage } from '@/utils/error';
@@ -87,6 +119,18 @@ const enabledModules = ref<EnabledModule[]>([]);
 const isLoading = ref(true);
 const savingCode = ref<string | null>(null);
 const error = ref<string | null>(null);
+
+const configModule = ref<ModuleManifest | null>(null);
+const configText = ref('{}');
+const configError = ref<string | null>(null);
+const isLoadingConfig = ref(false);
+const isSavingConfig = ref(false);
+const isConfigModalOpen = computed({
+  get: () => configModule.value !== null,
+  set: (value: boolean) => {
+    if (!value) configModule.value = null;
+  },
+});
 
 function isEnabled(code: string): boolean {
   return enabledModules.value.some((module) => module.code === code);
@@ -123,6 +167,48 @@ async function toggle(module: ModuleManifest) {
     error.value = apiErrorMessage(err, 'No se pudo actualizar el módulo');
   } finally {
     savingCode.value = null;
+  }
+}
+
+async function openConfig(module: ModuleManifest) {
+  configModule.value = module;
+  configText.value = '{}';
+  configError.value = null;
+  isLoadingConfig.value = true;
+  try {
+    const response = await moduleService.getModuleConfig(module.code);
+    configText.value = JSON.stringify(response.data ?? {}, null, 2);
+  } catch (err) {
+    configError.value = apiErrorMessage(err, 'No se pudo cargar la configuración');
+  } finally {
+    isLoadingConfig.value = false;
+  }
+}
+
+async function saveConfig() {
+  if (!configModule.value) return;
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(configText.value);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('La configuración debe ser un objeto JSON');
+    }
+  } catch (err) {
+    configError.value = (err as Error).message || 'JSON inválido';
+    return;
+  }
+
+  isSavingConfig.value = true;
+  configError.value = null;
+  try {
+    await moduleService.setModuleConfig(configModule.value.code, parsed);
+    toast.success('Configuración del módulo guardada');
+    configModule.value = null;
+  } catch (err) {
+    configError.value = apiErrorMessage(err, 'No se pudo guardar la configuración');
+  } finally {
+    isSavingConfig.value = false;
   }
 }
 
@@ -185,6 +271,18 @@ onMounted(load);
 }
 
 .module-note {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.module-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.config-hint {
+  margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }

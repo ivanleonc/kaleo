@@ -97,6 +97,24 @@ Reglas:
 
 `GET /api/modules/catalog` devuelve todos los manifests (super-admin).
 
+## Configuración por módulo
+
+Super-admin:
+
+```http
+GET /api/modules/:code/config
+PUT /api/modules/:code/config
+x-company-id: <uuid>
+
+{ "config": { "threshold": 10 } }
+```
+
+- Se guarda en `company_modules.config` (JSONB).
+- Los `core.*` siempre permiten configuración.
+- Un pack/shared debe estar habilitado antes de configurarse.
+- La escritura queda auditada.
+- La UI de administración de módulos incluye un editor JSON por módulo.
+
 ## Frontend shell
 
 - `useModulesStore` carga `GET /api/modules` al cambiar de empresa en `AuthenticatedLayout`.

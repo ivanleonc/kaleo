@@ -17,6 +17,8 @@
 | `occurred_at` | Cuándo ocurrió |
 | `published_at` | Cuándo se publicó (NULL = pendiente) |
 | `attempts` / `last_error` | Reintentos y último error |
+| `next_attempt_at` | Próximo intento permitido (backoff) |
+| `dead_lettered_at` | Agotó reintentos y requiere revisión |
 
 ### Escribir un evento
 
@@ -42,10 +44,11 @@ Sin `queryRunner` se escribe fuera de la transacción actual. Para atomicidad, s
 `OutboxPublisher` ejecuta `publishPending()` cada 5 segundos.
 
 - Selecciona pendientes con `FOR UPDATE SKIP LOCKED`: seguro con varias instancias.
+- Solo toma eventos con `next_attempt_at <= now()`.
 - Ejecuta los handlers registrados por `event_type`.
 - Marca `published_at` si el handler termina bien.
-- Si falla, incrementa `attempts` y guarda `last_error`; el evento sigue pendiente.
-- A los 10 intentos deja de seleccionarse para revisión manual.
+- Si falla, incrementa `attempts`, guarda `last_error` y programa el próximo intento con backoff exponencial (5s, 10s, 20s… hasta 300s).
+- Al llegar a 10 intentos marca `dead_lettered_at`; el evento deja de seleccionarse y requiere revisión manual.
 
 ### Handlers
 
@@ -97,7 +100,8 @@ RESULTADO: auditoría transaccional + outbox OK
 
 ## Pendiente
 
-- Migrar más servicios a `logInTransaction` (members, roles, branches, invitaciones).
+- Cola de jobs genérica (`pg-boss` o equivalente) para imports, exports, emails y reportes.
 - Handlers reales para eventos de dominio (notificaciones, jobs, webhooks).
-- Métricas de outbox y alertas.
+- Métricas de profundidad, reintentos y dead-letter.
 - Job de limpieza de eventos publicados.
+- Endpoint/admin para reintentar dead-letter manualmente.

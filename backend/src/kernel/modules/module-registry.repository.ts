@@ -114,4 +114,39 @@ export class ModuleRegistryRepository {
       return rows[0]?.status as ModuleStatus;
     });
   }
+
+  async getModuleConfig(
+    companyId: string,
+    moduleCode: string,
+  ): Promise<Record<string, unknown>> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `SELECT config FROM company_modules
+         WHERE company_id = $1 AND module_code = $2`,
+        [companyId, moduleCode],
+      );
+      return (rows[0]?.config as Record<string, unknown>) ?? {};
+    });
+  }
+
+  async setModuleConfig(
+    companyId: string,
+    moduleCode: string,
+    config: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `INSERT INTO company_modules
+           (company_id, module_code, status, enabled_at, config)
+         VALUES ($1, $2, 'enabled', now(), $3::jsonb)
+         ON CONFLICT (company_id, module_code)
+         DO UPDATE SET config = EXCLUDED.config
+         RETURNING config`,
+        [companyId, moduleCode, JSON.stringify(config)],
+      );
+      return (rows[0]?.config as Record<string, unknown>) ?? {};
+    });
+  }
 }

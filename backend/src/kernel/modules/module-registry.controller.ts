@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Headers, Param, Put, UseGua
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ModuleRegistryService } from './module-registry.service.js';
 import { SetModuleDto } from './dto/set-module.dto.js';
+import { SetModuleConfigDto } from './dto/set-module-config.dto.js';
 import { Ok } from '../../common/dto/api-response.dto.js';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard.js';
 import { Audit } from '../../common/decorators/audit-context.decorator.js';
@@ -58,5 +59,36 @@ export class ModuleRegistryController {
     }
 
     return Ok(await this.moduleRegistry.setModuleEnabled(companyId, code, dto.enabled));
+  }
+
+  @Get(':code/config')
+  @UseGuards(SuperAdminGuard)
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiParam({ name: 'code', example: 'core.analyses' })
+  @ApiOperation({ summary: 'Configuración JSON de un módulo para la empresa' })
+  async getConfig(
+    @Headers('x-company-id') companyId: string | undefined,
+    @Param('code') code: string,
+  ) {
+    if (!companyId) throw new BadRequestException('Falta el header x-company-id');
+    return Ok(await this.moduleRegistry.getModuleConfig(companyId, code));
+  }
+
+  @Put(':code/config')
+  @UseGuards(SuperAdminGuard)
+  @Audit({ entityType: 'Module', idParam: 'code', skipDiff: true })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiParam({ name: 'code', example: 'core.analyses' })
+  @ApiOperation({ summary: 'Actualizar configuración JSON de un módulo' })
+  async setConfig(
+    @Headers('x-company-id') companyId: string | undefined,
+    @Param('code') code: string,
+    @Body() dto: SetModuleConfigDto,
+  ) {
+    if (!companyId) throw new BadRequestException('Falta el header x-company-id');
+    return Ok(
+      await this.moduleRegistry.setModuleConfig(companyId, code, dto.config),
+      'Configuración del módulo actualizada',
+    );
   }
 }

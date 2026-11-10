@@ -21,4 +21,14 @@ export const moduleService = {
     const response = await apiClient.put(`/modules/${encodeURIComponent(code)}`, { enabled });
     return response.data;
   },
+
+  async getModuleConfig(code: string): Promise<{ success: boolean; data: Record<string, unknown> }> {
+    const response = await apiClient.get(`/modules/${encodeURIComponent(code)}/config`);
+    return response.data;
+  },
+
+  async setModuleConfig(code: string, config: Record<string, unknown>) {
+    const response = await apiClient.put(`/modules/${encodeURIComponent(code)}/config`, { config });
+    return response.data;
+  },
 };

@@ -71,7 +71,7 @@ describe('OutboxService', () => {
     expect(runner.commitTransaction).toHaveBeenCalled();
   });
 
-  it('un handler que falla deja last_error y no publica ese evento', async () => {
+  it('un handler que falla reprograma con backoff y guarda last_error', async () => {
     const { dataSource, queries, runner } = createRunnerStub([
       { match: /SELECT id, event_id/, rows: [EVENT] },
       { match: /UPDATE outbox_events/, rows: [] },
@@ -83,9 +83,26 @@ describe('OutboxService', () => {
 
     await service.publishPending();
 
-    const failureUpdate = queries.find((q) => q.sql.includes('last_error = $2'));
-    expect(failureUpdate?.params).toEqual(['outbox-1', 'handler boom']);
+    const failureUpdate = queries.find((q) => q.sql.includes('last_error = $3'));
+    expect(failureUpdate?.sql).toContain('next_attempt_at = now()');
+    expect(failureUpdate?.params).toEqual(['outbox-1', 1, 'handler boom', 5]);
     expect(runner.commitTransaction).toHaveBeenCalled();
+  });
+
+  it('al agotar intentos manda el evento a dead-letter', async () => {
+    const { dataSource, queries } = createRunnerStub([
+      { match: /SELECT id, event_id/, rows: [{ ...EVENT, attempts: 9 }] },
+      { match: /UPDATE outbox_events/, rows: [] },
+    ]);
+    const service = new OutboxService(dataSource as any);
+    service.registerHandler('company.created', async () => {
+      throw new Error('handler boom');
+    });
+
+    await service.publishPending();
+
+    const deadLetter = queries.find((q) => q.sql.includes('dead_lettered_at = now()'));
+    expect(deadLetter?.params).toEqual(['outbox-1', 10, 'handler boom']);
   });
 
   it('publishPending hace rollback si falla la consulta', async () => {

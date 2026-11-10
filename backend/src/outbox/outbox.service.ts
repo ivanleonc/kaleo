@@ -64,7 +64,10 @@ export class OutboxService {
         `SELECT id, event_id, company_id, aggregate_type, aggregate_id, event_type,
                 payload, occurred_at, attempts
          FROM outbox_events
-         WHERE published_at IS NULL AND attempts < $2
+         WHERE published_at IS NULL
+           AND dead_lettered_at IS NULL
+           AND next_attempt_at <= now()
+           AND attempts < $2
          ORDER BY occurred_at
          LIMIT $1
          FOR UPDATE SKIP LOCKED`,
@@ -78,21 +81,39 @@ export class OutboxService {
           }
           await queryRunner.query(
             `UPDATE outbox_events
-             SET published_at = now(), attempts = attempts + 1, last_error = NULL
+             SET published_at = now(), attempts = attempts + 1,
+                 last_error = NULL, next_attempt_at = now()
              WHERE id = $1`,
             [event.id],
           );
         } catch (error) {
           const message = (error as Error).message.slice(0, 1000);
-          await queryRunner.query(
-            `UPDATE outbox_events
-             SET attempts = attempts + 1, last_error = $2
-             WHERE id = $1`,
-            [event.id, message],
-          );
-          this.logger.error(
-            `Outbox ${event.event_id} (${event.event_type}) falló: ${message}`,
-          );
+          const nextAttempts = event.attempts + 1;
+
+          if (nextAttempts >= MAX_ATTEMPTS) {
+            await queryRunner.query(
+              `UPDATE outbox_events
+               SET attempts = $2, last_error = $3, dead_lettered_at = now()
+               WHERE id = $1`,
+              [event.id, nextAttempts, message],
+            );
+            this.logger.error(
+              `Outbox ${event.event_id} (${event.event_type}) agotó reintentos y quedó en dead-letter: ${message}`,
+            );
+          } else {
+            const backoffSeconds = Math.min(5 * 2 ** (nextAttempts - 1), 300);
+            await queryRunner.query(
+              `UPDATE outbox_events
+               SET attempts = $2,
+                   last_error = $3,
+                   next_attempt_at = now() + ($4 || ' seconds')::interval
+               WHERE id = $1`,
+              [event.id, nextAttempts, message, backoffSeconds],
+            );
+            this.logger.warn(
+              `Outbox ${event.event_id} (${event.event_type}) falló; reintento ${nextAttempts}/${MAX_ATTEMPTS} en ${backoffSeconds}s: ${message}`,
+            );
+          }
         }
       }
 

@@ -27,6 +27,8 @@ function createService(
     setCompanyModule: vi.fn(async (_companyId: string, _code: string, enabled: boolean) =>
       enabled ? 'enabled' : 'disabled',
     ),
+    getModuleConfig: vi.fn(async () => ({})),
+    setModuleConfig: vi.fn(async (_companyId: string, _code: string, config: any) => config),
   } as any;
   const entitlements = {
     getPlanModuleCodes: vi.fn(async () => planModules),
@@ -155,5 +157,55 @@ describe('ModuleRegistryService.setModuleEnabled', () => {
     );
     await expect(service.setModuleEnabled('c-1', 'construction.projects', false))
       .rejects.toThrow('construction.estimating');
+  });
+});
+
+describe('ModuleRegistryService module config', () => {
+  const core = manifest({ code: 'core.users' });
+  const pack = manifest({ code: 'construction.projects', isCore: false });
+
+  function setup(statuses = new Map<string, ModuleStatus>()) {
+    const repository = {
+      syncCatalog: vi.fn(async () => {}),
+      getCompanyModuleStatuses: vi.fn(async () => statuses),
+      setCompanyModule: vi.fn(async (_c: string, _code: string, enabled: boolean) =>
+        enabled ? 'enabled' : 'disabled',
+      ),
+      getModuleConfig: vi.fn(async () => ({ threshold: 10 })),
+      setModuleConfig: vi.fn(async (_c: string, _code: string, config: any) => config),
+    } as any;
+    const entitlements = {
+      getPlanModuleCodes: vi.fn(async () => [] as string[]),
+    } as any;
+    return {
+      service: new ModuleRegistryService(repository, [core, pack], entitlements),
+      repository,
+    };
+  }
+
+  it('permite configurar un módulo core', async () => {
+    const { service } = setup();
+    await expect(service.getModuleConfig('c-1', 'core.users'))
+      .resolves.toEqual({ threshold: 10 });
+  });
+
+  it('rechaza configurar un pack no habilitado', async () => {
+    const { service } = setup();
+    await expect(service.getModuleConfig('c-1', 'construction.projects'))
+      .rejects.toThrow('no está habilitado');
+  });
+
+  it('guarda la configuración de un pack habilitado', async () => {
+    const { service, repository } = setup(
+      new Map<string, ModuleStatus>([['construction.projects', 'enabled']]),
+    );
+    await expect(
+      service.setModuleConfig('c-1', 'construction.projects', { threshold: 5 }),
+    ).resolves.toEqual({ threshold: 5 });
+    expect(repository.setModuleConfig).toHaveBeenCalledWith(
+      'c-1',
+      'construction.projects',
+      { threshold: 5 },
+    );
   });
 });

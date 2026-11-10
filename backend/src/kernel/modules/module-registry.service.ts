@@ -71,6 +71,35 @@ export class ModuleRegistryService implements OnModuleInit {
     return { code: moduleCode, status };
   }
 
+  async getModuleConfig(
+    companyId: string,
+    moduleCode: string,
+  ): Promise<Record<string, unknown>> {
+    await this.assertModuleAvailable(companyId, moduleCode);
+    return this.repository.getModuleConfig(companyId, moduleCode);
+  }
+
+  async setModuleConfig(
+    companyId: string,
+    moduleCode: string,
+    config: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    await this.assertModuleAvailable(companyId, moduleCode);
+    return this.repository.setModuleConfig(companyId, moduleCode, config);
+  }
+
+  private async assertModuleAvailable(companyId: string, moduleCode: string) {
+    const manifest = this.manifests.find((item) => item.code === moduleCode);
+    if (!manifest) throw new NotFoundException('Módulo no encontrado');
+
+    if (manifest.isCore) return;
+
+    const enabled = await this.getEnabledModules(companyId);
+    if (!enabled.some((item) => item.code === moduleCode)) {
+      throw new BadRequestException('El módulo no está habilitado para esta empresa');
+    }
+  }
+
   private assertDependenciesEnabled(
     manifest: ModuleManifest,
     statuses: Map<string, ModuleStatus>,

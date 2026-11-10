@@ -101,6 +101,7 @@ npm run migrate -- production --accept-checksum 000
 | `041-plans-entitlements.sql` | Planes, suscripciones, overrides y contadores de uso. |
 | `042-core-plan-analyses-limit.sql` | Límite mensual de creación de análisis en el plan core. |
 | `043-company-settings.sql` | Preferencias regionales por empresa y trigger de alta. |
+| `044-outbox-retries.sql` | Backoff y dead-letter para eventos del outbox. |
 
 ## Verificar el estado
 
