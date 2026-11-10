@@ -77,6 +77,7 @@ npm run migrate -- production --accept-checksum 000
 | `017-add-super-admin-flag.sql` | Flag `users.is_super_admin`. |
 | `018-create-analyses-table.sql` | Tabla `analyses` del pack energía. |
 | `019-seed-analyses-permissions.sql` | Permisos `analyses:*` y asignación a Owner/Admin/Viewer. |
+| `020-create-feature-flags.sql` | Feature flags por empresa (`feature_flags`). |
 
 ## Verificar el estado
 

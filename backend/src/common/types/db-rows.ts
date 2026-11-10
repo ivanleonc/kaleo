@@ -101,3 +101,11 @@ export interface IdRow {
 export interface RoleNameRow {
   role_name: string;
 }
+
+/** Feature flag resuelto para una empresa. */
+export interface FeatureFlagRow {
+  flag: string;
+  enabled: boolean;
+  description: string | null;
+  updated_at: string;
+}

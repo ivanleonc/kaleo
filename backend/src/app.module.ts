@@ -12,6 +12,7 @@ import { RbacModule } from './rbac/rbac.module.js';
 import { MemberModule } from './members/member.module.js';
 import { BranchesModule } from './branches/branches.module.js';
 import { AnalysesModule } from './analyses/analyses.module.js';
+import { FeatureFlagsModule } from './features/feature-flags.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -61,6 +62,7 @@ import { envValidationSchema } from './common/config/env.validation.js';
     MemberModule,
     BranchesModule,
     AnalysesModule,
+    FeatureFlagsModule,
   ],
   controllers: [AppController],
   providers: [

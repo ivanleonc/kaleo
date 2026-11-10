@@ -102,6 +102,7 @@ Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm 
 | `017-add-super-admin-flag.sql` | Flag `users.is_super_admin` (super-admin global) |
 | `018-create-analyses-table.sql` | Tabla `analyses` del pack energía |
 | `019-seed-analyses-permissions.sql` | Permisos `analyses:*` y asignación a roles |
+| `020-create-feature-flags.sql` | Feature flags por empresa |
 
 ### Reglas de oro
 

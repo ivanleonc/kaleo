@@ -39,6 +39,9 @@ vi.mock('./rbac/rbac.module.js', () => ({ RbacModule: class RbacModule {} }));
 vi.mock('./members/member.module.js', () => ({ MemberModule: class MemberModule {} }));
 vi.mock('./branches/branches.module.js', () => ({ BranchesModule: class BranchesModule {} }));
 vi.mock('./analyses/analyses.module.js', () => ({ AnalysesModule: class AnalysesModule {} }));
+vi.mock('./features/feature-flags.module.js', () => ({
+  FeatureFlagsModule: class FeatureFlagsModule {},
+}));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));
