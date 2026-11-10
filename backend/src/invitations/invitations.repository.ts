@@ -200,8 +200,8 @@ export class InvitationsRepository {
       }
 
       const member = rows<{ one: number }>(await queryRunner.query(
-        `SELECT 1 AS one FROM user_contexts
-         WHERE user_id = $1 AND company_id = $2 LIMIT 1`,
+        `SELECT 1 AS one FROM memberships
+         WHERE user_id = $1 AND company_id = $2 AND status = 'active' LIMIT 1`,
         [input.userId, input.companyId],
       ));
       alreadyMember = member.length > 0;

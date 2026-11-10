@@ -218,7 +218,7 @@ export class BranchRepository {
     }
 
     const memberCount = await this.dataSource.query(
-      `SELECT COUNT(*) as count FROM user_contexts WHERE branch_id = $1`,
+      `SELECT COUNT(*) as count FROM membership_branches WHERE branch_id = $1`,
       [branchId],
     );
 

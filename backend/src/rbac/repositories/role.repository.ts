@@ -89,6 +89,10 @@ export class RoleRepository {
     // Lo que sí hacemos es remover el rol de esos contextos para que
     // getUserAccess no devuelva permisos de un rol invisible.
     await this.dataSource.query(
+      `DELETE FROM membership_roles WHERE role_id = $1`,
+      [id],
+    );
+    await this.dataSource.query(
       `DELETE FROM user_contexts WHERE role_id = $1`,
       [id],
     );

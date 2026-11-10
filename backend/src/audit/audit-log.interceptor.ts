@@ -256,9 +256,12 @@ export class AuditLogInterceptor implements NestInterceptor {
           );
           if (!rows[0]) return null;
           const roleRows = await this.dataSource.query(
-            `SELECT r.name FROM user_contexts uc
-             LEFT JOIN roles r ON uc.role_id = r.id
-             WHERE uc.user_id = $1 AND uc.company_id = $2`,
+            `SELECT r.name
+             FROM memberships m
+             INNER JOIN membership_roles mr
+               ON mr.membership_id = m.id AND mr.company_id = m.company_id
+             INNER JOIN roles r ON r.id = mr.role_id
+             WHERE m.user_id = $1 AND m.company_id = $2 AND m.status = 'active'`,
             [entityId, companyId]
           );
           return {

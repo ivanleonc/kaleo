@@ -187,7 +187,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
 
   it('attachExistingUser vincula sin tocar contraseña y rechaza duplicados', async () => {
     const { dataSource, queries, runner } = createRunnerStub([
-      { match: /FROM user_contexts WHERE user_id/, rows: [] },
+      { match: /FROM memberships/, rows: [] },
     ]);
     const repo = new MemberRepository(dataSource as any);
 
@@ -202,7 +202,7 @@ describe('MemberRepository cross-company (super-admin)', () => {
 
   it('attachExistingUser hace rollback y lanza 409 si ya es miembro', async () => {
     const { dataSource, runner } = createRunnerStub([
-      { match: /FROM user_contexts WHERE user_id/, rows: [{ '1': 1 }] },
+      { match: /FROM memberships/, rows: [{ '1': 1 }] },
     ]);
     const repo = new MemberRepository(dataSource as any);
 
@@ -276,7 +276,7 @@ describe('MemberRepository.removeMember', () => {
     const { dataSource, runner } = createRunner([
       { match: /FROM users WHERE id/, rows: [{ id: 'u-1', email: 'ana@x.co', name: 'Ana' }] },
       { match: /COUNT\(\*\) AS total/, rows: [{ total: '1' }] },
-      { match: /SELECT 1 FROM user_contexts/, rows: [] },
+      { match: /SELECT 1[\s\S]*FROM memberships/, rows: [] },
       { match: /DELETE FROM user_contexts/, rows: [{ id: 'uc-1' }] },
     ]);
     const repo = new MemberRepository(dataSource as any);
@@ -297,7 +297,7 @@ describe('MemberRepository.removeMember', () => {
     const { dataSource, runner } = createRunner([
       { match: /FROM users WHERE id/, rows: [{ id: 'u-1', email: 'ana@x.co', name: 'Ana' }] },
       { match: /COUNT\(\*\) AS total/, rows: [{ total: '0' }] },
-      { match: /SELECT 1 FROM user_contexts/, rows: [{ one: 1 }] },
+      { match: /SELECT 1[\s\S]*FROM memberships/, rows: [{ one: 1 }] },
     ]);
     const repo = new MemberRepository(dataSource as any);
 

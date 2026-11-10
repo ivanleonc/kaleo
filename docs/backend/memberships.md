@@ -63,11 +63,24 @@ RESULTADO: memberships + triggers OK
    - `CompanyRepository.getUserCompanies`, `verifyUserBelongsToCompany`, `getAllCompanies`.
    - `RoleRepository.getUserAccess`.
    - `MemberRepository.getMembersByCompany`, `findForExport`, `getMemberCompanies`, `isAlreadyMember`, `searchUsers`.
-3. Migrar escrituras de miembros/roles/sedes a memberships; eliminar triggers y `user_contexts`.
-4. Migrar el detalle de auditoría (`fetchOldValues` de Member) y cualquier consulta restante.
+3. ✅ Dual-write de escrituras:
+   - `insertUserContexts` escribe `memberships` + `membership_roles` y, por compatibilidad, `user_contexts`.
+   - Creación de empresa, alta/adjuntar miembro, actualización de roles, aceptación de invitación y baja de miembro usan memberships.
+   - `removeMember` limpia membership y `user_contexts`; la baja de rol limpia `membership_roles` y `user_contexts`.
+   - `audit-log.interceptor` y chequeos de Owner usan memberships.
+4. Eliminar escrituras/lecturas legacy de `user_contexts`, quitar triggers y la tabla.
 5. Diseñar RLS de `users`/`companies` basada en memberships y pasar la app a `kaleo_app`.
 
-> **Importante:** las lecturas nuevas requieren las migraciones `026` y `027` aplicadas en el entorno antes de desplegar el código.
+> **Importante:** el código actual requiere las migraciones `026` y `027` aplicadas antes de desplegar. La tabla `user_contexts` sigue existiendo solo como compatibilidad temporal.
+
+## Validación de dual-write
+
+`npm run smoke:outbox -- staging` crea una empresa y verifica en la misma corrida:
+
+- 1 membership,
+- 1 rol,
+- 1 `user_context` legacy,
+- auditoría y evento outbox.
 
 ## Reglas mientras dure la transición
 

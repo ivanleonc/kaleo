@@ -167,7 +167,8 @@ export class MemberRepository {
           userId = userResult[0].id;
           userAlreadyExisted = true;
           const memberCheck = await queryRunner.query(
-            `SELECT 1 FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
+            `SELECT 1 FROM memberships
+             WHERE user_id = $1 AND company_id = $2 AND status = 'active'`,
             [userId, companyId],
           );
           if (memberCheck.length > 0) {
@@ -239,6 +240,16 @@ export class MemberRepository {
         );
 
         if (data.roleIds && data.roleIds.length > 0) {
+          await queryRunner.query(
+            `DELETE FROM membership_roles
+             WHERE company_id = $1
+               AND membership_id = (
+                 SELECT id FROM memberships
+                 WHERE company_id = $1 AND user_id = $2
+               )`,
+            [companyId, userId],
+          );
+
           await queryRunner.query(
             `DELETE FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
             [userId, companyId],
@@ -353,7 +364,8 @@ export class MemberRepository {
     try {
       await runInTransaction(this.dataSource, async (queryRunner) => {
         const memberCheck = await queryRunner.query(
-          `SELECT 1 FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
+          `SELECT 1 FROM memberships
+           WHERE user_id = $1 AND company_id = $2 AND status = 'active'`,
           [userId, companyId],
         );
         if (memberCheck.length > 0) {
@@ -438,19 +450,28 @@ export class MemberRepository {
       // único Owner activo el borrado se rechaza.
       const ownerCheck = await queryRunner.query(
         `SELECT COUNT(*) AS total
-         FROM user_contexts uc
-         INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
-         WHERE uc.company_id = $1
+         FROM memberships m
+         INNER JOIN membership_roles mr
+           ON mr.membership_id = m.id AND mr.company_id = m.company_id
+         INNER JOIN roles r ON r.id = mr.role_id AND r.deleted_at IS NULL
+         WHERE m.company_id = $1
+           AND m.status = 'active'
            AND r.name = 'Owner'
-           AND uc.user_id != $2`,
+           AND m.user_id != $2`,
         [companyId, userId],
       );
       const otherOwners = parseInt(ownerCheck[0]?.total ?? '0', 10);
 
       const isOwner = await queryRunner.query(
-        `SELECT 1 FROM user_contexts uc
-         INNER JOIN roles r ON r.id = uc.role_id AND r.deleted_at IS NULL
-         WHERE uc.user_id = $1 AND uc.company_id = $2 AND r.name = 'Owner'`,
+        `SELECT 1
+         FROM memberships m
+         INNER JOIN membership_roles mr
+           ON mr.membership_id = m.id AND mr.company_id = m.company_id
+         INNER JOIN roles r ON r.id = mr.role_id AND r.deleted_at IS NULL
+         WHERE m.user_id = $1
+           AND m.company_id = $2
+           AND m.status = 'active'
+           AND r.name = 'Owner'`,
         [userId, companyId],
       );
 
@@ -469,6 +490,11 @@ export class MemberRepository {
       if (deleted.length === 0) {
         throw new NotFoundException('El usuario no es miembro de esta empresa');
       }
+
+      await queryRunner.query(
+        `DELETE FROM memberships WHERE company_id = $1 AND user_id = $2`,
+        [companyId, userId],
+      );
 
       if (onRemoved) {
         await onRemoved(queryRunner, userRows[0]);
