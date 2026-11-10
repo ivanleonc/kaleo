@@ -76,6 +76,21 @@ export class CompanyRepository {
 
         await upsertMembershipWithRoles(queryRunner, userId, newCompany!.id, [ownerRoleId]);
 
+        // Toda empresa nueva arranca en el plan core (si ya existe el catálogo
+        // de planes). Las migraciones lo hacen para empresas existentes.
+        await queryRunner.query(
+          `INSERT INTO subscriptions (company_id, plan_id, status, current_period_start)
+           SELECT $1, p.id, 'active', now()
+           FROM plans p
+           WHERE p.code = 'core'
+             AND NOT EXISTS (
+               SELECT 1 FROM subscriptions s
+               WHERE s.company_id = $1
+                 AND s.status IN ('trialing', 'active', 'past_due')
+             )`,
+          [newCompany!.id],
+        );
+
         if (onCreated) {
           await onCreated(queryRunner, newCompany!);
         }
