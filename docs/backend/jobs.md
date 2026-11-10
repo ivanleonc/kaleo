@@ -70,6 +70,7 @@ Ver `operations.md` para endpoints y ciclo de vida.
 - Endpoint/admin para ver pendientes y reintentar dead-letter.
 - Métricas de profundidad y latencia por cola.
 - Mover el worker a un proceso separado si el volumen crece.
+- Retención configurable: `OPERATIONS_RETENTION_DAYS` (7) y `JOBS_RETENTION_DAYS` (30).
 
 ## Migración
 

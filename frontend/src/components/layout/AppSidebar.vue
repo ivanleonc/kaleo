@@ -65,6 +65,10 @@
         <IconClipboardList :size="22" stroke-width="1.8" />
         <span class="nav-label">Auditoría</span>
       </router-link>
+      <router-link :to="companyPath('/operations')" class="nav-link" active-class="active">
+        <IconActivity :size="22" stroke-width="1.8" />
+        <span class="nav-label">Operaciones</span>
+      </router-link>
       <router-link :to="companyPath('/settings')" class="nav-link" active-class="active" v-permission="Permissions.COMPANY.READ" v-if="modulesStore.isEnabled('core.company')">
         <IconSettings :size="22" stroke-width="1.8" />
         <span class="nav-label">Ajustes</span>
@@ -138,6 +142,7 @@ import {
   IconShieldLock,
   IconClipboardList,
   IconSettings,
+  IconActivity,
   IconPin,
   IconPinFilled,
   IconSun,

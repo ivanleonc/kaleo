@@ -7,10 +7,21 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiHeader,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Ok } from '../../common/dto/api-response.dto.js';
 import { Permissions } from '../../common/constants/permissions.js';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
@@ -20,13 +31,17 @@ import { Audit } from '../../common/decorators/audit-context.decorator.js';
 import { OperationsService } from './operations.service.js';
 import { ExportRequestDto, ReportRequestDto } from './dto/export-request.dto.js';
 import { ImportBranchesDto } from './dto/import-branches.dto.js';
+import { BranchImportParser } from './branch-import.parser.js';
 import type { OperationRow } from './operations.types.js';
 
 @ApiTags('Operations')
 @ApiBearerAuth()
 @Controller('api/operations')
 export class OperationsController {
-  constructor(private readonly operations: OperationsService) {}
+  constructor(
+    private readonly operations: OperationsService,
+    private readonly importParser: BranchImportParser,
+  ) {}
 
   @Post('exports/members')
   @UseGuards(PermissionsGuard)
@@ -124,6 +139,58 @@ export class OperationsController {
       ),
       'Importación encolada',
     );
+  }
+
+  @Post('imports/branches/file')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permissions.BRANCHES.CREATE)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @Audit({ entityType: 'Settings', skip: true })
+  @ApiHeader({ name: 'x-company-id', required: true })
+  @ApiOperation({ summary: 'Encolar importación de sedes desde CSV/XLSX' })
+  async importBranchesFile(
+    @CurrentUser('id') userId: string,
+    @Headers('x-company-id') companyId: string | undefined,
+    @UploadedFile() file: any,
+  ) {
+    if (!companyId) throw new BadRequestException('Falta el header x-company-id');
+    if (!file?.buffer) throw new BadRequestException('Falta el archivo');
+
+    const rows = await this.importParser.parse({
+      buffer: file.buffer,
+      originalname: file.originalname ?? '',
+    });
+
+    return Ok(
+      stripData(await this.operations.requestBranchImport(companyId, userId, rows)),
+      'Importación encolada',
+    );
+  }
+
+  @Get()
+  @ApiHeader({ name: 'x-company-id', required: true })
+  @ApiOperation({ summary: 'Operaciones asíncronas del usuario' })
+  async list(
+    @CurrentUser('id') userId: string,
+    @Headers('x-company-id') companyId: string | undefined,
+    @Query('limit') limit?: string,
+  ) {
+    if (!companyId) throw new BadRequestException('Falta el header x-company-id');
+    const parsed = limit ? Number(limit) : 50;
+    const operations = await this.operations.list(
+      companyId,
+      userId,
+      Number.isFinite(parsed) ? parsed : 50,
+    );
+    return Ok(operations.map(stripData));
   }
 
   @Get(':id')

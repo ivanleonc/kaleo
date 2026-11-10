@@ -104,6 +104,7 @@ npm run migrate -- production --accept-checksum 000
 | `044-outbox-retries.sql` | Backoff y dead-letter para eventos del outbox. |
 | `045-jobs-queue.sql` | Cola genérica de jobs con backoff y dead-letter. |
 | `046-operations.sql` | Operaciones asíncronas y artefactos de exports/reportes. |
+| `047-retention-indexes.sql` | Índices de retención para operaciones y jobs. |
 
 ## Verificar el estado
 

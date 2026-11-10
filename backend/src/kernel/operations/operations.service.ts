@@ -95,6 +95,10 @@ export class OperationsService {
     return operation;
   }
 
+  list(companyId: string, userId: string, limit?: number): Promise<OperationRow[]> {
+    return this.repository.list(companyId, userId, limit);
+  }
+
   async getForWorker(id: string): Promise<OperationRow> {
     const operation = await this.repository.getInternal(id);
     if (!operation) throw new NotFoundException('Operación no encontrada');

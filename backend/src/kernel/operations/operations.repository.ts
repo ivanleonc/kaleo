@@ -54,6 +54,23 @@ export class OperationsRepository {
     });
   }
 
+  async list(companyId: string, userId: string, limit = 50): Promise<OperationRow[]> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `SELECT id, company_id, user_id, kind, resource, format, status,
+                filename, content_type, NULL::bytea AS data, result, error,
+                created_at, completed_at
+         FROM operations
+         WHERE company_id = $1 AND user_id = $2
+         ORDER BY created_at DESC
+         LIMIT $3`,
+        [companyId, userId, Math.min(Math.max(limit, 1), 100)],
+      );
+      return rows as OperationRow[];
+    });
+  }
+
   async getInternal(id: string): Promise<OperationRow | null> {
     const rows = await this.privilegedDataSource.query(
       `SELECT * FROM operations WHERE id = $1`,

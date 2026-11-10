@@ -106,6 +106,16 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/operations',
+    name: 'Operations',
+    component: () => import('@/views/OperationsView.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Operaciones',
+      moduleCode: 'core.company',
+    },
+  },
+  {
     path: '/companies/:companyId/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsView.vue'),
