@@ -23,11 +23,11 @@ Reglas:
 
 | Endpoint | Permiso | Columnas |
 |---|---|---|
-| `GET /api/companies/users/export` | `users:read` | `name`, `email`, `roles`, `status` |
-| `GET /api/companies/branches/export` | `branches:read` | `name`, `location`, `contact`, `status` |
-| `GET /api/companies/analyses/export` | `analyses:read` | `name`, `analysis_type`, `summary`, `created_at` |
-| `GET /api/companies/analyses/:analysisId/critical-zones/export` | `analyses:read` | `zone`, `municipality`, `clients`, `consumption`, `losses`, `losses_pct`, `status` |
-| `GET /api/audit/logs/export` | `audit:read` | `created_at`, `user_name`, `user_email`, `action`, `response_status`, `duration_ms`, `entity_type`, `entity_id`, `old_values`, `new_values`, `ip_address`, `user_agent` |
+| `GET /api/companies/users/export` | `core.users.read` | `name`, `email`, `roles`, `status` |
+| `GET /api/companies/branches/export` | `core.branches.read` | `name`, `location`, `contact`, `status` |
+| `GET /api/companies/analyses/export` | `core.analyses.read` | `name`, `analysis_type`, `summary`, `created_at` |
+| `GET /api/companies/analyses/:analysisId/critical-zones/export` | `core.analyses.read` | `zone`, `municipality`, `clients`, `consumption`, `losses`, `losses_pct`, `status` |
+| `GET /api/audit/logs/export` | `core.audit.read` | `created_at`, `user_name`, `user_email`, `action`, `response_status`, `duration_ms`, `entity_type`, `entity_id`, `old_values`, `new_values`, `ip_address`, `user_agent` |
 
 ### Ejemplo
 

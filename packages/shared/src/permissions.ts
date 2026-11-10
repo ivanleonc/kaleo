@@ -1,7 +1,7 @@
 /**
  * Permission constants — mirror of backend/src/common/constants/permissions.ts
  *
- * Naming convention: `module:action`
+ * Naming convention: `core.<module>.<action>`
  *
  * To add a new permission:
  * 1. Add the constant in backend first
@@ -11,78 +11,78 @@
  */
 export const Permissions = {
   AUTH: {
-    READ: 'auth:read',
-    UPDATE: 'auth:update',
+    READ: 'core.auth.read',
+    UPDATE: 'core.auth.update',
   },
 
   USERS: {
-    READ: 'users:read',
-    CREATE: 'users:create',
-    UPDATE: 'users:update',
-    DELETE: 'users:delete',
+    READ: 'core.users.read',
+    CREATE: 'core.users.create',
+    UPDATE: 'core.users.update',
+    DELETE: 'core.users.delete',
   },
 
   ROLES: {
-    READ: 'roles:read',
-    CREATE: 'roles:create',
-    UPDATE: 'roles:update',
-    DELETE: 'roles:delete',
+    READ: 'core.roles.read',
+    CREATE: 'core.roles.create',
+    UPDATE: 'core.roles.update',
+    DELETE: 'core.roles.delete',
   },
 
   COMPANY: {
-    READ: 'company:read',
-    UPDATE: 'company:update',
+    READ: 'core.company.read',
+    UPDATE: 'core.company.update',
   },
 
   SETTINGS: {
-    READ: 'settings:read',
-    UPDATE: 'settings:update',
+    READ: 'core.settings.read',
+    UPDATE: 'core.settings.update',
   },
 
   PROFILE: {
-    READ: 'profile:read',
-    UPDATE: 'profile:update',
+    READ: 'core.profile.read',
+    UPDATE: 'core.profile.update',
   },
 
   DASHBOARD: {
-    READ: 'dashboard:read',
+    READ: 'core.dashboard.read',
   },
 
   BRANCHES: {
-    READ: 'branches:read',
-    CREATE: 'branches:create',
-    UPDATE: 'branches:update',
-    DELETE: 'branches:delete',
+    READ: 'core.branches.read',
+    CREATE: 'core.branches.create',
+    UPDATE: 'core.branches.update',
+    DELETE: 'core.branches.delete',
   },
 
   ANALYSES: {
-    READ: 'analyses:read',
-    CREATE: 'analyses:create',
-    UPDATE: 'analyses:update',
-    DELETE: 'analyses:delete',
+    READ: 'core.analyses.read',
+    CREATE: 'core.analyses.create',
+    UPDATE: 'core.analyses.update',
+    DELETE: 'core.analyses.delete',
   },
 
   AUDIT: {
-    READ: 'audit:read',
+    READ: 'core.audit.read',
   },
 
   BILLING: {
-    READ: 'billing:read',
-    UPDATE: 'billing:update',
+    READ: 'core.billing.read',
+    UPDATE: 'core.billing.update',
   },
 
   NOTIFICATIONS: {
-    READ: 'notifications:read',
-    UPDATE: 'notifications:update',
+    READ: 'core.notifications.read',
+    UPDATE: 'core.notifications.update',
   },
 
   INTEGRATIONS: {
-    READ: 'integrations:read',
-    UPDATE: 'integrations:update',
+    READ: 'core.integrations.read',
+    UPDATE: 'core.integrations.update',
   },
 } as const;
 
-/** Unión de todos los códigos de permiso: 'auth:read' | 'users:create' | ... */
+/** Unión de todos los códigos de permiso: 'core.auth.read' | 'core.users.create' | ... */
 export type PermissionCode =
   (typeof Permissions)[keyof typeof Permissions][keyof (typeof Permissions)[keyof typeof Permissions]];
 

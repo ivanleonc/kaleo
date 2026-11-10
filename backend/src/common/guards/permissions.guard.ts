@@ -4,6 +4,15 @@ import { PERMISSIONS_KEY } from '../decorators/permissions.decorator.js';
 import { SystemRoles } from '../constants/roles.js';
 import { COMPANY_ID_HEADER } from '../constants/headers.js';
 
+/**
+ * Compatibilidad durante la migración a `core.*`: acepta el código legacy
+ * `users:read` cuando se exige `core.users.read`.
+ */
+function legacyPermission(code: string): string | null {
+  const match = /^core\.([a-z]+)\.([a-z]+)$/.exec(code);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -50,7 +59,11 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const hasPermission = requiredPermissions.every((perm) => userPermissions.includes(perm));
+    const hasPermission = requiredPermissions.every((perm) => {
+      if (userPermissions.includes(perm)) return true;
+      const legacy = legacyPermission(perm);
+      return legacy !== null && userPermissions.includes(legacy);
+    });
 
     if (!hasPermission) {
       throw new ForbiddenException(

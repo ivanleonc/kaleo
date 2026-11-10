@@ -76,7 +76,7 @@ src/
 │   └── useToast.ts        → Sistema de toasts
 │
 ├── directives/
-│   └── permission.ts      → v-permission="'users:read'" — elimina el elemento si sin permiso
+│   └── permission.ts      → v-permission="'core.users.read'" — elimina el elemento si sin permiso
 │
 ├── layouts/
 │   ├── AuthenticatedLayout.vue → Topbar, sidebar, org-switcher, UiOfflineBanner

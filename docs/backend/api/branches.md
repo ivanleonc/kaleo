@@ -10,7 +10,7 @@ Todos los endpoints requieren `Bearer token` + `x-company-id`.
 
 Lista paginada de sedes de la empresa activa.
 
-**Permiso:** `branches:read`
+**Permiso:** `core.branches.read`
 
 **Query params:**
 
@@ -72,7 +72,7 @@ La asignación se gestiona desde `PUT /api/companies/users/:userId/branches`.
 
 Exporta **todas** las sedes que cumplen los filtros (no solo la página actual) como archivo CSV o Excel.
 
-**Permiso:** `branches:read`
+**Permiso:** `core.branches.read`
 
 **Query params:** los mismos que `GET /api/companies/branches` (sin `page` ni `limit`), más:
 
@@ -100,7 +100,7 @@ Máximo **10.000 filas** por exportación. Si se supera, responde `413` con un m
 
 Crea una nueva sede.
 
-**Permiso:** `branches:create`
+**Permiso:** `core.branches.create`
 
 **Body:**
 
@@ -135,7 +135,7 @@ Crea una nueva sede.
 
 Actualiza una sede (todos los campos son opcionales).
 
-**Permiso:** `branches:update`
+**Permiso:** `core.branches.update`
 
 **Body:** Mismos campos que en `POST`, más:
 
@@ -156,7 +156,7 @@ Solo puede haber una sede principal por empresa. Al marcar `is_main: true`, la s
 
 Elimina una sede (soft delete — establece `deleted_at`).
 
-**Permiso:** `branches:delete`
+**Permiso:** `core.branches.delete`
 
 ::: danger
 No se puede eliminar una sede marcada como `is_main = true`. Primero asigna otra sede como principal.

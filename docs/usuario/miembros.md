@@ -2,7 +2,7 @@
 
 ## Ver los miembros
 
-En el menú lateral, selecciona **Miembros del Equipo** (requiere permiso `users:read`). Verás la lista paginada con nombre, email, roles y estado.
+En el menú lateral, selecciona **Miembros del Equipo** (requiere permiso `core.users.read`). Verás la lista paginada con nombre, email, roles y estado.
 
 Puedes filtrar por:
 - **Búsqueda de texto** — nombre o email
@@ -11,7 +11,7 @@ Puedes filtrar por:
 
 ## Invitar un nuevo miembro
 
-Haz clic en **Nuevo Miembro** (requiere permiso `users:create`):
+Haz clic en **Nuevo Miembro** (requiere permiso `core.users.create`):
 
 1. Ingresa el nombre y correo electrónico
 2. Asigna uno o más roles
@@ -24,7 +24,7 @@ Si el correo es **nuevo**, se crea la cuenta automáticamente con una contraseñ
 
 ## Editar un miembro
 
-Haz clic en los **tres puntos** (⋮) junto al miembro → **Editar** (requiere `users:update`):
+Haz clic en los **tres puntos** (⋮) junto al miembro → **Editar** (requiere `core.users.update`):
 
 - Cambiar roles asignados
 - Cambiar estado (Activo / Inactivo)
@@ -34,7 +34,7 @@ Al desactivar un miembro, verás un aviso con la opción de **Deshacer** por uno
 
 ## Resetear contraseña
 
-En el menú de acciones del miembro → **Resetear contraseña** (requiere `users:update`):
+En el menú de acciones del miembro → **Resetear contraseña** (requiere `core.users.update`):
 
 - **Solo generar:** Genera una contraseña temporal y la muestra en pantalla para que el admin la comparta manualmente.
 - **Generar y enviar:** Genera la contraseña y la envía automáticamente al email del miembro.
@@ -45,7 +45,7 @@ Si administras más de una empresa, puedes asignar o quitar a un miembro de otra
 
 ## Eliminar un miembro
 
-En el menú de acciones → **Eliminar** (requiere `users:delete`). El miembro pierde acceso a la empresa, pero **su cuenta no se elimina** — puede ser invitado de nuevo.
+En el menú de acciones → **Eliminar** (requiere `core.users.delete`). El miembro pierde acceso a la empresa, pero **su cuenta no se elimina** — puede ser invitado de nuevo.
 
 ::: warning
 No puedes eliminarte a ti mismo del equipo. Pide a otro administrador que lo haga.

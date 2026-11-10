@@ -20,13 +20,13 @@ Lista todos los permisos disponibles en el sistema.
   "data": [
     {
       "id": "uuid",
-      "code": "users:read",
+      "code": "core.users.read",
       "name": "Ver miembros",
       "module": "users"
     },
     {
       "id": "uuid",
-      "code": "branches:create",
+      "code": "core.branches.create",
       "name": "Crear sedes",
       "module": "branches"
     }

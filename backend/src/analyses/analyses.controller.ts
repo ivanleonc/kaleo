@@ -133,7 +133,7 @@ export class AnalysesController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Crear un análisis',
-    description: 'Guarda el resultado procesado de un análisis. Requiere permiso analyses:create.',
+    description: 'Guarda el resultado procesado de un análisis. Requiere permiso core.analyses.create.',
   })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiResponse({ status: 201, description: 'Análisis creado' })

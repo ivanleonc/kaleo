@@ -10,7 +10,7 @@ Todos los endpoints requieren `Bearer token` + `x-company-id`.
 
 Lista paginada de miembros de la empresa activa.
 
-**Permiso:** `users:read`
+**Permiso:** `core.users.read`
 
 **Query params:**
 
@@ -55,7 +55,7 @@ Lista paginada de miembros de la empresa activa.
 
 Exporta **todos** los miembros que cumplen los filtros (no solo la página actual) como archivo CSV o Excel.
 
-**Permiso:** `users:read`
+**Permiso:** `core.users.read`
 
 **Query params:** los mismos que `GET /api/companies/users` (sin `page` ni `limit`), más:
 
@@ -83,7 +83,7 @@ Máximo **10.000 filas** por exportación. Si se supera, responde `413` con un m
 
 Agrega un miembro a la empresa. Si el email no existe, crea la cuenta con contraseña temporal y la envía por email.
 
-**Permiso:** `users:create`
+**Permiso:** `core.users.create`
 
 **Body:**
 
@@ -122,7 +122,7 @@ Agrega un miembro a la empresa. Si el email no existe, crea la cuenta con contra
 
 Actualiza datos del miembro en la empresa activa.
 
-**Permiso:** `users:update`
+**Permiso:** `core.users.update`
 
 **Body (todos opcionales):**
 
@@ -143,7 +143,7 @@ Actualiza datos del miembro en la empresa activa.
 
 Genera una nueva contraseña temporal (sin enviar email). Devuelve la contraseña en la respuesta para que el admin la comparta manualmente.
 
-**Permiso:** `users:update`
+**Permiso:** `core.users.update`
 
 **Respuesta `200`:**
 
@@ -160,7 +160,7 @@ Genera una nueva contraseña temporal (sin enviar email). Devuelve la contraseñ
 
 Genera una nueva contraseña temporal Y la envía automáticamente al email del usuario.
 
-**Permiso:** `users:update`
+**Permiso:** `core.users.update`
 
 ---
 
@@ -168,7 +168,7 @@ Genera una nueva contraseña temporal Y la envía automáticamente al email del 
 
 Quita al usuario de la empresa activa (soft detach — no borra la cuenta).
 
-**Permiso:** `users:delete`
+**Permiso:** `core.users.delete`
 
 ::: warning
 No se puede eliminar al único Owner de una empresa.
@@ -180,7 +180,7 @@ No se puede eliminar al único Owner de una empresa.
 
 Busca usuarios por nombre o email. Usado para autocompletar en el modal de asignación multi-empresa.
 
-**Permiso:** `users:create` · Query: `?q=ana` (mínimo 2 caracteres)
+**Permiso:** `core.users.create` · Query: `?q=ana` (mínimo 2 caracteres)
 
 **Respuesta `200`:**
 
@@ -199,7 +199,7 @@ Busca usuarios por nombre o email. Usado para autocompletar en el modal de asign
 
 Lista todas las empresas a las que pertenece un usuario (con sus roles en cada una).
 
-**Permiso:** `users:read`
+**Permiso:** `core.users.read`
 
 **Respuesta `200`:**
 
@@ -220,7 +220,7 @@ Lista todas las empresas a las que pertenece un usuario (con sus roles en cada u
 Lista las sedes asignadas al miembro. Una lista vacía significa que el usuario
 ve todas las sedes de la empresa (sin alcance por sede).
 
-**Permiso:** `users:read`
+**Permiso:** `core.users.read`
 
 **Respuesta `200`:**
 
@@ -237,7 +237,7 @@ ve todas las sedes de la empresa (sin alcance por sede).
 
 Reemplaza las sedes asignadas al miembro.
 
-**Permiso:** `users:update`
+**Permiso:** `core.users.update`
 
 **Body:**
 
@@ -257,7 +257,7 @@ Reemplaza las sedes asignadas al miembro.
 
 Asigna un usuario existente a una empresa específica (puede ser diferente de la activa).
 
-**Permiso:** `users:create` · El header `x-company-id` debe coincidir con `:id`
+**Permiso:** `core.users.create` · El header `x-company-id` debe coincidir con `:id`
 
 **Body:**
 
@@ -275,4 +275,4 @@ Asigna un usuario existente a una empresa específica (puede ser diferente de la
 
 Quita un usuario de una empresa específica.
 
-**Permiso:** `users:delete` · El header `x-company-id` debe coincidir con `:id`
+**Permiso:** `core.users.delete` · El header `x-company-id` debe coincidir con `:id`

@@ -24,9 +24,9 @@ export class CompanyMemberController {
 
   @Post(':id/members')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:create')
+  @RequirePermissions('core.users.create')
   @Audit({ entityType: 'Member', resolveCreatedId: (r) => r?.data?.id })
-  @ApiOperation({ summary: 'Asignar un usuario a una empresa explícita', description: 'Si el usuario existe (por userId o email) solo se vincula, sin tocar su contraseña. Si no existe, se crea con temporal por correo (requiere name). Los roles deben pertenecer a la empresa destino. Super-admin u Owner con users:create.' })
+  @ApiOperation({ summary: 'Asignar un usuario a una empresa explícita', description: 'Si el usuario existe (por userId o email) solo se vincula, sin tocar su contraseña. Si no existe, se crea con temporal por correo (requiere name). Los roles deben pertenecer a la empresa destino. Super-admin u Owner con core.users.create.' })
   @ApiParam({ name: 'id', description: 'UUID de la empresa destino' })
   @ApiHeader({ name: 'x-company-id', description: 'Debe coincidir con :id, salvo super-admin', required: true })
   @ApiResponse({ status: 201, description: 'Miembro asignado' })
@@ -57,9 +57,9 @@ export class CompanyMemberController {
 
   @Delete(':id/members/:userId')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:delete')
+  @RequirePermissions('core.users.delete')
   @Audit({ entityType: 'Member', idParam: 'userId' })
-  @ApiOperation({ summary: 'Quitar un miembro de una empresa explícita', description: 'Respeta la protección de último Owner. Super-admin u Owner con users:delete.' })
+  @ApiOperation({ summary: 'Quitar un miembro de una empresa explícita', description: 'Respeta la protección de último Owner. Super-admin u Owner con core.users.delete.' })
   @ApiParam({ name: 'id', description: 'UUID de la empresa destino' })
   @ApiParam({ name: 'userId', description: 'UUID del usuario' })
   @ApiHeader({ name: 'x-company-id', description: 'Debe coincidir con :id, salvo super-admin', required: true })

@@ -11,7 +11,7 @@ Navega a **Configuración** en el menú lateral. Verás los datos actuales de tu
 
 ## Editar la empresa
 
-Haz clic en **Editar Empresa** (requiere permiso `company:update`):
+Haz clic en **Editar Empresa** (requiere permiso `core.company.update`):
 
 | Campo | Descripción |
 |---|---|

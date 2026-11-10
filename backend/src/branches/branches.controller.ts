@@ -20,8 +20,8 @@ export class BranchController {
 
   @Get()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('branches:read')
-  @ApiOperation({ summary: 'Obtener sedes de la empresa', description: 'Lista paginada con búsqueda, filtro de estado y orden. Requiere permiso branches:read.' })
+  @RequirePermissions('core.branches.read')
+  @ApiOperation({ summary: 'Obtener sedes de la empresa', description: 'Lista paginada con búsqueda, filtro de estado y orden. Requiere permiso core.branches.read.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiResponse({ status: 200, description: 'Lista paginada de sedes' })
   @ApiResponse({ status: 403, description: 'Permiso denegado' })
@@ -41,10 +41,10 @@ export class BranchController {
 
   @Get('export')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('branches:read')
+  @RequirePermissions('core.branches.read')
   @ApiOperation({
     summary: 'Exportar sedes de la empresa',
-    description: 'Exporta todas las sedes que cumplen los filtros en CSV o Excel. Requiere permiso branches:read.',
+    description: 'Exporta todas las sedes que cumplen los filtros en CSV o Excel. Requiere permiso core.branches.read.',
   })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiResponse({ status: 200, description: 'Archivo CSV o XLSX' })
@@ -68,10 +68,10 @@ export class BranchController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('branches:create')
+  @RequirePermissions('core.branches.create')
   @Audit({ entityType: 'Branch', resolveCreatedId: (r) => r?.data?.id })
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Crear una sede', description: 'Crea una nueva sede para la empresa. Requiere permiso branches:create.' })
+  @ApiOperation({ summary: 'Crear una sede', description: 'Crea una nueva sede para la empresa. Requiere permiso core.branches.create.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiResponse({ status: 201, description: 'Sede creada' })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
@@ -87,9 +87,9 @@ export class BranchController {
 
   @Patch(':branchId')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('branches:update')
+  @RequirePermissions('core.branches.update')
   @Audit({ entityType: 'Branch', idParam: 'branchId' })
-  @ApiOperation({ summary: 'Actualizar una sede', description: 'Actualiza información de la sede. Requiere permiso branches:update.' })
+  @ApiOperation({ summary: 'Actualizar una sede', description: 'Actualiza información de la sede. Requiere permiso core.branches.update.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'branchId', description: 'UUID de la sede', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({ status: 200, description: 'Sede actualizada' })
@@ -108,9 +108,9 @@ export class BranchController {
 
   @Delete(':branchId')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('branches:delete')
+  @RequirePermissions('core.branches.delete')
   @Audit({ entityType: 'Branch', idParam: 'branchId' })
-  @ApiOperation({ summary: 'Eliminar una sede', description: 'Soft delete de la sede. No se puede si tiene miembros asignados. Requiere permiso branches:delete.' })
+  @ApiOperation({ summary: 'Eliminar una sede', description: 'Soft delete de la sede. No se puede si tiene miembros asignados. Requiere permiso core.branches.delete.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'branchId', description: 'UUID de la sede' })
   @ApiResponse({ status: 200, description: 'Sede eliminada' })

@@ -27,7 +27,7 @@ Cada request autenticado lleva el header `x-company-id` (UUID) que identifica la
 Los tokens de acceso expiran en **15 minutos**. El refresh token (7 días) permite renovarlos silenciosamente. Al revocar sesión, los access tokens se añaden a una blacklist.
 
 ### RBAC por empresa
-Los permisos son granulares (`users:read`, `branches:create`, etc.) y se asignan a través de roles configurables por empresa. Los roles `Owner`, `Admin` y `Viewer` son del sistema; las empresas pueden crear roles personalizados.
+Los permisos son granulares (`core.users.read`, `core.branches.create`, etc.) y se asignan a través de roles configurables por empresa. Los roles `Owner`, `Admin` y `Viewer` son del sistema; las empresas pueden crear roles personalizados.
 
 ### SQL directo con tipos
 El backend usa TypeORM únicamente como gestor de conexiones. Todas las queries son SQL plano, tipadas con `rows<T>()` y `row<T>()`. Esto facilita una futura migración a Kysely o Drizzle.

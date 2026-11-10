@@ -2,7 +2,7 @@
 
 Base: `/api/audit`
 
-Todos los endpoints requieren `Bearer token` + `x-company-id` + permiso `audit:read`.
+Todos los endpoints requieren `Bearer token` + `x-company-id` + permiso `core.audit.read`.
 
 ## Por qué paginación por cursor
 

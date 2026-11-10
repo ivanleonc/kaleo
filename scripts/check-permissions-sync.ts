@@ -16,7 +16,7 @@ const root = resolve(__dirname, '..');
 
 function extractPermissionCodes(filePath: string): Set<string> {
   const content = readFileSync(filePath, 'utf-8');
-  const matches = content.matchAll(/'([a-z]+:[a-z]+)'/g);
+  const matches = content.matchAll(/'((?:[a-z]+\.)+[a-z]+|[a-z]+:[a-z]+)'/g);
   return new Set([...matches].map((m) => m[1]));
 }
 

@@ -79,7 +79,16 @@ export const useAuthStore = defineStore('auth', () => {
     const activePerms = activeId
       ? (user.value.companyPermissions?.[activeId] ?? user.value.permissions ?? [])
       : (user.value.permissions ?? []);
-    return activePerms.includes(permission);
+    if (activePerms.includes(permission)) return true;
+
+    // Transición a `core.*`: acepta el código legacy mientras los claims
+    // emitidos antes de la migración sigan en circulación.
+    if (permission.startsWith('core.')) {
+      const legacy = permission.replace(/^core\.([a-z]+)\.([a-z]+)$/, '$1:$2');
+      return activePerms.includes(legacy);
+    }
+    const namespaced = permission.replace(/^([a-z]+):([a-z]+)$/, 'core.$1.$2');
+    return activePerms.includes(namespaced);
   };
 
   const hasRole = (role: string): boolean => {

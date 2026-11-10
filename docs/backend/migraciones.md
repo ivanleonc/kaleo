@@ -94,6 +94,7 @@ npm run migrate -- production --accept-checksum 000
 | `034-company-slug-active-unique.sql` | Slug de empresa único solo entre activas. |
 | `035-refresh-token-session-metadata.sql` | IP, user-agent y último uso en refresh tokens. |
 | `036-refresh-token-family-default.sql` | Default de `family_id` para inserciones durante el despliegue. |
+| `037-permissions-namespace.sql` | Migra permisos a `core.*` e invalida claims para refrescar. |
 
 ## Verificar el estado
 

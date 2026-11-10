@@ -115,7 +115,7 @@ async changeTemp(@Body() dto: ChangePasswordDto) { ... }
 
 ```ts
 @Get()
-@RequirePermissions(Permissions.USERS.READ)  // 'users:read'
+@RequirePermissions(Permissions.USERS.READ)  // 'core.users.read'
 list(@Headers('x-company-id') companyId: string) { ... }
 ```
 

@@ -17,7 +17,7 @@ export interface JwtPayload {
    */
   companyRoles: Record<string, string[]>;
   /**
-   * Permisos del usuario por empresa: { [companyId]: ['users:read', ...] }
+   * Permisos del usuario por empresa: { [companyId]: ['core.users.read', ...] }
    * El guard de permisos lee este mapa contra el x-company-id del request.
    */
   companyPermissions: Record<string, string[]>;

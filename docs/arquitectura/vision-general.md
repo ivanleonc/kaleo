@@ -94,7 +94,7 @@ Kaleo es una plataforma SaaS multi-tenant construida en capas claramente separad
    PasswordChangedGuard → ¿debe cambiar contraseña?
    CompanyAccessGuard → ¿usuario pertenece a la empresa del header?
 
-3. Controller: @RequirePermissions('branches:create')
+3. Controller: @RequirePermissions('core.branches.create')
    PermissionsGuard verifica el permiso
 
 4. Service: lógica de negocio

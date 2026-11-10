@@ -27,7 +27,7 @@ export class InvitationsController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:create')
+  @RequirePermissions('core.users.create')
   @Audit({ entityType: 'Invitation', skip: true })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiOperation({
@@ -56,7 +56,7 @@ export class InvitationsController {
 
   @Get()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:read')
+  @RequirePermissions('core.users.read')
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiOperation({ summary: 'Listar invitaciones pendientes de la empresa' })
   @ApiResponse({ status: 200, description: 'Invitaciones pendientes' })
@@ -69,7 +69,7 @@ export class InvitationsController {
 
   @Delete(':invitationId')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:create')
+  @RequirePermissions('core.users.create')
   @Audit({ entityType: 'Invitation', idParam: 'invitationId', skipDiff: true })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'invitationId', description: 'UUID de la invitación' })

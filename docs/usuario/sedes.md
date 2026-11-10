@@ -2,13 +2,13 @@
 
 ## Ver las sedes
 
-En el menú lateral, selecciona **Sedes** (requiere permiso `branches:read`). Verás la lista con nombre, ubicación, contacto y estado.
+En el menú lateral, selecciona **Sedes** (requiere permiso `core.branches.read`). Verás la lista con nombre, ubicación, contacto y estado.
 
 Puedes filtrar por búsqueda de texto y por estado (Activa/Inactiva).
 
 ## Crear una sede
 
-Haz clic en **Nueva Sede** (requiere `branches:create`):
+Haz clic en **Nueva Sede** (requiere `core.branches.create`):
 
 | Campo | Requerido | Descripción |
 |---|---|---|
@@ -23,11 +23,11 @@ Haz clic en **Nueva Sede** (requiere `branches:create`):
 
 ## Editar una sede
 
-En el menú de acciones (⋮) → **Editar** (requiere `branches:update`). Todos los campos se pueden modificar.
+En el menú de acciones (⋮) → **Editar** (requiere `core.branches.update`). Todos los campos se pueden modificar.
 
 ## Activar / Desactivar
 
-En el menú de acciones → **Activar** o **Desactivar** (requiere `branches:update`).
+En el menú de acciones → **Activar** o **Desactivar** (requiere `core.branches.update`).
 
 Al desactivar, aparece un aviso con opción de **Deshacer** por unos segundos.
 
@@ -41,4 +41,4 @@ No se puede eliminar la sede principal. Primero asigna otra sede como principal.
 
 ## Eliminar una sede
 
-En el menú de acciones → **Eliminar** (requiere `branches:delete`). La sede se elimina de forma suave (se puede recuperar vía base de datos si es necesario).
+En el menú de acciones → **Eliminar** (requiere `core.branches.delete`). La sede se elimina de forma suave (se puede recuperar vía base de datos si es necesario).

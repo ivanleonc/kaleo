@@ -21,8 +21,8 @@ export class MemberController {
 
   @Get()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:read')
-  @ApiOperation({ summary: 'Obtener miembros de la empresa', description: 'Requiere permiso users:read. Header x-company-id requerido.' })
+  @RequirePermissions('core.users.read')
+  @ApiOperation({ summary: 'Obtener miembros de la empresa', description: 'Requiere permiso core.users.read. Header x-company-id requerido.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiResponse({
     status: 200,
@@ -61,10 +61,10 @@ export class MemberController {
 
   @Get('export')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:read')
+  @RequirePermissions('core.users.read')
   @ApiOperation({
     summary: 'Exportar miembros de la empresa',
-    description: 'Exporta todos los miembros que cumplen los filtros en CSV o Excel. Requiere permiso users:read.',
+    description: 'Exporta todos los miembros que cumplen los filtros en CSV o Excel. Requiere permiso core.users.read.',
   })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiResponse({ status: 200, description: 'Archivo CSV o XLSX' })
@@ -92,7 +92,7 @@ export class MemberController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:create')
+  @RequirePermissions('core.users.create')
   @Audit({ entityType: 'Member', resolveCreatedId: (r) => r?.data?.id })
   @ApiOperation({ summary: 'Agregar un miembro a la empresa', description: 'Si el email no existe, crea el usuario con contraseña temporal (must_change_password=true). Si ya existe, solo lo agrega a la empresa.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
@@ -148,9 +148,9 @@ export class MemberController {
 
   @Patch(':userId')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:update')
+  @RequirePermissions('core.users.update')
   @Audit({ entityType: 'Member', idParam: 'userId' })
-  @ApiOperation({ summary: 'Actualizar rol o estado de un miembro', description: 'Requiere permiso users:update. El userId debe ser un UUID válido.' })
+  @ApiOperation({ summary: 'Actualizar rol o estado de un miembro', description: 'Requiere permiso core.users.update. El userId debe ser un UUID válido.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'userId', description: 'UUID del usuario', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({ status: 200, description: 'Miembro actualizado' })
@@ -176,11 +176,11 @@ export class MemberController {
 
   @Post(':userId/reset-password')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:update')
+  @RequirePermissions('core.users.update')
   // skip: el servicio ya escribe ADMIN_PASSWORD_RESET con actor + email destino.
   @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true, skip: true })
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resetear contraseña de un miembro', description: 'Genera una nueva contraseña temporal. Requiere permiso users:update. El userId debe ser un UUID válido.' })
+  @ApiOperation({ summary: 'Resetear contraseña de un miembro', description: 'Genera una nueva contraseña temporal. Requiere permiso core.users.update. El userId debe ser un UUID válido.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'userId', description: 'UUID del usuario', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({
@@ -208,11 +208,11 @@ export class MemberController {
 
   @Post(':userId/reset-password-email')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:update')
+  @RequirePermissions('core.users.update')
   // skip: mismo motivo que reset-password (el servicio escribe ADMIN_PASSWORD_RESET).
   @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true, skip: true })
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resetear contraseña y enviar al correo del miembro', description: 'Genera una contraseña temporal y la envía al email del usuario. Requiere permiso users:update.' })
+  @ApiOperation({ summary: 'Resetear contraseña y enviar al correo del miembro', description: 'Genera una contraseña temporal y la envía al email del usuario. Requiere permiso core.users.update.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'userId', description: 'UUID del usuario', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({
@@ -242,9 +242,9 @@ export class MemberController {
 
   @Delete(':userId')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:delete')
+  @RequirePermissions('core.users.delete')
   @Audit({ entityType: 'Member', idParam: 'userId', skip: true })
-  @ApiOperation({ summary: 'Eliminar un miembro de la empresa', description: 'Requiere permiso users:delete. El userId debe ser un UUID válido.' })
+  @ApiOperation({ summary: 'Eliminar un miembro de la empresa', description: 'Requiere permiso core.users.delete. El userId debe ser un UUID válido.' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'userId', description: 'UUID del usuario', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({ status: 200, description: 'Miembro eliminado' })
@@ -262,10 +262,10 @@ export class MemberController {
 
   @Get('search')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:create')
+  @RequirePermissions('core.users.create')
   @ApiOperation({
     summary: 'Buscar miembros de la empresa para asignar',
-    description: 'Autocompletado por nombre o email (mínimo 2 caracteres). Solo devuelve usuarios que ya pertenecen a la empresa. Requiere permiso users:create.',
+    description: 'Autocompletado por nombre o email (mínimo 2 caracteres). Solo devuelve usuarios que ya pertenecen a la empresa. Requiere permiso core.users.create.',
   })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiQuery({ name: 'q', description: 'Texto a buscar', example: 'juan' })
@@ -281,8 +281,8 @@ export class MemberController {
 
   @Get(':userId/companies')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:read')
-  @ApiOperation({ summary: 'Empresas de un miembro', description: 'Lista las empresas (con roles) a las que pertenece un usuario. Requiere permiso users:read.' })
+  @RequirePermissions('core.users.read')
+  @ApiOperation({ summary: 'Empresas de un miembro', description: 'Lista las empresas (con roles) a las que pertenece un usuario. Requiere permiso core.users.read.' })
   @ApiParam({ name: 'userId', description: 'UUID del usuario' })
   @ApiResponse({ status: 200, description: 'Empresas del miembro' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
@@ -293,7 +293,7 @@ export class MemberController {
 
   @Get(':userId/branches')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:read')
+  @RequirePermissions('core.users.read')
   @ApiOperation({ summary: 'Sedes asignadas a un miembro' })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'userId', description: 'UUID del usuario' })
@@ -306,7 +306,7 @@ export class MemberController {
 
   @Put(':userId/branches')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('users:update')
+  @RequirePermissions('core.users.update')
   @Audit({ entityType: 'Member', idParam: 'userId', skipDiff: true })
   @ApiOperation({
     summary: 'Asignar sedes a un miembro',

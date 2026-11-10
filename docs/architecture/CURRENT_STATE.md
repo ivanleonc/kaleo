@@ -359,12 +359,8 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 
 ### 10.3 Limitaciones
 
-- Sin scope por sede o proyecto.
-- Sin unique de nombre de rol por empresa.
-- Borrado de rol en cascada sobre `membership_roles`.
-- Staleness de permisos en el JWT.
 - Permisos “fantasma” de billing, notifications e integrations sin módulo real.
-- Códigos sin namespace de plataforma (`users:read` en lugar de `core.users.read`).
+- Códigos legacy de otras verticales aún no existen; el namespace actual es `core.*`.
 
 ---
 

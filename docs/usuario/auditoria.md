@@ -4,7 +4,7 @@
 
 El módulo de Auditoría registra **todas las acciones** realizadas en tu organización: quién hizo qué, cuándo, desde qué IP, y cuáles fueron los cambios (valores antes y después).
 
-Navega a **Auditoría** en el menú lateral (requiere permiso `audit:read`).
+Navega a **Auditoría** en el menú lateral (requiere permiso `core.audit.read`).
 
 ## Entender el timeline
 

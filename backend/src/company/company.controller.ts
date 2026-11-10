@@ -63,8 +63,8 @@ export class CompanyController {
   // según dependencias de módulos y ParseUUIDPipe devolvería 400).
   @Get(':id/detail')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('company:read')
-  @ApiOperation({ summary: 'Obtener detalle de una empresa', description: 'Solo miembros de la empresa con permiso company:read. El id debe ser un UUID válido.' })
+  @RequirePermissions('core.company.read')
+  @ApiOperation({ summary: 'Obtener detalle de una empresa', description: 'Solo miembros de la empresa con permiso core.company.read. El id debe ser un UUID válido.' })
   @ApiParam({ name: 'id', description: 'UUID de la empresa' })
   @ApiResponse({ status: 200, description: 'Detalle de la empresa' })
   @ApiResponse({ status: 403, description: 'No tienes acceso a esta empresa' })

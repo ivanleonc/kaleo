@@ -16,13 +16,13 @@ Puedes crear roles adicionales con combinaciones específicas de permisos. Ejemp
 
 ## Ver los roles
 
-En el menú lateral, selecciona **Roles y Permisos** (requiere `roles:read`). Verás tarjetas para cada rol con sus permisos agrupados por módulo.
+En el menú lateral, selecciona **Roles y Permisos** (requiere `core.roles.read`). Verás tarjetas para cada rol con sus permisos agrupados por módulo.
 
 Haz clic en el nombre de un módulo para expandir/colapsar sus permisos.
 
 ## Crear un rol personalizado
 
-Haz clic en **Crear Nuevo Rol** (requiere `roles:create`):
+Haz clic en **Crear Nuevo Rol** (requiere `core.roles.create`):
 
 1. Ingresa el **nombre** del rol (obligatorio)
 2. Agrega una **descripción** opcional
@@ -32,7 +32,7 @@ Haz clic en **Crear Nuevo Rol** (requiere `roles:create`):
 
 ## Editar un rol
 
-En el menú de acciones (⋮) de la tarjeta del rol → **Editar Rol** (requiere `roles:update`):
+En el menú de acciones (⋮) de la tarjeta del rol → **Editar Rol** (requiere `core.roles.update`):
 - Cambia el nombre, descripción, color
 - Agrega o quita permisos
 
@@ -42,7 +42,7 @@ Los roles `Owner`, `Admin` y `Viewer` no aparecen con el menú de edición. Sus 
 
 ## Eliminar un rol
 
-En el menú de acciones → **Eliminar Rol** (requiere `roles:delete`, solo Owner).
+En el menú de acciones → **Eliminar Rol** (requiere `core.roles.delete`, solo Owner).
 
 ::: danger
 Para confirmar la eliminación debes **escribir el nombre exacto del rol** en el campo de confirmación. Esta acción quita el rol a todos los miembros que lo tenían asignado inmediatamente.

@@ -23,10 +23,10 @@ Los roles personalizados se crean desde **Configuración → Roles y Permisos**.
 ## Formato de permisos
 
 ```
-módulo:acción
+core.<módulo>.<acción>
 ```
 
-Ejemplos: `users:read`, `branches:create`, `audit:read`, `roles:delete`.
+Ejemplos: `core.users.read`, `core.branches.create`, `core.audit.read`, `core.roles.delete`.
 
 ## Módulos y acciones disponibles
 
@@ -52,7 +52,7 @@ Ejemplos: `users:read`, `branches:create`, `audit:read`, `roles:delete`.
 Oculta elementos del DOM si el usuario no tiene el permiso requerido:
 
 ```vue
-<!-- El botón solo aparece si el usuario tiene users:create -->
+<!-- El botón solo aparece si el usuario tiene core.users.create -->
 <UiButton v-permission="Permissions.USERS.CREATE" @click="openAddModal">
   Nuevo Miembro
 </UiButton>
@@ -64,7 +64,7 @@ Oculta elementos del DOM si el usuario no tiene el permiso requerido:
 const authStore = useAuthStore()
 
 // Verificar un permiso específico
-authStore.hasPermission('users:read')         // → boolean
+authStore.hasPermission('core.users.read')         // → boolean
 authStore.hasPermission(Permissions.USERS.READ) // equivalente
 
 // Verificar rol del sistema
@@ -122,7 +122,7 @@ JwtAuthGuard: decodifica JWT, obtiene user.id
          ↓
 CompanyAccessGuard: verifica user pertenece a company
          ↓
-PermissionsGuard: lee @RequirePermissions('users:read')
+PermissionsGuard: lee @RequirePermissions('core.users.read')
                   → busca en user.companyPermissions[company_id]
                   → si no tiene el permiso: 403 Forbidden
                   → si es Owner o super-admin: permite siempre

@@ -67,7 +67,7 @@ Inicia sesión con email y contraseña.
     "accessToken": "eyJ...",
     "refreshToken": "eyJ...",
     "tenants": [...],
-    "companyPermissions": { "<company_id>": ["users:read", "branches:create", ...] },
+    "companyPermissions": { "<company_id>": ["core.users.read", "core.branches.create", ...] },
     "companyRoles": { "<company_id>": ["Owner"] }
   }
 }

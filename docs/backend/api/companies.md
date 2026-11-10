@@ -59,7 +59,7 @@ Lista **todas** las empresas del sistema con conteo de miembros.
 
 Retorna los detalles completos de una empresa.
 
-**Requiere:** Bearer token + permiso `company:read` + `x-company-id`
+**Requiere:** Bearer token + permiso `core.company.read` + `x-company-id`
 
 **Respuesta `200`:**
 

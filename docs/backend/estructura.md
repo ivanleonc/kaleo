@@ -76,7 +76,7 @@ backend/src/
 │   │   └── roles.ts            Espejo de packages/shared
 │   ├── decorators/
 │   │   ├── public.decorator.ts          @Public() — bypassa JwtAuthGuard
-│   │   ├── require-permissions.decorator.ts  @RequirePermissions('users:read')
+│   │   ├── require-permissions.decorator.ts  @RequirePermissions('core.users.read')
 │   │   ├── roles.decorator.ts           @Roles(SystemRoles.OWNER)
 │   │   ├── current-user.decorator.ts    @CurrentUser() en parámetro de método
 │   │   ├── skip-password-changed.decorator.ts  @SkipPasswordChanged()

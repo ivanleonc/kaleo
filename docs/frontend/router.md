@@ -13,13 +13,13 @@
 | `/onboarding` | Auth | — | `OnboardingView` |
 | `/companies/:companyId` | Auth | — | Redirect → dashboard |
 | `/companies/:companyId/dashboard` | Auth | — | `DashboardView` |
-| `/companies/:companyId/settings` | Auth | `company:read` | `SettingsView` |
+| `/companies/:companyId/settings` | Auth | `core.company.read` | `SettingsView` |
 | `/companies/:companyId/profile` | Auth | — | `ProfileView` |
 | `/companies/:companyId/change-password` | Auth | — | `ChangePasswordView` |
-| `/companies/:companyId/members` | Auth | `users:read` | `MembersView` |
-| `/companies/:companyId/branches` | Auth | `branches:read` | `BranchesView` |
-| `/companies/:companyId/roles` | Auth | `roles:read` | `RolesView` |
-| `/companies/:companyId/audit` | Auth | `audit:read` | `AuditView` |
+| `/companies/:companyId/members` | Auth | `core.users.read` | `MembersView` |
+| `/companies/:companyId/branches` | Auth | `core.branches.read` | `BranchesView` |
+| `/companies/:companyId/roles` | Auth | `core.roles.read` | `RolesView` |
+| `/companies/:companyId/audit` | Auth | `core.audit.read` | `AuditView` |
 | `/:pathMatch(.*)*` | — | — | `NotFoundView` |
 
 Todas las vistas usan **lazy imports**:
@@ -33,7 +33,7 @@ component: () => import('@/views/MembersView.vue')
 interface RouteMeta {
   requiresAuth?: boolean       // Redirige a /login si no está autenticado
   requiresGuest?: boolean      // Redirige al dashboard si ya está autenticado
-  requiredPermission?: string  // Código de permiso: 'users:read', 'branches:create', etc.
+  requiredPermission?: string  // Código de permiso: 'core.users.read', 'core.branches.create', etc.
   title: string                // Usado en document.title y afterEach
 }
 ```

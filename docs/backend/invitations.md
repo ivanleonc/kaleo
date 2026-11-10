@@ -4,7 +4,7 @@
 
 ## Flujo
 
-1. Un administrador con `users:create` invita a un email desde la empresa activa.
+1. Un administrador con `core.users.create` invita a un email desde la empresa activa.
 2. El backend crea una invitación con token aleatorio (solo guarda su SHA-256), roles y expiración de 7 días.
 3. Se envía un email con el enlace `${FRONTEND_URL}/accept-invitation?token=...`.
 4. La persona abre el enlace:
@@ -20,9 +20,9 @@ Crear una invitación **no revela** si el email ya existe. La respuesta es la mi
 
 | Método | Ruta | Permiso |
 |---|---|---|
-| POST | `/api/companies/users/invitations` | `users:create` |
-| GET | `/api/companies/users/invitations` | `users:read` |
-| DELETE | `/api/companies/users/invitations/:invitationId` | `users:create` |
+| POST | `/api/companies/users/invitations` | `core.users.create` |
+| GET | `/api/companies/users/invitations` | `core.users.read` |
+| DELETE | `/api/companies/users/invitations/:invitationId` | `core.users.create` |
 
 Header obligatorio: `x-company-id`.
 

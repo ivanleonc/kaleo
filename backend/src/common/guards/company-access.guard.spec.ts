@@ -155,15 +155,15 @@ describe('CompanyAccessGuard', () => {
 
 describe('PermissionsGuard (scoped a la empresa)', () => {
   const reflector = {
-    getAllAndOverride: () => ['users:read'],
+    getAllAndOverride: () => ['core.users.read'],
   } as any;
   const guard = new PermissionsGuard(reflector);
 
   const user = {
     roles: ['Owner'],
-    permissions: ['users:read'],
+    permissions: ['core.users.read'],
     companyRoles: { [COMPANY_A]: ['Owner'], [COMPANY_B]: ['Viewer'] },
-    companyPermissions: { [COMPANY_A]: ['users:read'], [COMPANY_B]: [] },
+    companyPermissions: { [COMPANY_A]: ['core.users.read'], [COMPANY_B]: [] },
   };
 
   it('permite si la empresa del header tiene el permiso', () => {
@@ -178,6 +178,16 @@ describe('PermissionsGuard (scoped a la empresa)', () => {
 
   it('sin header mantiene el fallback a los permisos por defecto', () => {
     const request: any = { user, headers: {} };
+    expect(guard.canActivate(httpContext(request))).toBe(true);
+  });
+
+  it('acepta el código legacy mientras dura la migración a core.*', () => {
+    const legacyUser = {
+      ...user,
+      companyRoles: { [COMPANY_A]: ['Viewer'], [COMPANY_B]: ['Viewer'] },
+      companyPermissions: { [COMPANY_A]: ['users:read'], [COMPANY_B]: [] },
+    };
+    const request: any = { user: legacyUser, headers: { 'x-company-id': COMPANY_A } };
     expect(guard.canActivate(httpContext(request))).toBe(true);
   });
 
