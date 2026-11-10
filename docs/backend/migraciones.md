@@ -93,6 +93,7 @@ npm run migrate -- production --accept-checksum 000
 | `033-refresh-token-families.sql` | Familias de refresh tokens para detectar reuso. |
 | `034-company-slug-active-unique.sql` | Slug de empresa único solo entre activas. |
 | `035-refresh-token-session-metadata.sql` | IP, user-agent y último uso en refresh tokens. |
+| `036-refresh-token-family-default.sql` | Default de `family_id` para inserciones durante el despliegue. |
 
 ## Verificar el estado
 
