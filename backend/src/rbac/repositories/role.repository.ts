@@ -50,34 +50,41 @@ export class RoleRepository {
     if (companyId) {
       return row<RoleRow>(await this.dataSource.query(
         `SELECT id, name, description, color, company_id FROM roles
-         WHERE name = $1 AND (company_id IS NULL OR company_id = $2) AND deleted_at IS NULL`,
+         WHERE lower(name) = lower($1) AND (company_id IS NULL OR company_id = $2) AND deleted_at IS NULL`,
         [name, companyId],
       ));
     }
     return row<RoleRow>(await this.dataSource.query(
-      `SELECT id, name, description, color, company_id FROM roles WHERE name = $1 AND deleted_at IS NULL`,
+      `SELECT id, name, description, color, company_id FROM roles WHERE lower(name) = lower($1) AND deleted_at IS NULL`,
       [name],
     ));
   }
 
   async create(name: string, companyId?: string, description?: string, color?: string) {
-    if (companyId) {
-      this.assertCompany(companyId);
-      return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
-        const result = await queryRunner.query(
-          `INSERT INTO roles (name, company_id, description, color) VALUES ($1, $2, $3, $4) RETURNING id, name, description, color, company_id`,
-          [name, companyId, description || null, color || null],
-        );
-        return result[0];
-      });
-    }
+    try {
+      if (companyId) {
+        this.assertCompany(companyId);
+        return await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+          const result = await queryRunner.query(
+            `INSERT INTO roles (name, company_id, description, color) VALUES ($1, $2, $3, $4) RETURNING id, name, description, color, company_id`,
+            [name, companyId, description || null, color || null],
+          );
+          return result[0];
+        });
+      }
 
-    // Rol global: operación privilegiada, no pertenece a un tenant.
-    const result = await this.dataSource.query(
-      `INSERT INTO roles (name, company_id, description, color) VALUES ($1, $2, $3, $4) RETURNING id, name, description, color, company_id`,
-      [name, null, description || null, color || null],
-    );
-    return result[0];
+      // Rol global: operación privilegiada, no pertenece a un tenant.
+      const result = await this.dataSource.query(
+        `INSERT INTO roles (name, company_id, description, color) VALUES ($1, $2, $3, $4) RETURNING id, name, description, color, company_id`,
+        [name, null, description || null, color || null],
+      );
+      return result[0];
+    } catch (error) {
+      if ((error as { code?: string })?.code === '23505') {
+        throw new ConflictException(`Ya existe un rol con el nombre "${name}"`);
+      }
+      throw error;
+    }
   }
 
   async updateName(id: string, name: string) {
@@ -98,12 +105,19 @@ export class RoleRepository {
 
     if (updates.length === 0) return;
     values.push(id);
-    await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
-      await queryRunner.query(
-        `UPDATE roles SET ${updates.join(', ')} WHERE id = $${startIndex}`,
-        values,
-      );
-    });
+    try {
+      await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+        await queryRunner.query(
+          `UPDATE roles SET ${updates.join(', ')} WHERE id = $${startIndex}`,
+          values,
+        );
+      });
+    } catch (error) {
+      if ((error as { code?: string })?.code === '23505') {
+        throw new ConflictException(`Ya existe un rol con el nombre "${data.name}"`);
+      }
+      throw error;
+    }
   }
 
   async delete(id: string) {
