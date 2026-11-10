@@ -1,6 +1,6 @@
 /**
  * 2FA Module - Preparation scaffolding
- * NOT YET IMPLEMENTED - Types and interfaces for future use
+ * NOT YET IMPLEMENTED - Types and interfaces for future use 
  */
 
 export interface TwoFactorSecret {
