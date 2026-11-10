@@ -83,6 +83,8 @@ npm run migrate -- production --accept-checksum 000
 | `023-company-id-unique.sql` | `UNIQUE (company_id, id)` en tablas padre para futuras FKs compuestas. |
 | `024-create-invitations.sql` | Invitaciones por email (`invitations`, `invitation_roles`). |
 | `025-outbox-and-audit-fields.sql` | Outbox transaccional y columnas de trazabilidad en auditoría. |
+| `026-create-memberships.sql` | Memberships, membership_roles y membership_branches + backfill. |
+| `027-sync-user-contexts-memberships.sql` | Triggers de sincronización desde `user_contexts`. |
 
 ## Verificar el estado
 

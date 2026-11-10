@@ -110,6 +110,8 @@ Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm 
 | `023-company-id-unique.sql` | `UNIQUE (company_id, id)` para futuras FKs compuestas |
 | `024-create-invitations.sql` | Invitaciones por email con token, roles y expiración |
 | `025-outbox-and-audit-fields.sql` | Outbox transaccional y metadatos de auditoría |
+| `026-create-memberships.sql` | Memberships, roles y sedes con backfill |
+| `027-sync-user-contexts-memberships.sql` | Triggers de sincronización `user_contexts` → memberships |
 
 ### Reglas de oro
 

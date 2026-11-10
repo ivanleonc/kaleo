@@ -32,6 +32,7 @@
     "smoke:members": "tsx scripts/smoke-members.ts",
     "smoke:rls": "tsx scripts/smoke-rls.ts",
     "smoke:outbox": "tsx scripts/smoke-outbox.ts",
+    "smoke:memberships": "tsx scripts/smoke-memberships.ts",
     "smoke:seed": "tsx scripts/seed-members.ts",
     "seed:owner": "tsx scripts/seed-first-owner.ts"
   },
