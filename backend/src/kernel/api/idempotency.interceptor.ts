@@ -45,7 +45,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const userId = store?.userId;
     if (!companyId || !userId) return next.handle();
 
-    const scope = `${request.method} ${request.url.split('?')[0]}`;
+    const scope = `${request.method} ${request.url}`;
 
     return from(
       this.idempotency.begin({
