@@ -96,7 +96,7 @@ async changeTemp(@Body() dto: ChangePasswordDto) { ... }
 **Flujo:**
 1. Lee el header `x-company-id`
 2. Si el usuario es `is_super_admin`: permite sin verificación (acceso virtual)
-3. Verifica en `user_contexts` que `user_id + company_id` existe
+3. Verifica en `memberships` que `user_id + company_id` existe con `status = 'active'`
 4. Establece el companyId verificado en `req.companyId` para uso en controllers
 
 **Cuándo no se aplica:** Endpoints marcados con `@Public()` (no tienen usuario en req).

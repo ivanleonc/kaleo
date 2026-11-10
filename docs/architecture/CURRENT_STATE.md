@@ -227,7 +227,9 @@ Cada módulo sigue una estructura similar: controlador → servicio → reposito
 | `roles` | Roles | Globales (`company_id NULL`) o por empresa; soft delete |
 | `permissions` | Catálogo de permisos | Código único, módulo, nombre |
 | `role_permissions` | M:N rol-permiso | PK compuesta |
-| `user_contexts` | Membership + rol + sede | Una fila por asignación; unique solo si `branch_id` no es null |
+| `memberships` | Membership por usuario/empresa | Estado `invited/active/inactive`, unique `(company_id, user_id)` |
+| `membership_roles` | Roles de la membership | PK `(company_id, membership_id, role_id)` |
+| `membership_branches` | Sedes de la membership | FK compuesta a `branches (company_id, id)` |
 | `analyses` | Análisis JSONB | Solo energía validada; metadata de archivo |
 | `audit_logs` | Auditoría particionada | Particiones `y2026h2`, `y2027` y `default` |
 | `password_history` | Historial de hashes | Sin retención explícita |
@@ -239,7 +241,7 @@ Cada módulo sigue una estructura similar: controlador → servicio → reposito
 - `companies.slug` es único **incluyendo soft-deleted**.
 - `users.email` es único solo para filas con `deleted_at IS NULL` y es **case-sensitive**.
 - `branches` tiene un unique parcial para una sola sede principal activa por empresa.
-- `user_contexts` tiene unique `(user_id, company_id, branch_id)` **solo cuando `branch_id IS NOT NULL`**.
+- `memberships` tiene unique `(company_id, user_id)` y `(company_id, id)`; las tablas hijas usan FK compuesta y borrado en cascada.
 - `roles` no tiene unique de nombre por empresa.
 - `role_permissions` tiene PK `(role_id, permission_id)`.
 - `audit_logs` tiene PK `(id, created_at)` por particionamiento.
@@ -252,10 +254,9 @@ Hay índices razonables para listados y auditoría:
 - `idx_analyses_company_created`, `idx_analyses_company_type`.
 - `idx_branches_company_id`.
 - `idx_roles_company_id`, `idx_roles_name` parcial.
-- `idx_user_contexts_lookup (user_id, company_id)`, `idx_user_contexts_company_id`.
+- `idx_memberships_company_status`, `idx_membership_roles_role`, `idx_membership_branches_branch`.
 - `idx_users_email` parcial.
 - Índices de auditoría por empresa/fecha, entidad y usuario, incluyendo keyset `(company_id, created_at DESC, id DESC)`.
-- `idx_unique_user_context` parcial para branch no nulo.
 - `uq_branches_main_per_company` parcial para sede principal activa.
 
 ### 7.4 RLS
@@ -322,9 +323,11 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 
 - `users` es global.
 - `companies` es el tenant.
-- `user_contexts` relaciona usuario, empresa, rol y sede opcional.
-- `CompanyAccessGuard` valida que el usuario pertenezca a la empresa del header.
+- `memberships` relaciona usuario y empresa con estado; `membership_roles` y `membership_branches` añaden roles y sedes.
+- `CompanyAccessGuard` valida en `memberships` que el usuario pertenezca a la empresa del header.
 - Los repositorios filtran por `company_id`.
+
+> Varios problemas de la sección 9.2 ya se resolvieron: `searchUsers` filtra por empresa, las invitaciones existen y el modelo `user_contexts` fue reemplazado por `memberships` (`029`).
 
 ### 9.2 Problemas
 
@@ -333,7 +336,7 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 3. **Borrado de sede en cascada:** borrar una sede elimina la membership completa.
 4. **Inactivación global:** `locked_until = NOW() + 100 years` bloquea al usuario en todas las empresas.
 5. **Remoción global:** eliminar un miembro revoca todos sus refresh tokens, no solo los de la empresa.
-6. **Duplicados:** el unique de `user_contexts` solo aplica con `branch_id` no nulo; se pueden duplicar asignaciones.
+6. **Duplicados (resuelto):** `memberships` tiene unique `(company_id, user_id)`; las asignaciones ya no se duplican.
 7. **Sin invitaciones:** se adjunta un usuario existente por ID o se crea uno nuevo; no hay consentimiento ni expiración.
 
 ---
@@ -361,7 +364,7 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 
 - Sin scope por sede o proyecto.
 - Sin unique de nombre de rol por empresa.
-- Borrado de rol en cascada sobre `user_contexts`.
+- Borrado de rol en cascada sobre `membership_roles`.
 - Staleness de permisos en el JWT.
 - Permisos “fantasma” de billing, notifications e integrations sin módulo real.
 - Códigos sin namespace de plataforma (`users:read` en lugar de `core.users.read`).
@@ -575,7 +578,7 @@ La documentación VitePress es extensa y cubre arquitectura, backend, frontend, 
 | ID | Hallazgo | Evidencia | Impacto | Acción recomendada |
 |---|---|---|---|---|
 | P0-1 | Búsqueda global de usuarios entre tenants | `MemberRepository.searchUsers` | Fuga de PII, enumeración de usuarios | Invitaciones por email; búsqueda solo en empresa |
-| P0-2 | Sedes no aplicadas como frontera | `user_contexts.branch_id` no usado en guards/queries | Acceso a datos de otra sede | Definir alcance y aplicar filtros o quitar semántica |
+| P0-2 | Sedes no aplicadas como frontera | `membership_branches` no usado en guards/queries | Acceso a datos de otra sede | Definir alcance y aplicar filtros o quitar semántica |
 | P0-3 | Inactivación/remoción global | `locked_until` y revocación global | Un usuario pierde acceso a todas sus empresas | Membership con estado por empresa y revocación por empresa |
 | P0-4 | BD no garantiza aislamiento tenant | FKs independientes, RLS sin políticas | Un bug puede crear vínculos cross-tenant | FKs compuestas, RLS real, tests de aislamiento |
 | P0-5 | Auditoría no transaccional | Interceptor fire-and-forget, CASCADE | Trazabilidad financiera incompleta | Auditoría transaccional/outbox y retención |

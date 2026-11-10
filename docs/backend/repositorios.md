@@ -189,7 +189,7 @@ const orderBy = buildOrderBy(SORT_COLUMNS, { sortBy: 'name', sortDir: 'asc' }, '
 await runInTransaction(this.dataSource, async (queryRunner) => {
   // Todas las queries dentro son atómicas
   const user = await queryRunner.query(`INSERT INTO users ... RETURNING *`, [...])
-  await queryRunner.query(`INSERT INTO user_contexts ...`, [user[0].id, ...])
+  await upsertMembershipWithRoles(queryRunner, user[0].id, companyId, roleIds)
 })
 // Si cualquiera falla → rollback automático
 ```

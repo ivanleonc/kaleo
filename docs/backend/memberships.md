@@ -1,9 +1,9 @@
 # Memberships
 
-> **Estado:** modelo creado, backfill ejecutado y sincronización activa.
-> **Fuente de verdad actual:** `user_contexts`. `memberships` es un espejo sincronizado hasta completar la migración de código.
+> **Estado:** `memberships` es la única fuente de verdad desde la migración `029`.
+> `user_contexts` fue eliminado; los triggers de sincronización ya no existen.
 
-## Modelo objetivo
+## Modelo
 
 ```text
 memberships (1 por user/company)
@@ -24,23 +24,31 @@ Reglas:
 - `status`: `invited`, `active`, `inactive`.
 - `membership_branches` usa FK compuesta a `branches (company_id, id)`: la sede debe ser de la misma empresa.
 - RLS por `company_id` en las tres tablas.
+- Borrar una membership elimina en cascada sus roles y sedes.
 
-## Backfill
+## Backfill histórico
 
-La migración `026-create-memberships.sql` copia el modelo plano:
+La migración `026-create-memberships.sql` copió el modelo plano:
 
 - Una membership por `(company_id, user_id)`.
 - Un rol por cada `user_contexts.role_id`.
 - Una sede por cada `user_contexts.branch_id` no nulo.
 
-## Sincronización temporal
+La migración `027` mantuvo el espejo con triggers mientras la aplicación
+escribía ambos modelos. Esa etapa terminó con `029-drop-user-contexts.sql`.
 
-Mientras la app sigue escribiendo `user_contexts`, la migración `027-sync-user-contexts-memberships.sql` añade triggers `AFTER INSERT OR DELETE`:
+## Escrituras
 
-- INSERT: crea/usa la membership e inserta rol y sede.
-- DELETE: elimina el rol/sede si ya no queda otra fila con el mismo valor; si no quedan roles, elimina la membership.
+`upsertMembershipWithRoles` (`backend/src/common/utils/membership.helper.ts`)
+es la única escritura del modelo de acceso:
 
-Limitación: no se manejan `UPDATE` directos de `role_id`/`branch_id`. La app actual borra e inserta filas, así que no ocurre. Si se añade un `UPDATE`, habrá que extender el trigger.
+- Hace upsert de `memberships` por `(company_id, user_id)` y la reactiva si estaba inactiva.
+- Inserta los roles en `membership_roles`.
+- No toca `membership_branches`; las sedes se asignan aparte.
+
+Se usa en creación de empresa, alta/adjuntar miembro, actualización de roles y
+aceptación de invitaciones. La baja de miembro elimina la membership y deja que
+las FKs limpien roles y sedes.
 
 ## Smoke test
 
@@ -48,12 +56,13 @@ Limitación: no se manejan `UPDATE` directos de `role_id`/`branch_id`. La app ac
 npm run smoke:memberships -- staging
 ```
 
-Crea un usuario con dos roles y una sede, valida el espejo, elimina un rol y luego todos. Hace `ROLLBACK`.
+Crea una membership con dos roles y una sede, valida el alta, elimina un rol,
+elimina la membership y comprueba el borrado en cascada. Hace `ROLLBACK`.
 
 Resultado esperado:
 
 ```text
-RESULTADO: memberships + triggers OK
+RESULTADO: memberships OK
 ```
 
 ## Fases de migración
@@ -63,28 +72,29 @@ RESULTADO: memberships + triggers OK
    - `CompanyRepository.getUserCompanies`, `verifyUserBelongsToCompany`, `getAllCompanies`.
    - `RoleRepository.getUserAccess`.
    - `MemberRepository.getMembersByCompany`, `findForExport`, `getMemberCompanies`, `isAlreadyMember`, `searchUsers`.
-3. ✅ Dual-write de escrituras:
-   - `insertUserContexts` escribe `memberships` + `membership_roles` y, por compatibilidad, `user_contexts`.
+3. ✅ Migrar escrituras:
+   - `upsertMembershipWithRoles` escribe `memberships` + `membership_roles`.
    - Creación de empresa, alta/adjuntar miembro, actualización de roles, aceptación de invitación y baja de miembro usan memberships.
-   - `removeMember` limpia membership y `user_contexts`; la baja de rol limpia `membership_roles` y `user_contexts`.
+   - `removeMember` elimina la membership; la baja de rol limpia `membership_roles`.
    - `audit-log.interceptor` y chequeos de Owner usan memberships.
-4. Eliminar escrituras/lecturas legacy de `user_contexts`, quitar triggers y la tabla.
-5. Diseñar RLS de `users`/`companies` basada en memberships y pasar la app a `kaleo_app`.
+4. ✅ Eliminar escrituras/lecturas legacy, quitar triggers y borrar `user_contexts` (`029`).
+5. ✅ RLS de `users`/`companies` basada en memberships.
+6. Pendiente: pasar la conexión principal a `kaleo_app` con un camino de auth separado.
 
-> **Importante:** el código actual requiere las migraciones `026` y `027` aplicadas antes de desplegar. La tabla `user_contexts` sigue existiendo solo como compatibilidad temporal.
+> **Orden de despliegue de `029`:** primero el backend que solo usa
+> memberships, luego la migración destructiva. Si se aplica antes, el backend
+> anterior seguirá intentando escribir en `user_contexts` y fallará.
 
-## Validación de dual-write
+## Validación
 
 `npm run smoke:outbox -- staging` crea una empresa y verifica en la misma corrida:
 
 - 1 membership,
 - 1 rol,
-- 1 `user_context` legacy,
 - auditoría y evento outbox.
 
-## Reglas mientras dure la transición
+## Reglas
 
-- No escribir directamente en `memberships` desde código de negocio; usar el modelo plano hasta la fase 2–3.
-- No eliminar `user_contexts` ni los triggers.
-- Cualquier cambio en `user_contexts` debe probarse con `smoke:memberships`.
-- No añadir `UPDATE` directos a `user_contexts` sin actualizar el trigger.
+- No escribir `memberships` desde código de negocio: usar `upsertMembershipWithRoles`.
+- No volver a introducir un modelo plano paralelo.
+- Cualquier cambio en el modelo debe probarse con `smoke:memberships` y los tests de repositorio.

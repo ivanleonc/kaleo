@@ -86,6 +86,7 @@ npm run migrate -- production --accept-checksum 000
 | `026-create-memberships.sql` | Memberships, membership_roles y membership_branches + backfill. |
 | `027-sync-user-contexts-memberships.sql` | Triggers de sincronización desde `user_contexts`. |
 | `028-rls-all-tables.sql` | Políticas RLS completas para tablas de negocio. |
+| `029-drop-user-contexts.sql` | Elimina `user_contexts` y los triggers de sincronización. |
 
 ## Verificar el estado
 

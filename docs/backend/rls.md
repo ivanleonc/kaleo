@@ -47,7 +47,7 @@ CREATE POLICY branches_tenant_isolation ON public.branches
 
 | Tabla | Regla |
 |---|---|
-| `branches`, `analyses`, `feature_flags`, `audit_logs`, `user_contexts` | `company_id = app.company_id` |
+| `branches`, `analyses`, `feature_flags`, `audit_logs` | `company_id = app.company_id` |
 | `invitations`, `invitation_roles` | `company_id = app.company_id` |
 | `outbox_events` | `company_id = app.company_id` |
 | `memberships`, `membership_roles`, `membership_branches` | `company_id = app.company_id` |

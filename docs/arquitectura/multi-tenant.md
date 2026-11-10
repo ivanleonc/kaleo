@@ -77,7 +77,7 @@ config.headers['x-company-id'] =
 En el backend, este guard valida que el usuario tenga acceso a la empresa del header:
 
 1. Lee `x-company-id` del request
-2. Verifica en `user_contexts` que `user_id + company_id` existe
+2. Verifica en `memberships` que `user_id + company_id` existe con `status = 'active'`
 3. Si el usuario es `is_super_admin`, permite el acceso sin verificación de membresía
 4. Si el header falta o el usuario no pertenece → `403 Forbidden`
 
