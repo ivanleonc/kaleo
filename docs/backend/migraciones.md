@@ -136,4 +136,4 @@ Las migraciones son aditivas. Para revertir un cambio:
 1. Restaurar el backup más reciente verificado.
 2. O crear una migración nueva que revierta el cambio de forma controlada.
 
-No se hace `DROP TABLE` en producción sin backup y ventana explícita.
+No se hace `DROP TABLE` en producción sin backup y ventana explícita. El procedimiento de backup y restore está en [`backups.md`](./backups.md).
