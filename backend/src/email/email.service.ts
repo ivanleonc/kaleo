@@ -5,6 +5,7 @@ import {
   passwordResetTemplate,
   emailVerificationTemplate,
   temporaryPasswordTemplate,
+  invitationTemplate,
 } from './templates.js';
 
 export interface EmailOptions {
@@ -214,6 +215,11 @@ export class EmailService implements OnModuleInit {
       tempPassword,
       `${frontendUrl}/login`,
     );
+    await this.send({ to: email, subject, html });
+  }
+
+  async sendInvitation(email: string, companyName: string, invitationUrl: string): Promise<void> {
+    const { subject, html } = invitationTemplate(companyName, invitationUrl);
     await this.send({ to: email, subject, html });
   }
 }

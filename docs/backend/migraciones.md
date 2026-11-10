@@ -81,6 +81,7 @@ npm run migrate -- production --accept-checksum 000
 | `021-rls-pilot.sql` | Rol `kaleo_app` sin `BYPASSRLS`, grants y política RLS piloto en `branches`. |
 | `022-fix-rls-empty-setting.sql` | Corrige la política cuando `app.company_id` está vacío o no definido. |
 | `023-company-id-unique.sql` | `UNIQUE (company_id, id)` en tablas padre para futuras FKs compuestas. |
+| `024-create-invitations.sql` | Invitaciones por email (`invitations`, `invitation_roles`). |
 
 ## Verificar el estado
 

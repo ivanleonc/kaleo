@@ -42,6 +42,9 @@ vi.mock('./analyses/analyses.module.js', () => ({ AnalysesModule: class Analyses
 vi.mock('./features/feature-flags.module.js', () => ({
   FeatureFlagsModule: class FeatureFlagsModule {},
 }));
+vi.mock('./invitations/invitations.module.js', () => ({
+  InvitationsModule: class InvitationsModule {},
+}));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));

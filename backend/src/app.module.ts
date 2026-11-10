@@ -13,6 +13,7 @@ import { MemberModule } from './members/member.module.js';
 import { BranchesModule } from './branches/branches.module.js';
 import { AnalysesModule } from './analyses/analyses.module.js';
 import { FeatureFlagsModule } from './features/feature-flags.module.js';
+import { InvitationsModule } from './invitations/invitations.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -68,6 +69,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     BranchesModule,
     AnalysesModule,
     FeatureFlagsModule,
+    InvitationsModule,
   ],
   controllers: [AppController],
   providers: [

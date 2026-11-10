@@ -57,6 +57,20 @@ export function emailVerificationTemplate(url: string, verificationToken: string
   };
 }
 
+export function invitationTemplate(companyName: string, invitationUrl: string): { subject: string; html: string } {
+  return {
+    subject: `Invitación a ${companyName} - ${BRAND_NAME}`,
+    html: emailLayout(
+      'Invitación',
+      `<h2>Te invitaron a ${companyName}</h2>
+       <p>Has sido invitado a unirte a <strong>${companyName}</strong> en ${BRAND_NAME}.</p>
+       ${primaryButton(invitationUrl, 'Aceptar invitación')}
+       <p>La invitación vence en 7 días.</p>
+       <p>Si no esperabas esta invitación, ignora este correo.</p>`,
+    ),
+  };
+}
+
 export function temporaryPasswordTemplate(tempPassword: string, loginUrl: string): { subject: string; html: string } {
   return {
     subject: `Tu contraseña temporal - ${BRAND_NAME}`,

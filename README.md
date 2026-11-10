@@ -108,6 +108,7 @@ Los archivos viven en `backend/src/migrations/`. Se aplican con el runner (`npm 
 | `021-rls-pilot.sql` | Rol `kaleo_app` y política RLS piloto en `branches` |
 | `022-fix-rls-empty-setting.sql` | Corrige RLS cuando no hay `app.company_id` |
 | `023-company-id-unique.sql` | `UNIQUE (company_id, id)` para futuras FKs compuestas |
+| `024-create-invitations.sql` | Invitaciones por email con token, roles y expiración |
 
 ### Reglas de oro
 

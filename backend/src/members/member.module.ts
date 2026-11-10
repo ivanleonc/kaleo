@@ -12,6 +12,6 @@ import { ExportModule } from '../common/export/export.module.js';
   imports: [RbacModule, EmailModule, AuthModule, ExportModule],
   controllers: [MemberController, CompanyMemberController],
   providers: [MemberService, MemberRepository],
-  exports: [MemberService],
+  exports: [MemberService, MemberRepository],
 })
 export class MemberModule {}
