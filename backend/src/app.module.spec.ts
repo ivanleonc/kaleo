@@ -52,6 +52,9 @@ vi.mock('./kernel/modules/module-registry.module.js', () => ({
 vi.mock('./kernel/tenancy/company-settings.module.js', () => ({
   CompanySettingsModule: class CompanySettingsModule {},
 }));
+vi.mock('./kernel/jobs/jobs.module.js', () => ({
+  JobsModule: class JobsModule {},
+}));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));

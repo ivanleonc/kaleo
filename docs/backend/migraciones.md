@@ -102,6 +102,7 @@ npm run migrate -- production --accept-checksum 000
 | `042-core-plan-analyses-limit.sql` | Límite mensual de creación de análisis en el plan core. |
 | `043-company-settings.sql` | Preferencias regionales por empresa y trigger de alta. |
 | `044-outbox-retries.sql` | Backoff y dead-letter para eventos del outbox. |
+| `045-jobs-queue.sql` | Cola genérica de jobs con backoff y dead-letter. |
 
 ## Verificar el estado
 

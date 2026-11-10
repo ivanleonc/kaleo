@@ -100,8 +100,8 @@ RESULTADO: auditoría transaccional + outbox OK
 
 ## Pendiente
 
-- Cola de jobs genérica (`pg-boss` o equivalente) para imports, exports, emails y reportes.
 - Handlers reales para eventos de dominio (notificaciones, jobs, webhooks).
+- Productores reales de jobs para imports, exports y reportes.
 - Métricas de profundidad, reintentos y dead-letter.
 - Job de limpieza de eventos publicados.
 - Endpoint/admin para reintentar dead-letter manualmente.
