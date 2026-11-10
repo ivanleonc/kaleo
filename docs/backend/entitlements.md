@@ -105,6 +105,9 @@ Si se supera el límite, responde `402 LIMIT_EXCEEDED` antes de escribir.
 - límites efectivos (plan + overrides),
 - consumo actual por límite.
 
+El modal de creación de análisis detecta `LIMIT_EXCEEDED`/`MODULE_NOT_ENTITLED`:
+oculta “Reintentar guardado” y ofrece “Ver plan y límites”.
+
 ## Migración
 
 `041-plans-entitlements.sql` crea las tablas, siembra el plan `core` y asigna

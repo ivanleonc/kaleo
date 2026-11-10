@@ -42,13 +42,16 @@
       />
 
       <UiAlert v-if="displayError" type="error">{{ displayError }}</UiAlert>
-      <p v-if="displayError" class="error-hint">
+      <p v-if="displayError && !limitBlocked" class="error-hint">
         <template v-if="phase === 'save-error'">
           El archivo se procesó correctamente. Puedes reintentar el guardado sin volver a cargarlo.
         </template>
         <template v-else>
           Verifica que el Excel conserve sus columnas, no esté protegido y pese menos de 10 MB.
         </template>
+      </p>
+      <p v-else-if="limitBlocked" class="error-hint">
+        Alcanzaste el límite de tu plan. Revisa el consumo en Ajustes o contacta al administrador.
       </p>
 
       <UiFormSection
@@ -101,6 +104,14 @@
         <UiButton variant="outline" width="auto" @click="startAnother">Crear otro</UiButton>
         <UiButton width="auto" @click="viewSaved">Ver análisis</UiButton>
       </div>
+      <div v-else-if="phase === 'save-error' && limitBlocked" class="modal-footer">
+        <UiButton variant="outline" width="auto" :disabled="isBusy" @click="requestClose">
+          Cerrar
+        </UiButton>
+        <UiButton width="auto" @click="goToPlan">
+          Ver plan y límites
+        </UiButton>
+      </div>
       <div v-else-if="phase === 'save-error'" class="modal-footer">
         <UiButton variant="outline" width="auto" :disabled="isBusy" @click="requestClose">
           Cancelar
@@ -143,6 +154,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { IconCircleCheck } from '@tabler/icons-vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiFormSection from '@/components/ui/UiFormSection.vue';
@@ -156,6 +168,7 @@ import type { StatItem } from '@/components/ui/UiStatList.vue';
 import { useAnalysisStore } from '@/stores/analysis.store';
 import { useEnergyStore } from '@/stores/energy.store';
 import { useToast } from '@/composables/useToast';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import {
   ENERGY_FILE_ACCEPT,
   ENERGY_MAX_FILE_SIZE,
@@ -183,10 +196,13 @@ const isOpen = defineModel<boolean>({ default: false });
 const analysisStore = useAnalysisStore();
 const energyStore = useEnergyStore();
 const toast = useToast();
+const router = useRouter();
+const { companyPath } = useCompanyPath();
 
 const name = ref('');
 const selectedFile = ref<File | null>(null);
 const localError = ref('');
+const limitBlocked = ref(false);
 const phase = ref<Phase>('idle');
 const savedAnalysis = ref<Analysis | null>(null);
 const lastResult = ref<EnergyDashboard | null>(null);
@@ -234,6 +250,7 @@ function resetState() {
   name.value = '';
   selectedFile.value = null;
   localError.value = '';
+  limitBlocked.value = false;
   phase.value = 'idle';
   savedAnalysis.value = null;
   lastResult.value = null;
@@ -296,6 +313,8 @@ async function saveResult(result: EnergyDashboard) {
     toast.success('Análisis guardado correctamente');
   } catch (err: unknown) {
     phase.value = 'save-error';
+    const code = (err as any)?.response?.data?.code;
+    limitBlocked.value = code === 'LIMIT_EXCEEDED' || code === 'MODULE_NOT_ENTITLED';
     localError.value = apiErrorMessage(err, 'Error al guardar el análisis');
   }
 }
@@ -352,6 +371,11 @@ function viewSaved() {
   if (!savedAnalysis.value) return;
   emit('view', savedAnalysis.value);
   isOpen.value = false;
+}
+
+function goToPlan() {
+  isOpen.value = false;
+  router.push(companyPath('/settings'));
 }
 </script>
 

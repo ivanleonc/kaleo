@@ -206,4 +206,33 @@ describe('AnalysisCreateModal', () => {
     expect(wrapper!.emitted('created')).toEqual([[CREATED]]);
     expect(document.body.textContent).toContain('Análisis guardado');
   });
+
+  it('muestra el plan y oculta el reintento cuando se alcanza el límite', async () => {
+    mockCreateAnalysis.mockRejectedValueOnce({
+      response: {
+        status: 402,
+        data: {
+          code: 'LIMIT_EXCEEDED',
+          message: 'Límite alcanzado para core.analyses.create',
+        },
+      },
+    });
+
+    await mountModal();
+    await selectFile();
+    await submitForm();
+
+    expect(document.body.textContent).toContain('Límite alcanzado');
+    expect(document.body.textContent).toContain('Alcanzaste el límite de tu plan');
+
+    const retry = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Reintentar guardado'),
+    );
+    const plan = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('Ver plan y límites'),
+    );
+
+    expect(retry).toBeUndefined();
+    expect(plan).toBeDefined();
+  });
 });
