@@ -26,6 +26,14 @@ function createExportServiceStub() {
   };
 }
 
+function createEntitlementsStub() {
+  return {
+    assertModule: vi.fn(async () => {}),
+    assertWithinLimit: vi.fn(async () => {}),
+    consume: vi.fn(async () => 1),
+  };
+}
+
 function analysisRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'analysis-1',
@@ -47,11 +55,13 @@ function analysisRow(overrides: Record<string, unknown> = {}) {
 
 describe('AnalysesService', () => {
   let repository: ReturnType<typeof createRepositoryStub>;
+  let entitlements: ReturnType<typeof createEntitlementsStub>;
   let service: AnalysesService;
 
   beforeEach(() => {
     repository = createRepositoryStub();
-    service = new AnalysesService(repository as any, createExportServiceStub() as any);
+    entitlements = createEntitlementsStub();
+    service = new AnalysesService(repository as any, createExportServiceStub() as any, entitlements as any);
   });
 
   it('lista análisis sin incluir el resultado completo', async () => {
@@ -95,6 +105,26 @@ describe('AnalysesService', () => {
       }),
     );
     expect(result).not.toHaveProperty('result');
+    expect(entitlements.consume).toHaveBeenCalledWith(
+      'company-1',
+      'core.analyses',
+      'create',
+      1,
+    );
+  });
+
+  it('bloquea la creación cuando se supera el límite del plan', async () => {
+    entitlements.assertWithinLimit.mockRejectedValue(new Error('LIMIT_EXCEEDED'));
+
+    await expect(service.createAnalysis('company-1', 'user-1', {
+      name: 'Enero',
+      analysis_type: 'energy',
+      file_name: 'enero.xlsx',
+      file_size: 120,
+      result: createEnergyResult(),
+    })).rejects.toThrow('LIMIT_EXCEEDED');
+
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it('exige metadatos del archivo para energía', async () => {
@@ -157,6 +187,7 @@ describe('AnalysesService.exportAnalyses', () => {
     service = new AnalysesService(
       repository as any,
       new TabularExportService() as any,
+      createEntitlementsStub() as any,
     );
   });
 
@@ -195,6 +226,7 @@ describe('AnalysesService.exportCriticalZones', () => {
     service = new AnalysesService(
       repository as any,
       new TabularExportService() as any,
+      createEntitlementsStub() as any,
     );
   });
 

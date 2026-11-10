@@ -65,6 +65,55 @@
         </UiCard>
       </template>
 
+      <UiCard v-if="isLoadingEntitlements" aria-hidden="true">
+        <template #header>
+          <UiSkeleton variant="title" width="180px" />
+        </template>
+        <div class="plan-skeleton">
+          <UiSkeleton variant="text" width="100%" />
+          <UiSkeleton variant="text" width="80%" />
+        </div>
+      </UiCard>
+
+      <UiAlert v-else-if="entitlementsError" type="error">
+        {{ entitlementsError }}
+      </UiAlert>
+
+      <UiCard v-else-if="entitlements" class="plan-card">
+        <template #header>
+          <div>
+            <h3 class="card-title">Plan y límites</h3>
+            <p class="card-description">
+              Uso del plan actual para esta empresa.
+            </p>
+          </div>
+        </template>
+
+        <UiDetailGrid>
+          <UiInfoRow label="Plan">{{ entitlements.plan?.name || 'Sin plan' }}</UiInfoRow>
+          <UiInfoRow label="Código">{{ entitlements.plan?.code || '—' }}</UiInfoRow>
+          <UiInfoRow label="Estado">{{ entitlements.plan?.status || '—' }}</UiInfoRow>
+          <UiInfoRow label="Módulos incluidos">{{ entitlements.modules.length }}</UiInfoRow>
+        </UiDetailGrid>
+
+        <div class="plan-limits">
+          <h4 class="plan-limits-title">Límites</h4>
+          <p v-if="effectiveLimits.length === 0" class="plan-limits-empty">
+            Este plan no tiene límites configurados.
+          </p>
+          <ul v-else class="plan-limits-list">
+            <li v-for="limit in effectiveLimits" :key="`${limit.moduleCode}:${limit.featureCode}`">
+              <span class="plan-limit-name">
+                {{ limit.moduleCode }} · {{ limit.featureCode }}
+              </span>
+              <UiBadge size="sm" :variant="limit.limitValue === null ? 'neutral' : 'info'">
+                {{ formatLimit(limit) }}
+              </UiBadge>
+            </li>
+          </ul>
+        </div>
+      </UiCard>
+
       <!-- Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isEditModalOpen"
@@ -168,6 +217,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useCompanyStore } from '@/stores/company.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { companyService } from '@/services/company.service';
+import { entitlementService } from '@/services/entitlement.service';
+import type { EntitlementLimit, EntitlementsSnapshot } from '@saas/shared';
 import { useModal } from '@/composables/useModal';
 import { useAsyncData } from '@/composables/useAsyncData';
 import type { CompanyDetail } from '@/types/company';
@@ -187,6 +238,7 @@ import UiErrorState from '@/components/ui/UiErrorState.vue';
 import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiDetailGrid from '@/components/ui/UiDetailGrid.vue';
 import UiInfoRow from '@/components/ui/UiInfoRow.vue';
+import UiBadge from '@/components/ui/UiBadge.vue';
 import { IconEdit } from '@tabler/icons-vue';
 import { useToast } from '@/composables/useToast';
 import { useCompanyPath } from '@/composables/useCompanyPath';
@@ -223,6 +275,21 @@ const {
     errorMessage: 'No pudimos cargar la empresa',
   },
 );
+const {
+  data: entitlements,
+  isLoading: isLoadingEntitlements,
+  error: entitlementsError,
+} = useAsyncData(
+  async () => {
+    if (!companyId.value) return null;
+    const result = await entitlementService.getSnapshot();
+    return result.data as EntitlementsSnapshot;
+  },
+  {
+    watch: computed(() => authStore.activeTenantId),
+    errorMessage: 'No pudimos cargar el plan',
+  },
+);
 const form = reactive({
   name: '',
   tax_id: '',
@@ -244,6 +311,33 @@ const fullAddress = computed(() => {
     .filter(Boolean)
     .join(', ');
 });
+
+const effectiveLimits = computed<EntitlementLimit[]>(() => {
+  const map = new Map<string, EntitlementLimit>();
+  for (const limit of entitlements.value?.limits ?? []) {
+    map.set(`${limit.moduleCode}:${limit.featureCode}`, limit);
+  }
+  for (const override of entitlements.value?.overrides ?? []) {
+    map.set(`${override.moduleCode}:${override.featureCode}`, override);
+  }
+  return [...map.values()];
+});
+
+function usageFor(limit: EntitlementLimit): number {
+  return (
+    entitlements.value?.usage.find(
+      (item) =>
+        item.moduleCode === limit.moduleCode && item.featureCode === limit.featureCode,
+    )?.used ?? 0
+  );
+}
+
+function formatLimit(limit: EntitlementLimit): string {
+  if (limit.limitValue === null) return 'Ilimitado';
+  const period =
+    limit.period === 'month' ? 'este mes' : limit.period === 'year' ? 'este año' : 'total';
+  return `${usageFor(limit)} / ${limit.limitValue} (${period})`;
+}
 
 const logoBroken = ref(false);
 
@@ -404,5 +498,58 @@ const handleSubmit = async () => {
   font-size: var(--text-xs);
   color: var(--color-danger-text);
   line-height: 1.4;
+}
+
+.plan-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.plan-limits {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.plan-limits-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.plan-limits-empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.plan-limits-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-limits-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.plan-limits-list li:last-child {
+  border-bottom: none;
+}
+
+.plan-limit-name {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 </style>

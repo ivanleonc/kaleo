@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AnalysisRepository } from './repositories/analysis.repository.js';
+import { EntitlementService } from '../kernel/billing/entitlement.service.js';
 import { parseEnergyResult } from './validators/energy-result.validator.js';
 import type { CreateAnalysisDto } from './dto/create-analysis.dto.js';
 import type { AnalysisRow } from '../common/types/db-rows.js';
@@ -18,9 +19,12 @@ import type {
 
 @Injectable()
 export class AnalysesService {
+  private readonly logger = new Logger(AnalysesService.name);
+
   constructor(
     private readonly analysisRepository: AnalysisRepository,
     private readonly exportService: TabularExportService,
+    private readonly entitlements: EntitlementService,
   ) {}
 
   async getAnalyses(
@@ -99,6 +103,9 @@ export class AnalysesService {
       throw new BadRequestException('El tamaño del archivo es requerido');
     }
 
+    await this.entitlements.assertModule(companyId, 'core.analyses');
+    await this.entitlements.assertWithinLimit(companyId, 'core.analyses', 'create', 1);
+
     const analysis = await this.analysisRepository.create(companyId, userId, {
       name: dto.name,
       analysis_type: dto.analysis_type,
@@ -108,6 +115,15 @@ export class AnalysesService {
       summary: parsed.summary,
       result: parsed.result,
     });
+
+    try {
+      await this.entitlements.consume(companyId, 'core.analyses', 'create', 1);
+    } catch (error) {
+      // La operación ya se completó; no romper la respuesta por el contador.
+      this.logger.warn(
+        `No se pudo registrar el consumo de análisis: ${(error as Error).message}`,
+      );
+    }
 
     return this.toSummary(analysis);
   }

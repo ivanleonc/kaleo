@@ -75,6 +75,36 @@ Orden recomendado en un endpoint:
 > Para límites financieros estrictos, mover la validación y el incremento a una
 > sola sentencia/transacción.
 
+## Límite activo: análisis por mes
+
+El plan `core` incluye:
+
+| Módulo | Feature | Límite | Período | Tipo |
+|---|---|---|---|---|
+| `core.analyses` | `create` | 100 | mes | duro |
+
+`AnalysesService.createAnalysis` ejecuta:
+
+1. `assertModule('core.analyses')`
+2. `assertWithinLimit(..., 'create', 1)`
+3. crea el análisis,
+4. `consume(..., 'create', 1)`.
+
+Si se supera el límite, responde `402 LIMIT_EXCEEDED` antes de escribir.
+
+> El contador se incrementa después de crear el análisis. Si el incremento
+> falla, el análisis queda creado y se registra un warning; no se revierte la
+> operación.
+
+## Frontend
+
+`SettingsView` muestra:
+
+- plan actual, código y estado,
+- cantidad de módulos incluidos,
+- límites efectivos (plan + overrides),
+- consumo actual por límite.
+
 ## Migración
 
 `041-plans-entitlements.sql` crea las tablas, siembra el plan `core` y asigna

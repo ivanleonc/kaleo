@@ -99,6 +99,7 @@ npm run migrate -- production --accept-checksum 000
 | `039-app-runtime-roles.sql` | Crea `kaleo_runtime` y `kaleo_auth` para separar runtime de auth. |
 | `040-module-registry.sql` | Catálogo de módulos, dependencias y habilitación por empresa. |
 | `041-plans-entitlements.sql` | Planes, suscripciones, overrides y contadores de uso. |
+| `042-core-plan-analyses-limit.sql` | Límite mensual de creación de análisis en el plan core. |
 
 ## Verificar el estado
 
