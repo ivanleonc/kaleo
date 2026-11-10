@@ -17,8 +17,14 @@ function createDependencies() {
     acceptForExistingUser: vi.fn(),
     listPending: vi.fn(),
     revoke: vi.fn(),
+    countPendingSeats: vi.fn(async () => 0),
   };
-  const memberRepository = { findInvalidRoleIds: vi.fn() };
+  const memberRepository = {
+    findInvalidRoleIds: vi.fn(),
+    findUserByEmail: vi.fn(async () => undefined),
+    isAlreadyMember: vi.fn(async () => false),
+    countActiveMembers: vi.fn(async () => 0),
+  };
   const companyRepository = { findById: vi.fn() };
   const emailService = { sendInvitation: vi.fn() };
   const passwordService = { hashPassword: vi.fn() };
@@ -26,6 +32,7 @@ function createDependencies() {
   const auditLogService = { logInTransaction: vi.fn() };
   const outboxService = { enqueue: vi.fn() };
   const tenantContext = { get: vi.fn().mockReturnValue({ requestId: 'req-1' }) };
+  const entitlements = { assertGaugeLimit: vi.fn(async () => {}) };
   const service = new InvitationsService(
     repository as any,
     memberRepository as any,
@@ -36,6 +43,7 @@ function createDependencies() {
     auditLogService as any,
     outboxService as any,
     tenantContext as any,
+    entitlements as any,
   );
   return {
     service,
@@ -46,6 +54,7 @@ function createDependencies() {
     passwordService,
     auditLogService,
     outboxService,
+    entitlements,
   };
 }
 

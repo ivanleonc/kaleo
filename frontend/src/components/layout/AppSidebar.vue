@@ -92,6 +92,15 @@
         <IconPuzzle :size="22" stroke-width="1.8" />
         <span class="nav-label">Módulos</span>
       </router-link>
+      <router-link
+        v-if="authStore.isSuperAdmin"
+        :to="companyPath('/plans')"
+        class="nav-link"
+        active-class="active"
+      >
+        <IconCreditCard :size="22" stroke-width="1.8" />
+        <span class="nav-label">Planes</span>
+      </router-link>
     </nav>
 
     <div class="sidebar-bottom">
@@ -151,6 +160,7 @@ import {
   IconBook,
   IconBuildingCommunity,
   IconPuzzle,
+  IconCreditCard,
 } from '@tabler/icons-vue';
 
 const route = useRoute();

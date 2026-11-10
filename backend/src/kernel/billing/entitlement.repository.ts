@@ -5,6 +5,7 @@ import { TenantContextService } from '../../common/tenancy/tenant-context.servic
 import type {
   BillingPeriod,
   EntitlementLimit,
+  LimitKind,
   PlanSummary,
   UsageCounter,
 } from './entitlement.types.js';
@@ -17,6 +18,7 @@ interface SubscriptionRow {
   plan_id: string;
   plan_code: string;
   plan_name: string;
+  trial_days: number;
 }
 
 @Injectable()
@@ -40,12 +42,12 @@ export class EntitlementRepository {
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       const rows = await queryRunner.query(
         `SELECT s.id, s.status, s.current_period_start, s.current_period_end,
-                p.id AS plan_id, p.code AS plan_code, p.name AS plan_name
+                p.id AS plan_id, p.code AS plan_code, p.name AS plan_name,
+                p.trial_days
          FROM subscriptions s
          INNER JOIN plans p ON p.id = s.plan_id
          WHERE s.company_id = $1
-           AND s.status IN ('trialing', 'active', 'past_due')
-         ORDER BY s.current_period_start DESC
+         ORDER BY s.current_period_start DESC, s.created_at DESC
          LIMIT 1`,
         [companyId],
       );
@@ -61,6 +63,7 @@ export class EntitlementRepository {
           status: row.status,
           currentPeriodStart: row.current_period_start.toISOString(),
           currentPeriodEnd: row.current_period_end?.toISOString() ?? null,
+          trialDays: row.trial_days,
         },
       };
     });
@@ -76,10 +79,27 @@ export class EntitlementRepository {
     });
   }
 
+  /**
+   * Acceso de lectura: el pack estuvo habilitado para la empresa y salió del
+   * plan. Sirve para conservar los datos en solo lectura tras un downgrade.
+   */
+  async hasCompanyModuleAccess(companyId: string, moduleCode: string): Promise<boolean> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `SELECT 1 FROM company_modules
+         WHERE company_id = $1 AND module_code = $2
+           AND status IN ('enabled', 'trial', 'read_only')`,
+        [companyId, moduleCode],
+      );
+      return rows.length > 0;
+    });
+  }
+
   async getPlanLimits(planId: string): Promise<EntitlementLimit[]> {
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       const rows = await queryRunner.query(
-        `SELECT module_code, feature_code, limit_value, period, is_hard
+        `SELECT module_code, feature_code, limit_value, period, is_hard, limit_kind
          FROM plan_limits
          WHERE plan_id = $1
          ORDER BY module_code, feature_code`,
@@ -93,7 +113,7 @@ export class EntitlementRepository {
     this.assertCompany(companyId);
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       const rows = await queryRunner.query(
-        `SELECT module_code, feature_code, limit_value, period, is_hard
+        `SELECT module_code, feature_code, limit_value, period, is_hard, limit_kind
          FROM company_entitlements
          WHERE company_id = $1
            AND (expires_at IS NULL OR expires_at > now())
@@ -182,6 +202,7 @@ function mapLimit(row: {
   limit_value: string | number | null;
   period: BillingPeriod;
   is_hard: boolean;
+  limit_kind: LimitKind;
 }): EntitlementLimit {
   return {
     moduleCode: row.module_code,
@@ -189,5 +210,6 @@ function mapLimit(row: {
     limitValue: row.limit_value === null ? null : Number(row.limit_value),
     period: row.period,
     isHard: row.is_hard,
+    limitKind: row.limit_kind,
   };
 }

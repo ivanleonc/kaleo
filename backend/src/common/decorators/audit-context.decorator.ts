@@ -15,7 +15,9 @@ export type AuditEntityType =
   | 'Audit'
   | 'Invitation'
   | 'Module'
-  | 'AI';
+  | 'AI'
+  | 'Plan'
+  | 'Subscription';
 
 export interface AuditContextOptions {
   /** Entidad afectada. Evita que el interceptor la infiera del path. */

@@ -17,6 +17,7 @@ function createService(overrides: Partial<Record<string, any>> = {}) {
       },
     })),
     getPlanModuleCodes: vi.fn(async () => ['core.users']),
+    hasCompanyModuleAccess: vi.fn(async () => false),
     getPlanLimits: vi.fn(async () => [] as EntitlementLimit[]),
     getOverrides: vi.fn(async () => [] as EntitlementLimit[]),
     getUsage: vi.fn(async () => []),
@@ -59,6 +60,15 @@ describe('EntitlementService', () => {
     await expect(
       service.isModuleIncluded('company-1', 'construction.projects'),
     ).resolves.toBe(false);
+  });
+
+  it('un pack fuera del plan conserva acceso de lectura', async () => {
+    const { service } = createService({
+      hasCompanyModuleAccess: vi.fn(async () => true),
+    });
+    await expect(
+      service.isModuleIncluded('company-1', 'construction.projects'),
+    ).resolves.toBe(true);
   });
 
   it('aplica override sobre el límite del plan', async () => {
@@ -121,5 +131,78 @@ describe('EntitlementService', () => {
       expect.stringMatching(/^\d{4}-01-01$/),
       1,
     );
+  });
+
+  it('expone trialEndsAt cuando el plan está en trial', async () => {
+    const end = new Date(Date.now() + 86400000).toISOString();
+    const { service } = createService({
+      getActiveSubscription: vi.fn(async () => ({
+        planId: 'plan-1',
+        plan: {
+          id: 'sub-1',
+          code: 'construction',
+          name: 'Construcción',
+          status: 'trialing',
+          currentPeriodStart: new Date().toISOString(),
+          currentPeriodEnd: end,
+          trialDays: 14,
+        },
+      })),
+    });
+
+    const snapshot = await service.getSnapshot('company-1');
+
+    expect(snapshot.readOnly).toBe(false);
+    expect(snapshot.trialEndsAt).toBe(end);
+  });
+
+  it('marca solo lectura una suscripción vencida', async () => {
+    const { service } = createService({
+      getActiveSubscription: vi.fn(async () => ({
+        planId: 'plan-1',
+        plan: {
+          id: 'sub-1',
+          code: 'construction',
+          name: 'Construcción',
+          status: 'past_due',
+          currentPeriodStart: new Date().toISOString(),
+          currentPeriodEnd: null,
+        },
+      })),
+      getPlanModuleCodes: vi.fn(async () => ['construction.projects']),
+    });
+
+    await expect(
+      service.assertWritableModule('company-1', 'construction.projects'),
+    ).rejects.toMatchObject({ response: { code: 'SUBSCRIPTION_READ_ONLY' } });
+  });
+
+  it('el core sigue siendo escribible con la suscripción vencida', async () => {
+    const { service } = createService({
+      getActiveSubscription: vi.fn(async () => null),
+    });
+
+    await expect(
+      service.assertWritableModule('company-1', 'core.users'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('bloquea un gauge al alcanzar el máximo', async () => {
+    const { service } = createService({
+      getPlanLimits: vi.fn(async () => [
+        {
+          moduleCode: 'core.users',
+          featureCode: 'max_active',
+          limitValue: 3,
+          period: 'none',
+          isHard: true,
+          limitKind: 'gauge',
+        },
+      ]),
+    });
+
+    await expect(
+      service.assertGaugeLimit('company-1', 'core.users', 'max_active', 3),
+    ).rejects.toBeInstanceOf(HttpException);
   });
 });

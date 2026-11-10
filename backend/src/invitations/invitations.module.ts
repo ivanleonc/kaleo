@@ -7,9 +7,10 @@ import { MemberModule } from '../members/member.module.js';
 import { CompanyModule } from '../company/company.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { EmailModule } from '../email/email.module.js';
+import { EntitlementModule } from '../kernel/billing/entitlement.module.js';
 
 @Module({
-  imports: [MemberModule, CompanyModule, AuthModule, EmailModule],
+  imports: [MemberModule, CompanyModule, AuthModule, EmailModule, EntitlementModule],
   controllers: [InvitationsController, InvitationsPublicController],
   providers: [InvitationsService, InvitationsRepository],
   exports: [InvitationsService],

@@ -532,6 +532,19 @@ export class MemberRepository {
     });
   }
 
+  async countActiveMembers(companyId: string): Promise<number> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `SELECT COUNT(*)::int AS total
+         FROM memberships
+         WHERE company_id = $1 AND status = 'active'`,
+        [companyId],
+      );
+      return Number(rows[0]?.total ?? 0);
+    });
+  }
+
   async removeMember(
     companyId: string,
     userId: string,

@@ -15,9 +15,12 @@ describe('MemberService.attachMember', () => {
     findUserById: vi.fn(),
     findUserByEmail: vi.fn(),
     findInvalidRoleIds: vi.fn(async () => []),
+    isAlreadyMember: vi.fn(async () => false),
+    countActiveMembers: vi.fn(async () => 0),
     attachExistingUser: vi.fn(),
     addMember: vi.fn(),
   };
+  const entitlements: any = { assertGaugeLimit: vi.fn(async () => {}) };
   const passwordService: any = { hashPassword: vi.fn(async () => 'hash') };
   const emailService: any = { sendTemporaryPassword: vi.fn(async () => {}) };
   const exportService: any = {
@@ -38,6 +41,7 @@ describe('MemberService.attachMember', () => {
       { logInTransaction: vi.fn() } as any,
       { enqueue: vi.fn() } as any,
       { get: vi.fn().mockReturnValue({ userId: 'u-1', requestId: 'req-1' }) } as any,
+      entitlements,
     );
   });
 
@@ -154,6 +158,7 @@ describe('MemberService.exportMembers', () => {
       { logInTransaction: vi.fn() } as any,
       { enqueue: vi.fn() } as any,
       { get: vi.fn().mockReturnValue({ userId: 'u-1', requestId: 'req-1' }) } as any,
+      { assertGaugeLimit: vi.fn(async () => {}) } as any,
     );
   });
 
@@ -212,6 +217,7 @@ describe('MemberService.removeMember', () => {
       auditLogService,
       outboxService,
       tenantContext,
+      { assertGaugeLimit: vi.fn(async () => {}) } as any,
     );
 
     await service.removeMember('company-1', 'u-1');

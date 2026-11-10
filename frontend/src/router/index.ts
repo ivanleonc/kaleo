@@ -106,6 +106,16 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/plans',
+    name: 'PlansAdmin',
+    component: () => import('@/views/PlansAdminView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresSuperAdmin: true,
+      title: 'Planes',
+    },
+  },
+  {
     path: '/companies/:companyId/operations',
     name: 'Operations',
     component: () => import('@/views/OperationsView.vue'),

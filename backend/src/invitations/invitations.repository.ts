@@ -250,6 +250,33 @@ export class InvitationsRepository {
     );
   }
 
+  /**
+   * Invitaciones pendientes que todavía no consumen asiento (excluye emails
+   * que ya son miembros activos). Se usa para reservar cupo al invitar.
+   */
+  async countPendingSeats(companyId: string, excludeEmail?: string): Promise<number> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const result = rows<{ total: number }>(await queryRunner.query(
+        `SELECT COUNT(*)::int AS total
+         FROM invitations i
+         WHERE i.company_id = $1
+           AND i.status = 'pending'
+           AND ($2::text IS NULL OR lower(i.email) <> lower($2))
+           AND NOT EXISTS (
+             SELECT 1
+             FROM memberships m
+             INNER JOIN users u ON u.id = m.user_id
+             WHERE m.company_id = i.company_id
+               AND m.status = 'active'
+               AND lower(u.email) = lower(i.email)
+           )`,
+        [companyId, excludeEmail ?? null],
+      ));
+      return Number(result[0]?.total ?? 0);
+    });
+  }
+
   async revoke(companyId: string, invitationId: string): Promise<boolean> {
     this.assertCompany(companyId);
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {

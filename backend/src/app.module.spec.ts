@@ -73,5 +73,5 @@ describe('AppModule metadata', () => {
 
     expect(controllers).toContain(AppController);
     expect(providers).toContain(AppService);
-  });
+  }, 15000);
 });

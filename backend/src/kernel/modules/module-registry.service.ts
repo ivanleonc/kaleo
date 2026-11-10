@@ -22,21 +22,41 @@ export class ModuleRegistryService implements OnModuleInit {
   }
 
   /**
-   * Módulos visibles para la empresa: los core siempre, los demás solo si
-   * tienen una fila habilitada/trial/read_only en `company_modules`.
+   * Módulos visibles para la empresa.
+   *
+   * - Los core siempre están activos (y escribibles).
+   * - Un pack incluido en el plan está `enabled` (o `read_only` si la
+   *   suscripción venció).
+   * - Un pack que salió del plan pero tenía datos/uso previo queda visible
+   *   como `read_only`; sus datos no se borran.
    */
   async getEnabledModules(companyId: string): Promise<EnabledModule[]> {
-    const [statuses, planModules] = await Promise.all([
+    const [statuses, planModules, readOnly] = await Promise.all([
       this.repository.getCompanyModuleStatuses(companyId),
       this.entitlements?.getPlanModuleCodes(companyId) ?? Promise.resolve([]),
+      this.entitlements?.isReadOnly(companyId) ?? Promise.resolve(false),
     ]);
     const planSet = new Set(planModules);
 
     return this.manifests.flatMap((manifest) => {
       const explicitStatus = statuses.get(manifest.code);
-      const status: ModuleStatus | undefined = manifest.isCore
-        ? 'enabled'
-        : explicitStatus ?? (planSet.has(manifest.code) ? 'enabled' : undefined);
+      let status: ModuleStatus | undefined;
+
+      if (manifest.isCore) {
+        status = 'enabled';
+      } else if (planSet.has(manifest.code)) {
+        status =
+          explicitStatus === 'disabled'
+            ? undefined
+            : readOnly
+              ? 'read_only'
+              : explicitStatus === 'trial'
+                ? 'trial'
+                : 'enabled';
+      } else if (explicitStatus && explicitStatus !== 'disabled') {
+        // Salió del plan: se conserva el acceso de lectura a los datos.
+        status = 'read_only';
+      }
 
       if (status === undefined || status === 'disabled') return [];
       return [{ ...manifest, status }];
@@ -57,6 +77,10 @@ export class ModuleRegistryService implements OnModuleInit {
     if (!manifest) throw new NotFoundException('Módulo no encontrado');
     if (manifest.isCore) {
       throw new BadRequestException('Los módulos core siempre están habilitados');
+    }
+
+    if (enabled && this.entitlements) {
+      await this.entitlements.assertPlanModule(companyId, moduleCode);
     }
 
     const statuses = await this.repository.getCompanyModuleStatuses(companyId);
@@ -85,6 +109,9 @@ export class ModuleRegistryService implements OnModuleInit {
     config: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     await this.assertModuleAvailable(companyId, moduleCode);
+    if (this.entitlements) {
+      await this.entitlements.assertWritableModule(companyId, moduleCode);
+    }
     return this.repository.setModuleConfig(companyId, moduleCode, config);
   }
 

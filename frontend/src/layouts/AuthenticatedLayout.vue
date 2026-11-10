@@ -11,6 +11,11 @@
       <AppSidebar />
 
       <main id="contenido-principal" class="main-content" tabindex="-1">
+        <div v-if="entitlementsStore.isReadOnly" class="read-only-banner" role="status">
+          <strong>Modo solo lectura.</strong>
+          La suscripción venció: puedes consultar la información, pero los módulos de packs
+          no permiten escritura hasta renovar el plan.
+        </div>
         <!--
           La clave fuerza el remount en cada ruta, lo que reinicia la animación
           de entrada. Se limita a cambios de empresa/ruta de sección: en la
@@ -33,6 +38,7 @@ import { useRoute } from 'vue-router';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
 import { useModulesStore } from '@/stores/modules.store';
+import { useEntitlementsStore } from '@/stores/entitlements.store';
 import AppTopbar from '@/components/layout/AppTopbar.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import UiOfflineBanner from '@/components/ui/UiOfflineBanner.vue';
@@ -41,6 +47,7 @@ const route = useRoute();
 const { companyId } = useCompanyPath();
 const { isSidebarPinned, isMobileSidebarOpen, closeMobileSidebar } = useSidebar();
 const modulesStore = useModulesStore();
+const entitlementsStore = useEntitlementsStore();
 
 // Ruta "de sección": cambia la vista, pero no la paginación interna de una tabla.
 const viewKey = computed(() => {
@@ -58,7 +65,10 @@ watch(() => route.path, () => {
 watch(
   companyId,
   (id) => {
-    if (id) void modulesStore.load(id);
+    if (id) {
+      void modulesStore.load(id);
+      void entitlementsStore.load(id);
+    }
   },
   { immediate: true },
 );
@@ -103,6 +113,18 @@ watch(
 /* Al saltar, el <main> no debe mostrar un contorno de foco gigante */
 .main-content:focus {
   outline: none;
+}
+
+/* Banner de solo lectura por suscripción vencida */
+.read-only-banner {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-warning-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  font-size: var(--text-sm);
 }
 
 /* Transición de entrada al cambiar de vista. El override global de

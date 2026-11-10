@@ -19,6 +19,7 @@ import { sha256 } from '../common/utils/crypto.js';
 import { AuditLogService } from '../audit/audit-log.service.js';
 import { OutboxService } from '../outbox/outbox.service.js';
 import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
+import { EntitlementService } from '../kernel/billing/entitlement.service.js';
 
 const INVITATION_TTL_DAYS = 7;
 
@@ -42,6 +43,7 @@ export class InvitationsService {
     private readonly auditLogService: AuditLogService,
     private readonly outboxService: OutboxService,
     private readonly tenantContext: TenantContextService,
+    private readonly entitlements: EntitlementService,
   ) {}
 
   async create(companyId: string, invitedBy: string, input: CreateInvitationInput) {
@@ -63,6 +65,23 @@ export class InvitationsService {
     const company = await this.companyRepository.findById(companyId);
     if (!company) {
       throw new NotFoundException('Empresa no encontrada');
+    }
+
+    const existingUser = await this.memberRepository.findUserByEmail(email);
+    const alreadyMember = existingUser
+      ? await this.memberRepository.isAlreadyMember(existingUser.id, companyId)
+      : false;
+    if (!alreadyMember) {
+      const [activeMembers, pendingSeats] = await Promise.all([
+        this.memberRepository.countActiveMembers(companyId),
+        this.repository.countPendingSeats(companyId, email),
+      ]);
+      await this.entitlements.assertGaugeLimit(
+        companyId,
+        'core.users',
+        'max_active',
+        activeMembers + pendingSeats,
+      );
     }
 
     const token = randomBytes(32).toString('base64url');

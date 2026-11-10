@@ -32,6 +32,7 @@ function createService(
   } as any;
   const entitlements = {
     getPlanModuleCodes: vi.fn(async () => planModules),
+    isReadOnly: vi.fn(async () => false),
   } as any;
   return new ModuleRegistryService(repository, manifests, entitlements);
 }
@@ -57,6 +58,7 @@ describe('ModuleRegistryService.getEnabledModules', () => {
           isCore: false,
         }),
       ],
+      ['construction.projects'],
     );
     const modules = await service.getEnabledModules('company-1');
 
@@ -95,6 +97,37 @@ describe('ModuleRegistryService.getEnabledModules', () => {
 
     expect(modules.some((m) => m.code === 'construction.projects' && m.status === 'enabled'))
       .toBe(true);
+  });
+
+  it('mantiene en solo lectura un pack que salió del plan', async () => {
+    const service = createService(
+      new Map<string, ModuleStatus>([['construction.projects', 'enabled']]),
+      [
+        manifest({ code: 'core.users' }),
+        manifest({ code: 'construction.projects', isCore: false, vertical: 'construction' }),
+      ],
+      [],
+    );
+    const modules = await service.getEnabledModules('company-1');
+
+    expect(modules.find((m) => m.code === 'construction.projects')?.status).toBe('read_only');
+  });
+
+  it('marca todo el plan como solo lectura si la suscripción venció', async () => {
+    const service = createService(
+      new Map(),
+      [
+        manifest({ code: 'core.users' }),
+        manifest({ code: 'construction.projects', isCore: false, vertical: 'construction' }),
+      ],
+      ['construction.projects'],
+    );
+    // Simula suscripción vencida.
+    (service as any).entitlements.isReadOnly = vi.fn(async () => true);
+    const modules = await service.getEnabledModules('company-1');
+
+    expect(modules.find((m) => m.code === 'construction.projects')?.status).toBe('read_only');
+    expect(modules.find((m) => m.code === 'core.users')?.status).toBe('enabled');
   });
 });
 
@@ -176,6 +209,8 @@ describe('ModuleRegistryService module config', () => {
     } as any;
     const entitlements = {
       getPlanModuleCodes: vi.fn(async () => [] as string[]),
+      isReadOnly: vi.fn(async () => false),
+      assertWritableModule: vi.fn(async () => {}),
     } as any;
     return {
       service: new ModuleRegistryService(repository, [core, pack], entitlements),

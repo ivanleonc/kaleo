@@ -327,13 +327,13 @@ gantt
 
 ### Criterios de salida
 
-- [ ] Habilitar un módulo sin sus dependencias falla con un error claro.
-- [ ] Un límite de plan se impone en el backend aunque la UI lo ignore.
+- [x] Habilitar un módulo sin sus dependencias falla con un error claro.
+- [x] Un límite de plan se impone en el backend aunque la UI lo ignore.
 - [ ] El sidebar y las rutas se generan desde manifests, no desde listas manuales.
-- [ ] Un downgrade deja los datos en solo lectura, no los borra.
-- [ ] Un job de importación corre fuera del request y reporta progreso.
-- [ ] Un evento de outbox se publica una sola vez y tolera reintentos.
-- [ ] Una tool de ejemplo se ejecuta con `TenantContext` y una acción de escritura queda pendiente de aprobación humana.
+- [x] Un downgrade deja los datos en solo lectura, no los borra.
+- [x] Un job de importación corre fuera del request y reporta progreso.
+- [x] Un evento de outbox se publica una sola vez y tolera reintentos.
+- [x] Una tool de ejemplo se ejecuta con `TenantContext` y una acción de escritura queda pendiente de aprobación humana.
 - [ ] OpenAPI valida los tipos del frontend en CI.
 - [ ] Los endpoints financieros aceptan idempotencia y concurrencia optimista.
 

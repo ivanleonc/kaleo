@@ -4,6 +4,7 @@ import type {
   BillingPeriod,
   EntitlementLimit,
   EntitlementsSnapshot,
+  PlanSummary,
 } from './entitlement.types.js';
 
 @Injectable()
@@ -13,7 +14,15 @@ export class EntitlementService {
   async getSnapshot(companyId: string): Promise<EntitlementsSnapshot> {
     const subscription = await this.repository.getActiveSubscription(companyId);
     if (!subscription) {
-      return { plan: null, modules: [], limits: [], overrides: [], usage: [] };
+      return {
+        plan: null,
+        modules: [],
+        limits: [],
+        overrides: [],
+        usage: [],
+        readOnly: false,
+        trialEndsAt: null,
+      };
     }
 
     const [modules, limits, overrides, usage] = await Promise.all([
@@ -29,15 +38,19 @@ export class EntitlementService {
       limits,
       overrides,
       usage,
+      readOnly: isSubscriptionReadOnly(subscription.plan),
+      trialEndsAt:
+        subscription.plan.status === 'trialing' ? subscription.plan.currentPeriodEnd : null,
     };
   }
 
-  /** Los core son always-on; el resto requiere estar incluido en el plan. */
+  /** Los core son always-on; el resto requiere plan o acceso previo (read-only). */
   async isModuleIncluded(companyId: string, moduleCode: string): Promise<boolean> {
     if (moduleCode.startsWith('core.')) return true;
 
     const modules = await this.getPlanModuleCodes(companyId);
-    return modules.includes(moduleCode);
+    if (modules.includes(moduleCode)) return true;
+    return this.repository.hasCompanyModuleAccess(companyId, moduleCode);
   }
 
   async getPlanModuleCodes(companyId: string): Promise<string[]> {
@@ -58,6 +71,75 @@ export class EntitlementService {
       },
       HttpStatus.PAYMENT_REQUIRED,
     );
+  }
+
+  /**
+   * Solo plan vigente: habilita packs (escritura) y la activación desde el
+   * admin. Un pack conservado en solo lectura no cuenta aquí.
+   */
+  async assertPlanModule(companyId: string, moduleCode: string): Promise<void> {
+    if (moduleCode.startsWith('core.')) return;
+
+    const modules = await this.getPlanModuleCodes(companyId);
+    if (modules.includes(moduleCode)) return;
+
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.PAYMENT_REQUIRED,
+        message: `El módulo "${moduleCode}" no está incluido en el plan actual`,
+        code: 'MODULE_NOT_ENTITLED',
+        moduleCode,
+      },
+      HttpStatus.PAYMENT_REQUIRED,
+    );
+  }
+
+  /** Escrituras: core siempre; packs requieren plan vigente y no read-only. */
+  async assertWritableModule(companyId: string, moduleCode: string): Promise<void> {
+    if (moduleCode.startsWith('core.')) return;
+
+    const subscription = await this.repository.getActiveSubscription(companyId);
+    if (!subscription) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.FORBIDDEN,
+          message: `El módulo "${moduleCode}" no está incluido en el plan actual`,
+          code: 'MODULE_NOT_ENTITLED',
+          moduleCode,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const modules = await this.repository.getPlanModuleCodes(subscription.planId);
+    if (!modules.includes(moduleCode)) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.FORBIDDEN,
+          message: `El módulo "${moduleCode}" no está incluido en el plan actual`,
+          code: 'MODULE_NOT_ENTITLED',
+          moduleCode,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    if (isSubscriptionReadOnly(subscription.plan)) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.FORBIDDEN,
+          message: 'La suscripción está en solo lectura. Renueva el plan para escribir.',
+          code: 'SUBSCRIPTION_READ_ONLY',
+          moduleCode,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+  }
+
+  async isReadOnly(companyId: string): Promise<boolean> {
+    const subscription = await this.repository.getActiveSubscription(companyId);
+    return subscription ? isSubscriptionReadOnly(subscription.plan) : false;
   }
 
   async getLimit(
@@ -134,6 +216,47 @@ export class EntitlementService {
       amount,
     );
   }
+
+  /**
+   * Límite de valor actual (gauge), por ejemplo miembros activos.
+   * `current` lo calcula el dominio antes de crear el nuevo registro.
+   */
+  async assertGaugeLimit(
+    companyId: string,
+    moduleCode: string,
+    featureCode: string,
+    current: number,
+    amount = 1,
+  ): Promise<void> {
+    const limit = await this.getLimit(companyId, moduleCode, featureCode);
+    if (!limit || limit.limitValue === null) return;
+    if (current + amount <= limit.limitValue) return;
+    if (!limit.isHard) return;
+
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.PAYMENT_REQUIRED,
+        message: `Límite alcanzado para ${moduleCode}.${featureCode}`,
+        code: 'LIMIT_EXCEEDED',
+        moduleCode,
+        featureCode,
+        limit: limit.limitValue,
+        used: current,
+        period: limit.period,
+        limitKind: 'gauge',
+      },
+      HttpStatus.PAYMENT_REQUIRED,
+    );
+  }
+}
+
+function isSubscriptionReadOnly(plan: PlanSummary): boolean {
+  if (plan.status === 'past_due' || plan.status === 'canceled' || plan.status === 'expired') {
+    return true;
+  }
+  return Boolean(
+    plan.currentPeriodEnd && new Date(plan.currentPeriodEnd).getTime() <= Date.now(),
+  );
 }
 
 function periodStartFor(period: BillingPeriod, now = new Date()): string {

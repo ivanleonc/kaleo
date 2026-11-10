@@ -10,6 +10,7 @@ import { EmailService } from '../email/email.service.js';
 import { AuditLogService } from '../audit/audit-log.service.js';
 import { OutboxService } from '../outbox/outbox.service.js';
 import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
+import { EntitlementService } from '../kernel/billing/entitlement.service.js';
 
 @Injectable()
 export class MemberService {
@@ -21,6 +22,7 @@ export class MemberService {
     private readonly auditLogService: AuditLogService,
     private readonly outboxService: OutboxService,
     private readonly tenantContext: TenantContextService,
+    private readonly entitlements: EntitlementService,
   ) {}
 
   async getMembers(
@@ -60,6 +62,13 @@ export class MemberService {
     roleIds: string[],
     extra?: { phone?: string; position?: string; document_type?: string; document_number?: string },
   ) {
+    const existingUser = await this.memberRepository.findUserByEmail(email);
+    const alreadyMember = existingUser
+      ? await this.memberRepository.isAlreadyMember(existingUser.id, companyId)
+      : false;
+    if (!alreadyMember) {
+      await this.assertSeatAvailable(companyId);
+    }
     const tempPassword = this.generateTempPassword();
     const passwordHash = await this.passwordService.hashPassword(tempPassword);
     const result = await this.memberRepository.addMember(companyId, email, name, roleIds, passwordHash, extra);
@@ -85,6 +94,9 @@ export class MemberService {
       document_number?: string;
     },
   ) {
+    if (data.status === 'active' && !(await this.memberRepository.isAlreadyMember(userId, companyId))) {
+      await this.assertSeatAvailable(companyId);
+    }
     const result = await this.memberRepository.updateMember(companyId, userId, data);
     // No se revocan los refresh tokens globales: la membership inactiva basta
     // para que CompanyAccessGuard bloquee esa empresa, sin afectar a otras.
@@ -189,6 +201,9 @@ export class MemberService {
     if (input.userId) {
       const user = await this.memberRepository.findUserById(input.userId);
       if (!user) throw new NotFoundException('Usuario no encontrado');
+      if (!(await this.memberRepository.isAlreadyMember(user.id, targetCompanyId))) {
+        await this.assertSeatAvailable(targetCompanyId);
+      }
       const attached = await this.memberRepository.attachExistingUser(targetCompanyId, user.id, roleIds);
       return { ...attached, name: user.name, email: user.email };
     }
@@ -199,6 +214,9 @@ export class MemberService {
     const email: string = input.email;
     const existing = await this.memberRepository.findUserByEmail(email);
     if (existing) {
+      if (!(await this.memberRepository.isAlreadyMember(existing.id, targetCompanyId))) {
+        await this.assertSeatAvailable(targetCompanyId);
+      }
       const attached = await this.memberRepository.attachExistingUser(targetCompanyId, existing.id, roleIds);
       return { ...attached, name: existing.name, email: existing.email };
     }
@@ -247,6 +265,11 @@ export class MemberService {
       throw new BadRequestException('La búsqueda requiere al menos 2 caracteres');
     }
     return this.memberRepository.searchUsers(companyId, q);
+  }
+
+  private async assertSeatAvailable(companyId: string): Promise<void> {
+    const current = await this.memberRepository.countActiveMembers(companyId);
+    await this.entitlements.assertGaugeLimit(companyId, 'core.users', 'max_active', current);
   }
 
   private generateTempPassword(): string {

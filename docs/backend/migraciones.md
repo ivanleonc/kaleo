@@ -107,6 +107,7 @@ npm run migrate -- production --accept-checksum 000
 | `047-retention-indexes.sql` | Índices de retención para operaciones y jobs. |
 | `048-idempotency-keys.sql` | Idempotencia de POST por empresa/usuario con TTL. |
 | `049-core-ai.sql` | Catálogo de tools, runs y acciones HITL de `core.ai`. |
+| `050-plans-trial-readonly.sql` | `limit_kind`, trial del plan core y límite `core.users.max_active`. |
 
 ## Verificar el estado
 

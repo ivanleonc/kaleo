@@ -7,9 +7,10 @@ import { RbacModule } from '../rbac/rbac.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { ExportModule } from '../common/export/export.module.js';
+import { EntitlementModule } from '../kernel/billing/entitlement.module.js';
 
 @Module({
-  imports: [RbacModule, EmailModule, AuthModule, ExportModule],
+  imports: [RbacModule, EmailModule, AuthModule, ExportModule, EntitlementModule],
   controllers: [MemberController, CompanyMemberController],
   providers: [MemberService, MemberRepository],
   exports: [MemberService, MemberRepository],
