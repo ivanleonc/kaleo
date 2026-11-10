@@ -101,6 +101,10 @@ Obtiene un nuevo par de tokens usando el refresh token.
 }
 ```
 
+Cada refresh rota el token dentro de la misma familia. Si se presenta un token
+ya rotado o revocado, se revoca la familia completa y se responde `401`.
+El cliente debe volver a iniciar sesión.
+
 ---
 
 ## `POST /api/auth/logout`

@@ -90,6 +90,7 @@ npm run migrate -- production --accept-checksum 000
 | `030-membership-token-version.sql` | `memberships.token_version` para invalidar claims por empresa. |
 | `031-role-name-unique.sql` | Names de rol únicos por empresa (case-insensitive) y para globales. |
 | `032-users-email-unique-ci.sql` | Email de usuario único sin distinguir mayúsculas. |
+| `033-refresh-token-families.sql` | Familias de refresh tokens para detectar reuso. |
 
 ## Verificar el estado
 

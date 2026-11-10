@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { EmailService } from '../email/email.service.js';
 import { UserRepository } from './repositories/user.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
@@ -12,6 +12,7 @@ import { CompanyService } from '../company/company.service.js';
 import { AuditLogService } from '../audit/audit-log.service.js';
 import { RbacService } from '../rbac/rbac.service.js';
 import { runInTransaction } from '../common/utils/transaction.helper.js';
+import { sha256 } from '../common/utils/crypto.js';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -150,9 +151,18 @@ export class SessionService {
       throw new UnauthorizedException('Token inválido');
     }
 
-    const storedToken = await this.refreshTokenRepository.findValid(refreshToken);
+    const storedToken = await this.refreshTokenRepository.findByHash(refreshToken);
     if (!storedToken) {
-      throw new UnauthorizedException('Refresh token inválido o revocado');
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+    if (new Date(storedToken.expires_at) <= new Date()) {
+      throw new UnauthorizedException('Refresh token expirado');
+    }
+    if (storedToken.revoked) {
+      // Reuso: el token ya fue rotado (o la sesión se cerró). Se revoca toda
+      // la familia para cortar una posible cadena robada.
+      await this.refreshTokenRepository.revokeFamily(storedToken.family_id);
+      throw new UnauthorizedException('Refresh token reutilizado. Sesión revocada.');
     }
 
     // Revocar el viejo y crear el nuevo en UNA transacción: si la creación
@@ -187,24 +197,39 @@ export class SessionService {
       isSuperAdmin: user.is_super_admin === true,
     }, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
-    const newRefreshPayload = { sub: user.id, type: 'refresh' };
+    const newRefreshPayload = { sub: user.id, type: 'refresh', jti: randomUUID() };
     const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
       expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
     });
     const newRefreshExpiresAt = new Date();
     newRefreshExpiresAt.setDate(newRefreshExpiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
 
-    const { sha256 } = await import('../common/utils/crypto.js');
+    const tokenHash = sha256(refreshToken);
+    let reuseDetected = false;
     await runInTransaction(this.dataSource, async (runner) => {
-      await runner.query(
-        `UPDATE refresh_tokens SET revoked = TRUE WHERE token_hash = $1`,
-        [sha256(refreshToken)],
+      const rotated = await runner.query(
+        `UPDATE refresh_tokens
+         SET revoked = TRUE, rotated_at = NOW()
+         WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()
+         RETURNING id`,
+        [tokenHash],
       );
+      if (rotated.length === 0) {
+        // Otra request rotó el token entre la lectura y la transacción.
+        reuseDetected = true;
+        return;
+      }
       await runner.query(
-        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
-        [user.id, sha256(newRefreshToken), newRefreshExpiresAt],
+        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id)
+         VALUES ($1, $2, $3, $4)`,
+        [user.id, sha256(newRefreshToken), newRefreshExpiresAt, storedToken.family_id],
       );
     });
+
+    if (reuseDetected) {
+      await this.refreshTokenRepository.revokeFamily(storedToken.family_id);
+      throw new UnauthorizedException('Refresh token reutilizado. Sesión revocada.');
+    }
 
     const tokens = { accessToken, refreshToken: newRefreshToken };
 
@@ -433,7 +458,7 @@ export class SessionService {
   private async generateTokenPair(userId: string, payload: Record<string, any>) {
     const accessToken = this.jwtService.sign(payload, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
-    const refreshPayload = { sub: userId, type: 'refresh' };
+    const refreshPayload = { sub: userId, type: 'refresh', jti: randomUUID() };
     const refreshToken = this.jwtService.sign(refreshPayload, {
       expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
     });

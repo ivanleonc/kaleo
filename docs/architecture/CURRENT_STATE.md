@@ -233,7 +233,7 @@ Cada módulo sigue una estructura similar: controlador → servicio → reposito
 | `analyses` | Análisis JSONB | Solo energía validada; metadata de archivo |
 | `audit_logs` | Auditoría particionada | Particiones `y2026h2`, `y2027` y `default` |
 | `password_history` | Historial de hashes | Sin retención explícita |
-| `refresh_tokens` | Refresh tokens | Hash, expiración, revocado |
+| `refresh_tokens` | Refresh tokens | Hash, expiración, revocado, familia y rotación |
 | `token_blacklist` | Access tokens revocados | Hash único, expiración |
 
 ### 7.2 Constraints y relaciones relevantes
@@ -310,9 +310,7 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 ### 8.5 Debilidades
 
 - Tokens en `localStorage`.
-- Sin detección explícita de reuso de refresh token por familia.
 - Sin metadata de sesión/dispositivo.
-- Revocación global en lugar de por empresa.
 - CSP desactivada globalmente.
 
 ---

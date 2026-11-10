@@ -2,6 +2,7 @@ import { Injectable, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { UserRepository } from './repositories/user.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
 import { CompanyService } from '../company/company.service.js';
@@ -51,7 +52,7 @@ export class RegistrationService {
 
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
-      const refreshPayload = { sub: newUser.id, type: 'refresh' };
+      const refreshPayload = { sub: newUser.id, type: 'refresh', jti: randomUUID() };
       refreshTokenValue = this.jwtService.sign(refreshPayload, {
         expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
       });
@@ -132,7 +133,7 @@ export class RegistrationService {
   private async generateTokenPair(userId: string, payload: Record<string, any>) {
     const accessToken = this.jwtService.sign(payload, { expiresIn: ACCESS_TOKEN_EXPIRY });
 
-    const refreshPayload = { sub: userId, type: 'refresh' };
+    const refreshPayload = { sub: userId, type: 'refresh', jti: randomUUID() };
     const refreshToken = this.jwtService.sign(refreshPayload, {
       expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d`,
     });
