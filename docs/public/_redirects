@@ -1,0 +1,7 @@
+# VitePress SPA fallback for Cloudflare Pages
+# Sirve assets estáticos directamente y redirige todo lo demás a index.html
+
+/assets/*  /assets/:splat  200
+*.js       /*.js            200
+*.css      /*.css            200
+/*         /index.html       200
