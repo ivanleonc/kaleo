@@ -87,6 +87,7 @@ npm run migrate -- production --accept-checksum 000
 | `027-sync-user-contexts-memberships.sql` | Triggers de sincronización desde `user_contexts`. |
 | `028-rls-all-tables.sql` | Políticas RLS completas para tablas de negocio. |
 | `029-drop-user-contexts.sql` | Elimina `user_contexts` y los triggers de sincronización. |
+| `030-membership-token-version.sql` | `memberships.token_version` para invalidar claims por empresa. |
 
 ## Verificar el estado
 

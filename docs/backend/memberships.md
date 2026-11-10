@@ -50,6 +50,26 @@ Se usa en creación de empresa, alta/adjuntar miembro, actualización de roles y
 aceptación de invitaciones. La baja de miembro elimina la membership y deja que
 las FKs limpien roles y sedes.
 
+## Invalidación de claims por empresa
+
+Cada membership tiene `token_version`. El access token incluye
+`companyVersions: { [companyId]: number }` y `CompanyAccessGuard` compara ese
+valor contra `memberships.token_version` antes de permitir la request.
+
+- Al cambiar roles se incrementa la versión de esa membership.
+- Al cambiar permisos de un rol se incrementa la versión de todos los miembros
+  con ese rol en la empresa.
+- Al reactivar una membership se incrementa la versión.
+- Al eliminar o desactivar una membership, el guard la bloquea de inmediato.
+- Si la versión no coincide, el guard responde `401`: el cliente refresca el
+  access token y recibe los claims actuales **de esa empresa**. Las sesiones en
+  otras empresas no se revocan.
+- `removeMember` ya no llama a `revokeAllForUser`; el bloqueo es por membership.
+
+> **Orden de despliegue de `030`:** aplicar la migración **antes** de desplegar
+> este backend. El código nuevo consulta `memberships.token_version`; si la
+> columna no existe, las requests con `x-company-id` fallan.
+
 ## Smoke test
 
 ```bash

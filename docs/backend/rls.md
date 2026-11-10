@@ -162,7 +162,7 @@ Ya existen las piezas base:
 
 - `backend/src/common/tenancy/tenant-context.service.ts`: `AsyncLocalStorage` con `requestId`, `userId`, `companyId` e `isSuperAdmin`.
 - `tenant-context.middleware.ts`: inicializa el contexto por request, después del logger.
-- `company-access.guard.ts`: publica `companyId` y `userId` en el contexto cuando valida `x-company-id`.
+- `company-access.guard.ts`: publica `companyId` y `userId` en el contexto, valida la membership activa y compara `token_version` con los claims.
 - `tenant-transaction.ts`: `withTenantTransaction(dataSource, tenantContext, fn)` abre una transacción, ejecuta `set_config('app.company_id', $1, true)`, corre el callback con el `QueryRunner` y hace commit/rollback.
 
 Los repositorios de negocio reciben `companyId` explícito y lo validan contra el `TenantContext` antes de abrir la transacción. Las consultas de auth/onboarding y las vistas cross-company siguen en `postgres` según la tabla de excepciones.
