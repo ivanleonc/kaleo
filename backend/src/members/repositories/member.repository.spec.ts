@@ -236,8 +236,8 @@ describe('MemberRepository cross-company (super-admin)', () => {
     expect(result).toEqual({ id: 'user-7', roleIds: ['r-1'], isNewUser: false });
     expect(runner.commitTransaction).toHaveBeenCalled();
     expect(runner.rollbackTransaction).not.toHaveBeenCalled();
-    const insert = queries.find((q) => q.sql.includes('INSERT INTO user_contexts'));
-    expect(insert?.params.slice(0, 2)).toEqual(['user-7', 'company-9']);
+    const insert = queries.find((q) => q.sql.includes('INSERT INTO memberships'));
+    expect(insert?.params.slice(0, 2)).toEqual(['company-9', 'user-7']);
   });
 
   it('attachExistingUser hace rollback y lanza 409 si ya es miembro', async () => {
@@ -317,7 +317,7 @@ describe('MemberRepository.removeMember', () => {
       { match: /FROM users WHERE id/, rows: [{ id: 'u-1', email: 'ana@x.co', name: 'Ana' }] },
       { match: /COUNT\(\*\) AS total/, rows: [{ total: '1' }] },
       { match: /SELECT 1[\s\S]*FROM memberships/, rows: [] },
-      { match: /DELETE FROM user_contexts/, rows: [{ id: 'uc-1' }] },
+      { match: /DELETE FROM memberships/, rows: [{ id: 'm-1' }] },
     ]);
     const repo = new MemberRepository(dataSource as any, createContext('c-1'));
 

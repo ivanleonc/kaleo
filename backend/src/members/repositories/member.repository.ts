@@ -3,7 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { buildDynamicUpdate, buildWhere } from '../../common/utils/sql.helper.js';
 import { buildOrderBy, type SortSpec } from '../../common/dto/pagination-query.dto.js';
 import { EXPORT_MAX_ROWS } from '../../common/export/export.types.js';
-import { assertMember, insertUserContexts } from '../../common/utils/membership.helper.js';
+import { assertMember, upsertMembershipWithRoles } from '../../common/utils/membership.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
 import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
 import { withTenantTransaction } from '../../common/tenancy/tenant-transaction.js';
@@ -221,7 +221,7 @@ export class MemberRepository {
           finalRoleIds = defaultRole.length > 0 ? [defaultRole[0].id] : [];
         }
 
-        await insertUserContexts(queryRunner, userId, companyId, finalRoleIds);
+        await upsertMembershipWithRoles(queryRunner, userId, companyId, finalRoleIds);
 
         result = {
           id: userId,
@@ -272,12 +272,7 @@ export class MemberRepository {
             [companyId, userId],
           );
 
-          await queryRunner.query(
-            `DELETE FROM user_contexts WHERE user_id = $1 AND company_id = $2`,
-            [userId, companyId],
-          );
-
-          await insertUserContexts(queryRunner, userId, companyId, data.roleIds);
+          await upsertMembershipWithRoles(queryRunner, userId, companyId, data.roleIds);
         }
 
         if (data.status) {
@@ -394,7 +389,7 @@ export class MemberRepository {
         if (memberCheck.length > 0) {
           throw new ConflictException('El usuario ya es miembro de esta empresa');
         }
-        await insertUserContexts(queryRunner, userId, companyId, roleIds);
+        await upsertMembershipWithRoles(queryRunner, userId, companyId, roleIds);
         result = { id: userId, roleIds, isNewUser: false };
       });
       return result;
@@ -510,7 +505,7 @@ export class MemberRepository {
       }
 
       const deleted = await queryRunner.query(
-        `DELETE FROM user_contexts
+        `DELETE FROM memberships
          WHERE user_id = $1 AND company_id = $2
          RETURNING id`,
         [userId, companyId],
@@ -518,11 +513,6 @@ export class MemberRepository {
       if (deleted.length === 0) {
         throw new NotFoundException('El usuario no es miembro de esta empresa');
       }
-
-      await queryRunner.query(
-        `DELETE FROM memberships WHERE company_id = $1 AND user_id = $2`,
-        [companyId, userId],
-      );
 
       if (onRemoved) {
         await onRemoved(queryRunner, userRows[0]);

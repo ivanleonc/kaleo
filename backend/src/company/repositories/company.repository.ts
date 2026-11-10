@@ -3,7 +3,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
 import { runInTransaction } from '../../common/utils/transaction.helper.js';
 import { rows, row } from '../../common/utils/db.js';
-import { insertUserContexts } from '../../common/utils/membership.helper.js';
+import { upsertMembershipWithRoles } from '../../common/utils/membership.helper.js';
 import { TenantContextService } from '../../common/tenancy/tenant-context.service.js';
 import { withTenantTransaction } from '../../common/tenancy/tenant-transaction.js';
 import type { CompanyRow, TenantRow, IdRow, RoleNameRow } from '../../common/types/db-rows.js';
@@ -68,7 +68,7 @@ export class CompanyRepository {
           ownerRoleId = newRoleResult[0]!.id;
         }
 
-        await insertUserContexts(queryRunner, userId, newCompany!.id, [ownerRoleId]);
+        await upsertMembershipWithRoles(queryRunner, userId, newCompany!.id, [ownerRoleId]);
 
         if (onCreated) {
           await onCreated(queryRunner, newCompany!);

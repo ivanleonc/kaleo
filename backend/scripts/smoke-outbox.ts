@@ -101,8 +101,7 @@ async function main(): Promise<void> {
     const membership = await dataSource.query(
       `SELECT
          (SELECT count(*)::int FROM memberships WHERE company_id = $1) AS memberships,
-         (SELECT count(*)::int FROM membership_roles WHERE company_id = $1) AS roles,
-         (SELECT count(*)::int FROM user_contexts WHERE company_id = $1) AS contexts`,
+         (SELECT count(*)::int FROM membership_roles WHERE company_id = $1) AS roles`,
       [companyId],
     );
 
@@ -118,8 +117,7 @@ async function main(): Promise<void> {
       outboxRows[0].n === 1 &&
       pending[0].n === 0 &&
       membershipCounts.memberships === 1 &&
-      membershipCounts.roles === 1 &&
-      membershipCounts.contexts === 1;
+      membershipCounts.roles === 1;
     console.table([
       ['audit_logs', audit[0].n],
       ['outbox_events', outboxRows[0].n],
@@ -127,7 +125,6 @@ async function main(): Promise<void> {
       ['outbox pendientes', pending[0].n],
       ['memberships', membershipCounts.memberships],
       ['membership_roles', membershipCounts.roles],
-      ['user_contexts (legacy)', membershipCounts.contexts],
     ]);
     console.log(ok ? 'RESULTADO: auditoría transaccional + outbox OK' : 'RESULTADO: REVISAR');
     if (!ok) process.exitCode = 1;
@@ -135,7 +132,6 @@ async function main(): Promise<void> {
     if (companyId) {
       await dataSource.query(`DELETE FROM audit_logs WHERE company_id = $1`, [companyId]).catch(() => {});
       await dataSource.query(`DELETE FROM outbox_events WHERE company_id = $1`, [companyId]).catch(() => {});
-      await dataSource.query(`DELETE FROM user_contexts WHERE company_id = $1`, [companyId]).catch(() => {});
       await dataSource.query(`DELETE FROM companies WHERE id = $1`, [companyId]).catch(() => {});
     }
     if (userId) {

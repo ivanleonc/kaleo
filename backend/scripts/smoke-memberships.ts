@@ -1,8 +1,9 @@
 /**
- * Smoke test del modelo de memberships y sus triggers de sincronización.
+ * Smoke test del modelo de memberships (memberships, roles y sedes).
  *
  * Uso: npm run smoke:memberships -- staging
  *
+ * Valida el alta, la asignación de roles/sedes y el borrado en cascada.
  * Todo ocurre en una transacción con ROLLBACK: no deja datos.
  */
 import 'dotenv/config';
@@ -61,32 +62,48 @@ async function main(): Promise<void> {
     const owner = roles.rows.find((r) => r.name === 'Owner').id as string;
     const viewer = roles.rows.find((r) => r.name === 'Viewer').id as string;
 
-    const first = await client.query(
-      `INSERT INTO user_contexts (user_id, company_id, branch_id, role_id) VALUES ($1,$2,NULL,$3) RETURNING id`,
-      [user, company, owner],
+    const membership = (await client.query(
+      `INSERT INTO memberships (company_id, user_id, status)
+       VALUES ($1, $2, 'active')
+       RETURNING id`,
+      [company, user],
+    )).rows[0].id as string;
+
+    await client.query(
+      `INSERT INTO membership_roles (company_id, membership_id, role_id)
+       VALUES ($1, $2, $3), ($1, $2, $4)`,
+      [company, membership, owner, viewer],
     );
-    const second = await client.query(
-      `INSERT INTO user_contexts (user_id, company_id, branch_id, role_id) VALUES ($1,$2,$3,$4) RETURNING id`,
-      [user, company, branch, viewer],
+    await client.query(
+      `INSERT INTO membership_branches (company_id, membership_id, branch_id)
+       VALUES ($1, $2, $3)`,
+      [company, membership, branch],
     );
 
     const afterInsert = await counts(company);
-    await client.query(`DELETE FROM user_contexts WHERE id = $1`, [first.rows[0].id]);
-    const afterOneDelete = await counts(company);
-    await client.query(`DELETE FROM user_contexts WHERE id = $1`, [second.rows[0].id]);
-    const afterAllDelete = await counts(company);
 
-    console.table({ afterInsert, afterOneDelete, afterAllDelete });
+    await client.query(
+      `DELETE FROM membership_roles WHERE company_id = $1 AND membership_id = $2 AND role_id = $3`,
+      [company, membership, viewer],
+    );
+    const afterOneRoleDelete = await counts(company);
+
+    await client.query(`DELETE FROM memberships WHERE company_id = $1 AND id = $2`, [company, membership]);
+    const afterMembershipDelete = await counts(company);
+
+    console.table({ afterInsert, afterOneRoleDelete, afterMembershipDelete });
 
     const ok =
       afterInsert.memberships === 1 &&
       afterInsert.roles === 2 &&
       afterInsert.branches === 1 &&
-      afterOneDelete.memberships === 1 &&
-      afterOneDelete.roles === 1 &&
-      afterAllDelete.memberships === 0;
+      afterOneRoleDelete.memberships === 1 &&
+      afterOneRoleDelete.roles === 1 &&
+      afterMembershipDelete.memberships === 0 &&
+      afterMembershipDelete.roles === 0 &&
+      afterMembershipDelete.branches === 0;
 
-    console.log(ok ? 'RESULTADO: memberships + triggers OK' : 'RESULTADO: REVISAR');
+    console.log(ok ? 'RESULTADO: memberships OK' : 'RESULTADO: REVISAR');
     if (!ok) process.exitCode = 1;
   } finally {
     try { await client.query('ROLLBACK'); } catch { /* la transacción pudo abortar */ }

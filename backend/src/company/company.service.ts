@@ -49,7 +49,7 @@ export class CompanyService {
   }
 
   async getCompanyDetail(userId: string, companyId: string, opts?: { isSuperAdmin?: boolean }) {
-    // El super-admin accede virtualmente sin fila en user_contexts.
+    // El super-admin accede virtualmente sin membership.
     if (!opts?.isSuperAdmin) {
       const operatorData = await this.companyRepository.verifyUserBelongsToCompany(userId, companyId);
       if (!operatorData) {

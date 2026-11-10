@@ -2,14 +2,15 @@ import { NotFoundException } from '@nestjs/common';
 import type { QueryRunner } from 'typeorm';
 
 /**
- * Escribe la membership (modelo nuevo) y, durante la transición, también
- * `user_contexts` (modelo plano legacy) para no romper lecturas antiguas.
+ * Crea o reactiva la membership de un usuario en una empresa y sincroniza sus
+ * roles. Es la única escritura del modelo de acceso: `user_contexts` ya no se
+ * usa.
  *
  * - memberships: upsert por (company_id, user_id).
  * - membership_roles: una fila por rol.
- * - user_contexts: una fila por rol, sin sede, como hasta ahora.
+ * - membership_branches: no se toca aquí; las sedes se asignan aparte.
  */
-export async function insertUserContexts(
+export async function upsertMembershipWithRoles(
   queryRunner: QueryRunner,
   userId: string,
   companyId: string,
@@ -34,15 +35,6 @@ export async function insertUserContexts(
      VALUES ${roleValues}
      ON CONFLICT DO NOTHING`,
     [companyId, membershipId, ...uniqueRoleIds],
-  );
-
-  // Compatibilidad temporal con el modelo plano.
-  const contextValues = uniqueRoleIds.map((_, i) => `($1, $2, $${i + 3})`).join(', ');
-  await queryRunner.query(
-    `INSERT INTO user_contexts (user_id, company_id, role_id)
-     VALUES ${contextValues}
-     ON CONFLICT DO NOTHING`,
-    [userId, companyId, ...uniqueRoleIds],
   );
 }
 

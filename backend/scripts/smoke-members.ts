@@ -1,6 +1,7 @@
 /**
  * Smoke test de la paginación y filtros de miembros contra la base de datos.
- * No requiere servidor HTTP: valida el SQL generado por el repository.
+ * No requiere servidor HTTP: valida el SQL generado por el repository sobre el
+ * modelo de memberships.
  *
  * Uso: npm run smoke:members -- development
  */
@@ -43,11 +44,12 @@ try {
   console.log(`Empresa: ${companies[0].name}\n`);
 
   const statusExpr = `CASE WHEN u.locked_until IS NOT NULL AND u.locked_until > NOW() THEN 'inactive' ELSE 'active' END`;
-  const baseWhere = 'uc.company_id = $1 AND u.deleted_at IS NULL';
+  const baseJoin = 'FROM users u INNER JOIN memberships m ON u.id = m.user_id';
+  const baseWhere = "m.company_id = $1 AND m.status = 'active' AND u.deleted_at IS NULL";
 
   const totalAll = await client.query(
     `SELECT COUNT(DISTINCT u.id) as total
-     FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
+     ${baseJoin}
      WHERE ${baseWhere}`,
     [companyId],
   );
@@ -55,8 +57,7 @@ try {
 
   const page1 = await client.query(
     `SELECT u.id, u.name, u.email, ${statusExpr} as status
-     FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
-     LEFT JOIN roles r ON uc.role_id = r.id
+     ${baseJoin}
      WHERE ${baseWhere}
      GROUP BY u.id, u.name, u.email, u.locked_until
      ORDER BY u.name, u.email
@@ -67,7 +68,7 @@ try {
 
   const page2 = await client.query(
     `SELECT u.id, u.name, u.email
-     FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
+     ${baseJoin}
      WHERE ${baseWhere}
      GROUP BY u.id, u.name, u.email
      ORDER BY u.name, u.email
@@ -84,7 +85,7 @@ try {
     const term = first.name.split(' ')[0].slice(0, 4);
     const bySearch = await client.query(
       `SELECT COUNT(DISTINCT u.id) as total
-       FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
+       ${baseJoin}
        WHERE ${baseWhere} AND (u.name ILIKE $2 OR u.email ILIKE $2)`,
       [companyId, `%${term}%`],
     );
@@ -92,13 +93,13 @@ try {
 
     const inactive = await client.query(
       `SELECT COUNT(DISTINCT u.id) as total
-       FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
+       ${baseJoin}
        WHERE ${baseWhere} AND u.locked_until IS NOT NULL AND u.locked_until > NOW()`,
       [companyId],
     );
     const active = await client.query(
       `SELECT COUNT(DISTINCT u.id) as total
-       FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
+       ${baseJoin}
        WHERE ${baseWhere} AND (u.locked_until IS NULL OR u.locked_until <= NOW())`,
       [companyId],
     );
@@ -109,15 +110,20 @@ try {
     );
 
     const roleRow = await client.query<{ id: string }>(
-      'SELECT role_id as id FROM user_contexts WHERE company_id = $1 LIMIT 1',
+      'SELECT role_id as id FROM membership_roles WHERE company_id = $1 LIMIT 1',
       [companyId],
     );
     if (roleRow.rows[0]) {
       const byRole = await client.query(
         `SELECT COUNT(DISTINCT u.id) as total
-         FROM users u INNER JOIN user_contexts uc ON u.id = uc.user_id
+         ${baseJoin}
          WHERE ${baseWhere}
-           AND EXISTS (SELECT 1 FROM user_contexts ucr WHERE ucr.user_id = u.id AND ucr.company_id = uc.company_id AND ucr.role_id = $2)`,
+           AND EXISTS (
+             SELECT 1 FROM membership_roles mr
+             WHERE mr.company_id = m.company_id
+               AND mr.membership_id = m.id
+               AND mr.role_id = $2
+           )`,
         [companyId, roleRow.rows[0].id],
       );
       assert('Filtro por roleId devuelve resultados', Number(byRole.rows[0].total) >= 1, `${byRole.rows[0].total}`);

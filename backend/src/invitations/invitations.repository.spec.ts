@@ -92,11 +92,11 @@ describe('InvitationsRepository', () => {
     expect(queries[0]!.sql).toContain("status = 'pending'");
   });
 
-  it('acceptForNewUser crea usuario, contextos y marca la invitación', async () => {
+  it('acceptForNewUser crea usuario, membership y marca la invitación', async () => {
     const { dataSource, queries, runner } = createRunnerStub([
       { match: /UPDATE invitations[\s\S]*status = 'accepted'/, rows: [{ id: 'inv-1' }] },
       { match: /INSERT INTO users/, rows: [{ id: 'user-1', email: 'a@b.com', name: 'Ana' }] },
-      { match: /INSERT INTO user_contexts/, rows: [] },
+      { match: /INSERT INTO memberships/, rows: [{ id: 'm-1' }] },
       { match: /SET accepted_by/, rows: [] },
     ]);
     const repository = new InvitationsRepository(dataSource as any, createContext());
@@ -112,7 +112,7 @@ describe('InvitationsRepository', () => {
 
     expect(result.id).toBe('user-1');
     expect(runner.commitTransaction).toHaveBeenCalled();
-    expect(queries.some((q) => q.sql.includes('INSERT INTO user_contexts'))).toBe(true);
+    expect(queries.some((q) => q.sql.includes('INSERT INTO memberships'))).toBe(true);
   });
 
   it('acceptForNewUser falla si la invitación ya no está pendiente', async () => {

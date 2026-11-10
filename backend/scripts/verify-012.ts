@@ -12,12 +12,12 @@ import { databaseSslOptions } from '../src/common/config/database-ssl.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const EXPECTED_INDEXES = [
-  'idx_user_contexts_company_id',
-  'idx_user_contexts_role_id',
-  'idx_user_contexts_branch_id',
   'idx_users_verification_token',
   'idx_role_permissions_permission_id',
   'idx_roles_name',
+  'idx_memberships_company_status',
+  'idx_membership_roles_role',
+  'idx_membership_branches_branch',
 ];
 
 const environment = process.argv[2] ?? 'development';

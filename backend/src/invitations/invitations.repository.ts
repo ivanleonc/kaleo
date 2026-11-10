@@ -2,7 +2,7 @@ import { ConflictException, ForbiddenException, Injectable } from '@nestjs/commo
 import { DataSource, QueryRunner } from 'typeorm';
 import { rows } from '../common/utils/db.js';
 import { runInTransaction } from '../common/utils/transaction.helper.js';
-import { insertUserContexts } from '../common/utils/membership.helper.js';
+import { upsertMembershipWithRoles } from '../common/utils/membership.helper.js';
 import { TenantContextService } from '../common/tenancy/tenant-context.service.js';
 import { withTenantTransaction } from '../common/tenancy/tenant-transaction.js';
 
@@ -181,7 +181,7 @@ export class InvitationsRepository {
       ));
       user = created[0]!;
 
-      await insertUserContexts(queryRunner, user.id, input.companyId, input.roleIds);
+      await upsertMembershipWithRoles(queryRunner, user.id, input.companyId, input.roleIds);
       await queryRunner.query(
         `UPDATE invitations SET accepted_by = $1 WHERE id = $2 AND company_id = $3`,
         [user.id, input.invitationId, input.companyId],
@@ -219,7 +219,7 @@ export class InvitationsRepository {
       alreadyMember = member.length > 0;
 
       if (!alreadyMember) {
-        await insertUserContexts(queryRunner, input.userId, input.companyId, input.roleIds);
+        await upsertMembershipWithRoles(queryRunner, input.userId, input.companyId, input.roleIds);
       }
     });
 

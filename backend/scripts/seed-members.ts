@@ -67,9 +67,18 @@ try {
        RETURNING id`,
       [email, `Smoke Test ${String(i).padStart(2, '0')}`],
     );
+    const membership = await client.query<{ id: string }>(
+      `INSERT INTO memberships (company_id, user_id, status)
+       VALUES ($1, $2, 'active')
+       ON CONFLICT (company_id, user_id)
+       DO UPDATE SET status = 'active', updated_at = now()
+       RETURNING id`,
+      [companyId, user.rows[0].id],
+    );
     await client.query(
-      `INSERT INTO user_contexts (user_id, company_id, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-      [user.rows[0].id, companyId, roleId],
+      `INSERT INTO membership_roles (company_id, membership_id, role_id)
+       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+      [companyId, membership.rows[0].id, roleId],
     );
   }
 

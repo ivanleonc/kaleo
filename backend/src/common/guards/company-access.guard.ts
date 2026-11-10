@@ -22,8 +22,8 @@ import { TenantContextService } from '../tenancy/tenant-context.service.js';
  * que no devuelve filas, así que ese caso falla cerrado por sí solo.
  *
  * Excepción super-admin: si la empresa del header no está en el JWT pero el
- * usuario es super-admin global, se permite el acceso virtual (sin filas en
- * user_contexts). La verificación es solo en el miss-path: el caso común
+ * usuario es super-admin global, se permite el acceso virtual (sin
+ * membership). La verificación es solo en el miss-path: el caso común
  * (miembro real) no agrega ninguna query.
  */
 @Injectable()

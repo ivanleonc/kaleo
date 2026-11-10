@@ -117,15 +117,8 @@ export class RoleRepository {
       // Limpiar contextos huérfanos: miembros con este rol quedan sin acceso
       // silenciosamente si no se reasignan. Registramos la cantidad para
       // que el audit log del interceptor lo capture como new_values.
-      // (No eliminamos los user_contexts: el admin puede reasignar el rol.)
-      // Lo que sí hacemos es remover el rol de esos contextos para que
-      // getUserAccess no devuelva permisos de un rol invisible.
       await queryRunner.query(
         `DELETE FROM membership_roles WHERE role_id = $1`,
-        [id],
-      );
-      await queryRunner.query(
-        `DELETE FROM user_contexts WHERE role_id = $1`,
         [id],
       );
     });
@@ -199,7 +192,7 @@ export class RoleRepository {
 
   /**
    * Resuelve roles y permisos de un usuario en una empresa con una sola query.
-   * Evita el N+1 de consultar `user_contexts` dos veces por cada tenant.
+   * Evita el N+1 de consultar memberships dos veces por cada tenant.
    */
   async getUserAccess(userId: string, companyId: string): Promise<{ roles: string[]; permissions: string[] }> {
     const result = await this.dataSource.query(

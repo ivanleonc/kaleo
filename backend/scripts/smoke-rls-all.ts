@@ -80,13 +80,23 @@ async function main(): Promise<void> {
       [companyB],
     );
 
+    const membershipA = (await client.query(
+      `INSERT INTO memberships (company_id, user_id, status)
+       VALUES ($1, $2, 'active') RETURNING id`,
+      [companyA, userA],
+    )).rows[0].id as string;
+    const membershipB = (await client.query(
+      `INSERT INTO memberships (company_id, user_id, status)
+       VALUES ($1, $2, 'active') RETURNING id`,
+      [companyB, userB],
+    )).rows[0].id as string;
     await client.query(
-      `INSERT INTO user_contexts (user_id, company_id, branch_id, role_id) VALUES ($1,$2,NULL,$3)`,
-      [userA, companyA, owner],
+      `INSERT INTO membership_roles (company_id, membership_id, role_id) VALUES ($1, $2, $3)`,
+      [companyA, membershipA, owner],
     );
     await client.query(
-      `INSERT INTO user_contexts (user_id, company_id, branch_id, role_id) VALUES ($1,$2,NULL,$3)`,
-      [userB, companyB, owner],
+      `INSERT INTO membership_roles (company_id, membership_id, role_id) VALUES ($1, $2, $3)`,
+      [companyB, membershipB, owner],
     );
 
     await client.query(
@@ -138,10 +148,9 @@ async function main(): Promise<void> {
     );
     await client.query(
       `INSERT INTO membership_branches (company_id, membership_id, branch_id)
-       SELECT $1, id, $2 FROM memberships
-       WHERE company_id = $1 AND user_id = $3
+       VALUES ($1, $2, $3)
        ON CONFLICT DO NOTHING`,
-      [companyA, branchA, userA],
+      [companyA, membershipA, branchA],
     );
 
     await client.query('SET LOCAL ROLE kaleo_app');
@@ -152,7 +161,6 @@ async function main(): Promise<void> {
     for (const table of [
       'branches', 'analyses', 'feature_flags', 'audit_logs', 'invitations',
       'outbox_events', 'memberships', 'membership_roles', 'users', 'companies',
-      'user_contexts',
     ]) {
       scoped[table] = await count(table);
     }
@@ -182,7 +190,6 @@ async function main(): Promise<void> {
       scoped.membership_roles === 1 &&
       scoped.users === 1 &&
       scoped.companies === 1 &&
-      scoped.user_contexts === 1 &&
       roles === 4 &&
       permissions > 0 &&
       rolePermissions > 0 &&

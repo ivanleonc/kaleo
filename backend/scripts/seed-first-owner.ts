@@ -85,11 +85,17 @@ async function main() {
     }
     const ownerRoleId = roleResult.rows[0].id;
 
-    // Asignar usuario como Owner
+    // Asignar usuario como Owner: membership + rol.
+    const membership = await client.query(
+      `INSERT INTO memberships (company_id, user_id, status)
+       VALUES ($1, $2, 'active')
+       RETURNING id`,
+      [companyId, userId],
+    );
     await client.query(
-      `INSERT INTO user_contexts (user_id, company_id, branch_id, role_id)
-       VALUES ($1, $2, NULL, $3)`,
-      [userId, companyId, ownerRoleId],
+      `INSERT INTO membership_roles (company_id, membership_id, role_id)
+       VALUES ($1, $2, $3)`,
+      [companyId, membership.rows[0].id, ownerRoleId],
     );
 
     await client.query('COMMIT');
