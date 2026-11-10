@@ -63,6 +63,11 @@ Validación integral:
 npm run smoke:rls:all -- staging
 ```
 
+En CI, el job `db-isolation` levanta PostgreSQL 16, ejecuta
+`npm run db:bootstrap-ci`, aplica todas las migraciones desde cero y corre
+`smoke:rls:all`, `smoke:tenant`, `smoke:memberships` y `smoke:outbox` contra
+`DATABASE_URL`/`.env.ci`.
+
 Crea dos empresas con datos de varios módulos, cambia a `kaleo_app` con contexto de A y verifica que no vea nada de B. Sin contexto, las tablas por empresa devuelven 0 filas.
 
 > **Importante:** la aplicación sigue conectando como `postgres` (`BYPASSRLS`). Las políticas están listas, pero no se aplican hasta cambiar la `DATABASE_URL` a `kaleo_app`.

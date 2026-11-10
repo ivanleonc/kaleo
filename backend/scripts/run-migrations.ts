@@ -25,7 +25,7 @@ import { databaseSslOptions } from '../src/common/config/database-ssl.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = resolve(__dirname, '../src/migrations');
 
-const VALID_ENVIRONMENTS = ['development', 'staging', 'production'] as const;
+const VALID_ENVIRONMENTS = ['development', 'staging', 'production', 'ci'] as const;
 type Environment = (typeof VALID_ENVIRONMENTS)[number];
 
 type Mode = 'apply' | 'status' | 'backfill-checksums' | 'accept-checksum';

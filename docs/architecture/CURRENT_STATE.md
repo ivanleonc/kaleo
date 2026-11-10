@@ -542,9 +542,9 @@ El token incluye información de empresas, roles y permisos por empresa. Esto pe
 
 ### 17.2 CI
 
-`.github/workflows/ci.yml` ejecuta typecheck, lint, tests y build en backend y frontend, además de `check:permissions`. Es una base sólida.
+`.github/workflows/ci.yml` ejecuta typecheck, lint, tests y build en backend y frontend, además de `check:permissions`. El job `db-isolation` levanta PostgreSQL 16, prepara el schema/roles de Supabase, migra desde cero y corre los smoke tests de RLS, tenant, memberships y outbox.
 
-**Faltan:** migraciones en CI, OpenAPI diff, tests E2E, escaneo de dependencias y análisis estático de seguridad.
+**Faltan:** OpenAPI diff, tests E2E, escaneo de dependencias y análisis estático de seguridad.
 
 ### 17.3 Observabilidad
 

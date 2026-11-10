@@ -44,6 +44,7 @@ lerna-debug.log*
 .env.development
 .env.staging
 .env.production
+.env.ci
 .env.sandbox
 .env.development.local
 .env.staging.local

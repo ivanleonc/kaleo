@@ -247,7 +247,7 @@ gantt
 - [ ] Cambiar el rol de un usuario invalida su sesión o actualiza permisos en menos de 60 segundos.
 - [ ] Una acción crítica y su evento de outbox se confirman o revierten juntos.
 - [ ] La auditoría sobrevive al borrado lógico de la empresa.
-- [ ] Los tests de aislamiento corren en CI contra PostgreSQL real.
+- [x] Los tests de aislamiento corren en CI contra PostgreSQL real.
 - [ ] Ya no existe búsqueda global de usuarios en el flujo de miembros.
 
 ### Riesgos

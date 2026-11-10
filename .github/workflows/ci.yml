@@ -29,6 +29,58 @@ jobs:
       - run: npm run build
         working-directory: backend
 
+  db-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kaleo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kaleo_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/kaleo_ci
+      DATABASE_SSL: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      # PostgreSQL vanilla no trae el schema `extensions` ni los roles de
+      # Supabase que asume el baseline.
+      - run: npm run db:bootstrap-ci
+        working-directory: backend
+      - name: Crear .env.ci
+        run: printf 'DATABASE_URL=%s\nDATABASE_SSL=false\n' "$DATABASE_URL" > .env.ci
+        working-directory: backend
+      - name: Migrar desde cero
+        run: npm run migrate -- ci
+        working-directory: backend
+      - name: RLS completo (lectura/escritura cross-tenant)
+        run: npm run smoke:rls:all -- ci
+        working-directory: backend
+      - name: Transacción de tenant
+        run: npm run smoke:tenant -- ci
+        working-directory: backend
+      - name: Memberships
+        run: npm run smoke:memberships -- ci
+        working-directory: backend
+      - name: Auditoría y outbox
+        run: npm run smoke:outbox -- ci
+        working-directory: backend
+
   frontend:
     runs-on: ubuntu-latest
     steps:
