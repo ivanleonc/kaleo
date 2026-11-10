@@ -47,6 +47,7 @@ Header obligatorio: `x-company-id`.
 ## Frontend
 
 - `MembersView` usa “Enviar invitación” y llama a `invitationService.create`.
+- `MembersView` muestra una sección de **invitaciones pendientes** con email, roles y vencimiento, y permite revocarlas.
 - `AcceptInvitationView` (`/accept-invitation?token=...`) muestra la empresa y el email invitado.
   - Si el email no tiene cuenta: pide nombre, contraseña y confirmación.
   - Si ya tiene cuenta: redirige al login con `redirect` y, tras autenticarse, acepta la invitación.
@@ -56,5 +57,5 @@ Header obligatorio: `x-company-id`.
 
 - Tests de integración con base real.
 - Política RLS para lookup público por token cuando la app use `kaleo_app`.
-- Listado/revocación de invitaciones en la UI (los endpoints ya existen).
 - Reemplazar por completo el flujo multiempresa de “vincular usuario existente” si se decide eliminarlo.
+- Reenviar una invitación desde la UI (hoy se logra reinvitando al mismo email).

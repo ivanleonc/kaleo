@@ -16,6 +16,53 @@
 
       <UiTableFilters v-model="memberFilterValues" :filters="memberFilterDefs" />
 
+      <section
+        v-if="memberStore.pendingInvitations.length > 0"
+        class="pending-invitations"
+        aria-labelledby="pending-invitations-title"
+      >
+        <header class="pending-invitations-header">
+          <h2 id="pending-invitations-title" class="pending-invitations-title">
+            <IconMail :size="18" aria-hidden="true" />
+            Invitaciones pendientes
+            <span class="pending-count">{{ memberStore.pendingInvitations.length }}</span>
+          </h2>
+          <p class="pending-invitations-hint">
+            Estas personas todavía no han aceptado la invitación.
+          </p>
+        </header>
+
+        <ul class="pending-list">
+          <li
+            v-for="invitation in memberStore.pendingInvitations"
+            :key="invitation.id"
+            class="pending-item"
+          >
+            <div class="pending-main">
+              <strong class="pending-email">{{ invitation.email }}</strong>
+              <span v-if="invitation.roles.length" class="pending-roles">
+                {{ invitation.roles.join(', ') }}
+              </span>
+            </div>
+            <div class="pending-meta">
+              <span class="pending-expiry">
+                <IconClock :size="14" aria-hidden="true" />
+                Vence {{ formatDate(invitation.expires_at) }}
+              </span>
+              <UiButton
+                v-permission="Permissions.USERS.CREATE"
+                variant="ghost"
+                size="sm"
+                width="auto"
+                @click="openRevokeInvitationModal(invitation)"
+              >
+                Revocar
+              </UiButton>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       <div class="table-section">
         <MemberTable
           :table="memberTable"
@@ -285,6 +332,19 @@
       Esto invalidará su contraseña actual de forma inmediata.
     </UiConfirmDialog>
 
+    <!-- Revocar invitación pendiente -->
+    <UiConfirmDialog
+      v-model="isRevokeInvitationModalOpen"
+      title="Revocar invitación"
+      :loading="memberStore.isLoading"
+      :error="memberStore.error"
+      confirm-label="Revocar"
+      @confirm="confirmRevokeInvitation"
+    >
+      La invitación a <strong>{{ revokeInvitationTarget?.email }}</strong> dejará de ser válida.
+      La persona no podrá usarla para unirse a la empresa.
+    </UiConfirmDialog>
+
     <!-- Empresas del miembro (asignar / quitar multi-empresa) -->
     <MemberCompaniesModal
       v-model="isCompaniesModalOpen"
@@ -334,12 +394,14 @@ import { useDirtyForm } from '@/composables/useDirtyForm';
 import { useTableView } from '@/composables/useTableView';
 import type { ServerSort } from '@/composables/useAppTable';
 import type { UserSearchResult } from '@/types/member';
+import type { PendingInvitation } from '@/types/invitation';
+import { formatDate } from '@/utils/date';
 import type { UiSelectOption } from '@/types/ui';
 import { useToast } from '@/composables/useToast';
 import { useCreateAction } from '@/composables/useCreateAction';
 import { useDebounceFn } from '@/composables/useDebounceFn';
 import { useCompanyStore } from '@/stores/company.store';
-import { IconChevronDown, IconPlus, IconUserCheck } from '@tabler/icons-vue';
+import { IconChevronDown, IconClock, IconMail, IconPlus, IconUserCheck } from '@tabler/icons-vue';
 import MemberCompaniesModal from '@/components/MemberCompaniesModal.vue';
 
 const PAGE_SIZES = [10, 20, 50, 100];
@@ -618,6 +680,7 @@ onMounted(async () => {
     roleService.getRoles().then((roles) => {
       availableRoles.value = roles;
     }).catch(() => {}),
+    memberStore.fetchInvitations(),
   ]);
 });
 
@@ -887,6 +950,28 @@ const confirmResetPassword = async () => {
     // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
   }
 };
+
+// --- INVITACIONES PENDIENTES ---
+const revokeInvitationModal = useModal<PendingInvitation>();
+const isRevokeInvitationModalOpen = revokeInvitationModal.isOpen;
+const revokeInvitationTarget = revokeInvitationModal.target;
+
+const openRevokeInvitationModal = (invitation: PendingInvitation) => {
+  revokeInvitationModal.open(invitation);
+  memberStore.error = null;
+};
+
+const confirmRevokeInvitation = async () => {
+  if (!revokeInvitationTarget.value) return;
+  try {
+    const email = revokeInvitationTarget.value.email;
+    await memberStore.revokeInvitation(revokeInvitationTarget.value.id);
+    revokeInvitationModal.reset();
+    toast.success(`Invitación a ${email} revocada`);
+  } catch {
+    // El error queda en memberStore.error y lo muestra el UiConfirmDialog.
+  }
+};
 </script>
 
 <style scoped>
@@ -1128,6 +1213,101 @@ const confirmResetPassword = async () => {
   color: var(--color-danger-text);
 }
 
+.pending-invitations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-card);
+}
 
+.pending-invitations-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 
+.pending-invitations-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-main);
+}
+
+.pending-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  background-color: var(--color-primary-light);
+  color: var(--primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.pending-invitations-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pending-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--bg-app);
+}
+
+.pending-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pending-email {
+  color: var(--text-main);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.pending-roles {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.pending-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pending-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
 </style>

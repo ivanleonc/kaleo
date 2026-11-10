@@ -5,7 +5,7 @@ import { invitationService } from '@/services/invitation.service';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { usePaginatedSetup } from '@/composables/createPaginatedStore';
 import type { Member, CreateMemberPayload, UpdateMemberPayload, AttachMemberPayload, MemberCompany, UserSearchResult } from '@/types/member';
-import type { CreateInvitationPayload } from '@/types/invitation';
+import type { CreateInvitationPayload, PendingInvitation } from '@/types/invitation';
 
 export interface MemberFilters extends Record<string, unknown> {
   search?: string;
@@ -45,12 +45,33 @@ export const useMemberStore = defineStore('member', () => {
     return result;
   };
 
+  const pendingInvitations = ref<PendingInvitation[]>([]);
+
+  const fetchInvitations = async () => {
+    if (!companyId.value) return;
+    try {
+      const response = await invitationService.list(companyId.value);
+      pendingInvitations.value = response.data;
+    } catch {
+      pendingInvitations.value = [];
+    }
+  };
+
   const inviteMember = async (payload: CreateInvitationPayload) => {
     if (!companyId.value) throw new Error('No hay una empresa activa seleccionada');
     return paginated.withLoading(async () => {
       const response = await invitationService.create(companyId.value!, payload);
+      await fetchInvitations();
       return response.data;
     }, 'Error al enviar la invitación');
+  };
+
+  const revokeInvitation = async (invitationId: string) => {
+    if (!companyId.value) return;
+    await paginated.withLoading(async () => {
+      await invitationService.revoke(companyId.value!, invitationId);
+      await fetchInvitations();
+    }, 'Error al revocar la invitación');
   };
 
   const updateMember = async (userId: string, payload: UpdateMemberPayload) => {
@@ -143,6 +164,9 @@ export const useMemberStore = defineStore('member', () => {
     // --- CRUD de dominio ---
     addMember,
     inviteMember,
+    pendingInvitations,
+    fetchInvitations,
+    revokeInvitation,
     updateMember,
     removeMember,
     resetPassword,
