@@ -28,7 +28,7 @@ export class InvitationsController {
   @Post()
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:create')
-  @Audit({ entityType: 'Member', resolveCreatedId: (r) => r?.data?.id })
+  @Audit({ entityType: 'Invitation', resolveCreatedId: (r) => r?.data?.id, skipDiff: true })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiOperation({
     summary: 'Invitar a un usuario por email',
@@ -70,7 +70,7 @@ export class InvitationsController {
   @Delete(':invitationId')
   @UseGuards(PermissionsGuard)
   @RequirePermissions('users:create')
-  @Audit({ entityType: 'Member', idParam: 'invitationId', skipDiff: true })
+  @Audit({ entityType: 'Invitation', idParam: 'invitationId', skipDiff: true })
   @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
   @ApiParam({ name: 'invitationId', description: 'UUID de la invitación' })
   @ApiOperation({ summary: 'Revocar una invitación pendiente' })
