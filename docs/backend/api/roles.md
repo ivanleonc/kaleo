@@ -152,7 +152,11 @@ Elimina un rol personalizado (soft delete).
 **Roles:** Owner únicamente
 
 ::: danger
-Al eliminar un rol, los miembros que lo tenían asignado pierden esos permisos inmediatamente. Los JWT activos siguen siendo válidos hasta que expiran (máx 15 min).
+No se puede eliminar un rol con miembros asignados: el backend responde `409` y exige reasignarlos primero. Esto evita que los usuarios pierdan acceso de forma silenciosa.
+:::
+
+::: info Claims
+Los cambios de roles/permisos incrementan `memberships.token_version`. El siguiente request de esa empresa recibe `401` y el cliente refresca el token con los permisos actuales; las demás empresas no se ven afectadas.
 :::
 
 ::: warning Anti-IDOR

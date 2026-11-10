@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PROTECTED_ROLES } from '../../common/constants/roles.js';
 import { buildDynamicUpdate } from '../../common/utils/sql.helper.js';
@@ -108,28 +108,20 @@ export class RoleRepository {
 
   async delete(id: string) {
     await withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const assignments = await queryRunner.query(
+        `SELECT COUNT(*)::int AS total FROM membership_roles WHERE role_id = $1`,
+        [id],
+      );
+      if (Number(assignments[0]?.total ?? 0) > 0) {
+        throw new ConflictException(
+          'El rol tiene miembros asignados. Reasígnalos antes de eliminarlo.',
+        );
+      }
+
       const placeholders = PROTECTED_ROLES.map((_, i) => `$${i + 2}`).join(', ');
       await queryRunner.query(
         `UPDATE roles SET deleted_at = NOW() WHERE id = $1 AND name NOT IN (${placeholders})`,
         [id, ...PROTECTED_ROLES],
-      );
-
-      // Invalidar claims de los miembros con este rol antes de quitarlo.
-      await queryRunner.query(
-        `UPDATE memberships m
-         SET token_version = m.token_version + 1, updated_at = now()
-         WHERE EXISTS (
-           SELECT 1 FROM membership_roles mr
-           WHERE mr.company_id = m.company_id
-             AND mr.membership_id = m.id
-             AND mr.role_id = $1
-         )`,
-        [id],
-      );
-
-      await queryRunner.query(
-        `DELETE FROM membership_roles WHERE role_id = $1`,
-        [id],
       );
     });
   }
