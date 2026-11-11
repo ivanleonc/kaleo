@@ -1,0 +1,9 @@
+nombre,direccion,ciudad,departamento,pais,codigo_postal,telefono,email,codigo,zona_horaria
+Sede Principal,"Calle 10 # 5-25, Edificio Central",Bogotá,Cundinamarca,Colombia,110111,+57 601 555 0101,bogota@kaleo-demo.com,BOG-01,America/Bogota
+Sede Norte,"Carrera 43A # 1-50, Torre Norte",Medellín,Antioquia,Colombia,050021,+57 604 555 0102,medellin@kaleo-demo.com,MDE-01,America/Bogota
+Sede Sur,"Avenida 6N # 23-45, Oficina 301",Cali,Valle del Cauca,Colombia,760046,+57 602 555 0103,cali@kaleo-demo.com,CLO-01,America/Bogota
+Sede Caribe,"Calle 77 # 59-20, Piso 4",Barranquilla,Atlántico,Colombia,080002,+57 605 555 0104,barranquilla@kaleo-demo.com,BAQ-01,America/Bogota
+Sede Occidente,"Carrera 12 # 25-30, Local 2",Pereira,Risaralda,Colombia,660001,+57 606 555 0105,pereira@kaleo-demo.com,PEI-01,America/Bogota
+Sede Oriente,"Calle 36 # 18-20, Oficina 501",Bucaramanga,Santander,Colombia,680001,+57 607 555 0106,bucaramanga@kaleo-demo.com,BGA-01,America/Bogota
+Sede Centro,"Carrera 23 # 62-15, Piso 2",Manizales,Caldas,Colombia,170001,+57 606 555 0107,manizales@kaleo-demo.com,MZL-01,America/Bogota
+Sede Frontera,"Avenida 0 # 12-34, Centro Comercial",Cúcuta,Norte de Santander,Colombia,540001,+57 607 555 0108,cucuta@kaleo-demo.com,CUC-01,America/Bogota
