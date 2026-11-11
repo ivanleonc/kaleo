@@ -56,6 +56,7 @@ const APU_IMPORT_ALIASES: Record<string, string> = {
   nombre_apu: 'apu_name',
   actividad: 'apu_name',
   descripcion_apu: 'apu_name',
+  apu_unidad: 'apu_unit',
   unidad_apu: 'apu_unit',
   unidad_salida: 'apu_unit',
   unidad: 'apu_unit',
