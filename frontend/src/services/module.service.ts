@@ -12,6 +12,11 @@ export const moduleService = {
     return response.data;
   },
 
+  async getAvailable(): Promise<ModulesResponse> {
+    const response = await apiClient.get<ModulesResponse>('/modules/available');
+    return response.data;
+  },
+
   async getCatalog(): Promise<ModulesResponse> {
     const response = await apiClient.get<ModulesResponse>('/modules/catalog');
     return response.data;
@@ -19,6 +24,14 @@ export const moduleService = {
 
   async setModule(code: string, enabled: boolean) {
     const response = await apiClient.put(`/modules/${encodeURIComponent(code)}`, { enabled });
+    return response.data;
+  },
+
+  async setSelection(code: string, enabled: boolean) {
+    const response = await apiClient.put(
+      `/modules/${encodeURIComponent(code)}/selection`,
+      { enabled },
+    );
     return response.data;
   },
 

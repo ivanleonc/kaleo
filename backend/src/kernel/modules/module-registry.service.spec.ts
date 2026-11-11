@@ -66,6 +66,23 @@ describe('ModuleRegistryService.getEnabledModules', () => {
       .toBe(true);
   });
 
+  it('incluye desactivados en el catálogo disponible, pero no en los habilitados', async () => {
+    const service = createService(
+      new Map<string, ModuleStatus>([['crm.accounts', 'disabled']]),
+      [
+        manifest({ code: 'core.users' }),
+        manifest({ code: 'crm.accounts', isCore: false }),
+      ],
+      ['crm.accounts'],
+    );
+
+    const available = await service.getAvailableModules('company-1');
+    expect(available.find((m) => m.code === 'crm.accounts')?.status).toBe('disabled');
+
+    const enabled = await service.getEnabledModules('company-1');
+    expect(enabled.map((m) => m.code)).toEqual(['core.users']);
+  });
+
   it('oculta packs deshabilitados o sin fila', async () => {
     const service = createService(
       new Map<string, ModuleStatus>([['crm.accounts', 'disabled']]),

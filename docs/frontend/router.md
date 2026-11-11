@@ -20,12 +20,22 @@
 | `/companies/:companyId/branches` | Auth | `core.branches.read` | `BranchesView` |
 | `/companies/:companyId/roles` | Auth | `core.roles.read` | `RolesView` |
 | `/companies/:companyId/audit` | Auth | `core.audit.read` | `AuditView` |
+| `/companies/:companyId/operations` | Auth | — | `OperationsView` |
+| `/companies/:companyId/notifications` | Auth | — | `NotificationsView` |
+| `/companies/:companyId/documents` | Auth | `core.documents.read` | `DocumentsView` |
 | `/:pathMatch(.*)*` | — | — | `NotFoundView` |
 
 Todas las vistas usan **lazy imports**:
 ```ts
 component: () => import('@/views/MembersView.vue')
 ```
+
+## Shell dinámico
+
+El sidebar se construye desde los manifests que devuelve `GET /api/modules`
+(`buildSidebarNav`). El router carga ese catálogo antes de entrar a una empresa
+y valida `meta.moduleCode` contra él. Los módulos `core.*` siempre están
+disponibles; los shared/pack requieren inclusión en el plan y estado habilitado.
 
 ## Campos `meta`
 
@@ -79,13 +89,12 @@ if (tenant.slug && companyIdParam !== tenant.slug) {
 
 ### 5. Gate de onboarding
 
-Si el usuario autenticado no tiene empresas (y no es super-admin), se redirige a `/onboarding`:
+Si el usuario autenticado no tiene empresas (y no es super-admin), se redirige a `/onboarding`.
 
-```ts
-if (!authStore.user?.tenants?.length && !authStore.isSuperAdmin) {
-  return { path: '/onboarding' }
-}
-```
+El onboarding es un wizard de cuatro pasos: empresa, módulos del plan, equipo y
+resumen. El progreso se guarda en `company_settings.settings.onboarding` y se
+retoma si el usuario recarga. Las empresas existentes sin onboarding iniciado
+no se ven obligadas a completarlo.
 
 ### 6. Forzar cambio de contraseña
 

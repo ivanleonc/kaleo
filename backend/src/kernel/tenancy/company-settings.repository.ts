@@ -49,6 +49,24 @@ export class CompanySettingsRepository {
     });
   }
 
+  async mergeSettings(
+    companyId: string,
+    patch: Record<string, unknown>,
+  ): Promise<CompanySettings> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = await queryRunner.query(
+        `INSERT INTO company_settings (company_id, settings)
+         VALUES ($1, $2::jsonb)
+         ON CONFLICT (company_id) DO UPDATE SET
+           settings = company_settings.settings || EXCLUDED.settings
+         RETURNING company_id, currency_code, locale, settings, updated_at`,
+        [companyId, JSON.stringify(patch)],
+      );
+      return mapSettings(rows[0] as CompanySettingsRow);
+    });
+  }
+
   async update(
     companyId: string,
     data: {

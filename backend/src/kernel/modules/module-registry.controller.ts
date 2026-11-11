@@ -5,6 +5,9 @@ import { SetModuleDto } from './dto/set-module.dto.js';
 import { SetModuleConfigDto } from './dto/set-module-config.dto.js';
 import { Ok } from '../../common/dto/api-response.dto.js';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard.js';
+import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
+import { Permissions } from '../../common/constants/permissions.js';
 import { Audit } from '../../common/decorators/audit-context.decorator.js';
 
 @ApiTags('Modules')
@@ -29,6 +32,20 @@ export class ModuleRegistryController {
     return Ok(await this.moduleRegistry.getEnabledModules(companyId));
   }
 
+  @Get('available')
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiOperation({
+    summary: 'Módulos disponibles para la empresa, incluidos los desactivados',
+    description: 'El onboarding lo usa para activar módulos incluidos en el plan.',
+  })
+  async available(@Headers('x-company-id') companyId?: string) {
+    if (!companyId) {
+      throw new BadRequestException('Falta el header x-company-id');
+    }
+
+    return Ok(await this.moduleRegistry.getAvailableModules(companyId));
+  }
+
   @Get('catalog')
   @UseGuards(SuperAdminGuard)
   @ApiOperation({ summary: 'Catálogo completo de módulos (super-admin)' })
@@ -36,6 +53,31 @@ export class ModuleRegistryController {
   @ApiResponse({ status: 403, description: 'Se requiere super-administrador' })
   catalog() {
     return Ok(this.moduleRegistry.listCatalog());
+  }
+
+  @Put(':code/selection')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permissions.COMPANY.UPDATE)
+  @Audit({ entityType: 'Module', idParam: 'code', skipDiff: true })
+  @ApiHeader({ name: 'x-company-id', description: 'UUID de la empresa activa', required: true })
+  @ApiParam({ name: 'code', example: 'shared.documents' })
+  @ApiOperation({
+    summary: 'Activar o desactivar un módulo incluido en el plan',
+    description: 'Solo aplica a módulos shared/pack; los core no se pueden desactivar.',
+  })
+  async select(
+    @Headers('x-company-id') companyId: string | undefined,
+    @Param('code') code: string,
+    @Body() dto: SetModuleDto,
+  ) {
+    if (!companyId) {
+      throw new BadRequestException('Falta el header x-company-id');
+    }
+
+    return Ok(
+      await this.moduleRegistry.setModuleEnabled(companyId, code, dto.enabled),
+      'Módulo actualizado',
+    );
   }
 
   @Put(':code')

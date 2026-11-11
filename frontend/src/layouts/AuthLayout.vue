@@ -1,10 +1,16 @@
 <template>
   <div class="auth-wrapper">
-    <div class="auth-form">
+    <div class="auth-form" :style="{ maxWidth }">
       <slot></slot>
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+withDefaults(defineProps<{ maxWidth?: string }>(), {
+  maxWidth: '400px',
+});
+</script>
 
 <style scoped>
 .auth-wrapper {
@@ -19,7 +25,6 @@
 
 .auth-form {
   width: 100%;
-  max-width: 400px;
 }
 </style>
 

@@ -329,7 +329,7 @@ gantt
 
 - [x] Habilitar un módulo sin sus dependencias falla con un error claro.
 - [x] Un límite de plan se impone en el backend aunque la UI lo ignore.
-- [ ] El sidebar y las rutas se generan desde manifests, no desde listas manuales.
+- [x] El sidebar se genera desde manifests y el router valida módulos/permisos contra ellos.
 - [x] Un downgrade deja los datos en solo lectura, no los borra.
 - [x] Un job de importación corre fuera del request y reporta progreso.
 - [x] Un evento de outbox se publica una sola vez y tolera reintentos.

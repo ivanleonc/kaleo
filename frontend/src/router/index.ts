@@ -327,12 +327,14 @@ router.beforeEach(async (to) => {
     if (path) return { path };
   }
 
-  // Módulos de pack/shared: core siempre pasa; el resto requiere habilitación.
-  const moduleCode = typeof to.meta.moduleCode === 'string' ? to.meta.moduleCode : undefined;
-  if (moduleCode && !moduleCode.startsWith('core.') && activeTenant) {
+  // El shell consume los manifests. Se cargan antes de entrar para que el
+  // sidebar tenga la navegación en el primer render (el store cachea por empresa).
+  if (isAuthenticated && activeTenant) {
     const modulesStore = useModulesStore();
     await modulesStore.load(activeTenant.id);
-    if (!modulesStore.isEnabled(moduleCode)) {
+
+    const moduleCode = typeof to.meta.moduleCode === 'string' ? to.meta.moduleCode : undefined;
+    if (moduleCode && !moduleCode.startsWith('core.') && !modulesStore.isEnabled(moduleCode)) {
       const path = companyPathFor(activeTenant, '/dashboard');
       if (path) return { path };
     }

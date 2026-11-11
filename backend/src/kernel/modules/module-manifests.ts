@@ -55,6 +55,14 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
         order: 21,
       },
     ],
+    onboarding: [
+      {
+        code: 'create-first-analysis',
+        title: 'Crea tu primer análisis',
+        description: 'Carga un archivo de consumo para ver indicadores y reportes.',
+        route: '/analyses',
+      },
+    ],
   },
   {
     code: 'core.users',
@@ -78,6 +86,14 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
         icon: 'users',
         nav: true,
         order: 30,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'invite-team',
+        title: 'Invita a tu equipo',
+        description: 'Agrega a las personas que trabajarán contigo en esta empresa.',
+        route: '/members',
       },
     ],
   },
@@ -170,6 +186,14 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
         order: 70,
       },
     ],
+    onboarding: [
+      {
+        code: 'complete-company-profile',
+        title: 'Completa el perfil de la empresa',
+        description: 'Revisa datos fiscales, contacto y configuración regional.',
+        route: '/settings',
+      },
+    ],
   },
   {
     code: 'core.ai',
@@ -198,6 +222,25 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
         requiresConfirmation: true,
         permission: Permissions.AI.RUN,
         inputSchema: { type: 'object' },
+      },
+    ],
+  },
+  {
+    code: 'core.operations',
+    name: 'Operaciones',
+    version: '1.0.0',
+    vertical: null,
+    isCore: true,
+    dependsOn: [],
+    permissions: [],
+    routes: [
+      {
+        path: '/operations',
+        name: 'Operations',
+        title: 'Operaciones',
+        icon: 'operations',
+        nav: true,
+        order: 62,
       },
     ],
   },
@@ -242,6 +285,14 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
         icon: 'documents',
         nav: true,
         order: 75,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'upload-first-document',
+        title: 'Sube tu primer documento',
+        description: 'Centraliza contratos, informes y soportes con versiones y permisos.',
+        route: '/documents',
       },
     ],
   },

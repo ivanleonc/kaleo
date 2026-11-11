@@ -32,6 +32,7 @@ Cada manifest declara:
 - `dependsOn`
 - `permissions`
 - `routes` (path, nombre, título, permiso, icono, orden)
+- `onboarding` opcional (pasos recomendados del pack)
 - `featureFlags` opcional
 
 Al iniciar, `ModuleRegistryService`:
@@ -40,13 +41,21 @@ Al iniciar, `ModuleRegistryService`:
 2. Hace upsert de `modules` y `module_dependencies` con el DataSource `auth`.
 3. Registra en logs cuántos módulos sincronizó.
 
-## Endpoint
+## Endpoints
 
 ```http
 GET /api/modules
+GET /api/modules/available
+PUT /api/modules/:code/selection
 x-company-id: <uuid>
 Authorization: Bearer <token>
 ```
+
+- `GET /modules` devuelve solo módulos habilitados (sidebar/router).
+- `GET /modules/available` incluye módulos del plan desactivados; lo usa el
+  onboarding para poder reactivarlos.
+- `PUT /modules/:code/selection` activa/desactiva un módulo shared/pack incluido
+  en el plan. Requiere `core.company.update`; los `core.*` no se pueden tocar.
 
 Devuelve los manifests habilitados con su estado:
 

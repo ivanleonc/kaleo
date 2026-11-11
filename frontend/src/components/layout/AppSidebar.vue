@@ -31,62 +31,22 @@
         </select>
       </div>
       <router-link
-        :to="companyPath('/dashboard')"
+        v-for="item in coreNavItems"
+        :key="item.name"
+        :to="companyPath(item.path)"
         class="nav-link"
-        exact-active-class="active"
-        v-if="modulesStore.isEnabled('core.dashboard')"
-      >
-        <IconLayoutDashboard :size="22" stroke-width="1.8" />
-        <span class="nav-label">Panel</span>
-      </router-link>
-      <router-link
-        :to="companyPath('/analyses')"
-        class="nav-link"
-        :class="{ active: isAnalysesActive }"
-        v-permission="Permissions.ANALYSES.READ"
-        v-if="modulesStore.isEnabled('core.analyses')"
-      >
-        <IconChartHistogram :size="22" stroke-width="1.8" />
-        <span class="nav-label">Analítica</span>
-      </router-link>
-      <router-link :to="companyPath('/members')" class="nav-link" active-class="active" v-permission="Permissions.USERS.READ" v-if="modulesStore.isEnabled('core.users')">
-        <IconUsers :size="22" stroke-width="1.8" />
-        <span class="nav-label">Equipo</span>
-      </router-link>
-      <router-link :to="companyPath('/branches')" class="nav-link" active-class="active" v-permission="Permissions.BRANCHES.READ" v-if="modulesStore.isEnabled('core.branches')">
-        <IconBuildingCommunity :size="22" stroke-width="1.8" />
-        <span class="nav-label">Sedes</span>
-      </router-link>
-      <router-link :to="companyPath('/roles')" class="nav-link" active-class="active" v-permission="Permissions.ROLES.READ" v-if="modulesStore.isEnabled('core.roles')">
-        <IconShieldLock :size="22" stroke-width="1.8" />
-        <span class="nav-label">Roles</span>
-      </router-link>
-      <router-link :to="companyPath('/audit')" class="nav-link" active-class="active" v-permission="Permissions.AUDIT.READ" v-if="modulesStore.isEnabled('core.audit')">
-        <IconClipboardList :size="22" stroke-width="1.8" />
-        <span class="nav-label">Auditoría</span>
-      </router-link>
-      <router-link :to="companyPath('/operations')" class="nav-link" active-class="active">
-        <IconActivity :size="22" stroke-width="1.8" />
-        <span class="nav-label">Operaciones</span>
-      </router-link>
-      <router-link
-        :to="companyPath('/notifications')"
-        class="nav-link"
+        :class="{ active: isItemActive(item.path) }"
         active-class="active"
-        v-if="modulesStore.isEnabled('core.notifications')"
       >
-        <IconBell :size="22" stroke-width="1.8" />
-        <span class="nav-label">Notificaciones</span>
-      </router-link>
-      <router-link :to="companyPath('/settings')" class="nav-link" active-class="active" v-permission="Permissions.COMPANY.READ" v-if="modulesStore.isEnabled('core.company')">
-        <IconSettings :size="22" stroke-width="1.8" />
-        <span class="nav-label">Ajustes</span>
+        <component :is="moduleIcon(item.icon)" :size="22" stroke-width="1.8" />
+        <span class="nav-label">{{ item.title }}</span>
       </router-link>
       <router-link
         v-for="item in visiblePackItems"
         :key="item.name"
         :to="companyPath(item.path)"
         class="nav-link"
+        :class="{ active: isItemActive(item.path) }"
         active-class="active"
       >
         <component :is="moduleIcon(item.icon)" :size="22" stroke-width="1.8" />
@@ -152,51 +112,50 @@ import { useSidebar } from '@/composables/useSidebar';
 import { useModulesStore } from '@/stores/modules.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { moduleIcon } from './module-icons';
-import { Permissions } from '@/constants/permissions';
+import { buildSidebarNav } from './sidebar-nav';
 import {
-  IconLayoutDashboard,
-  IconChartHistogram,
-  IconUsers,
-  IconShieldLock,
-  IconClipboardList,
-  IconSettings,
-  IconActivity,
   IconPin,
   IconPinFilled,
   IconSun,
   IconMoon,
   IconX,
   IconBook,
-  IconBuildingCommunity,
   IconPuzzle,
   IconCreditCard,
-  IconBell,
 } from '@tabler/icons-vue';
 
 const route = useRoute();
 const { companyPath } = useCompanyPath();
 const { isDarkMode, toggleTheme } = useTheme();
+
+/** Marca también rutas hijas (ej. /analyses/:id) como activas. */
+function isItemActive(path: string): boolean {
+  const base = companyPath(path);
+  return Boolean(base) && (route.path === base || route.path.startsWith(`${base}/`));
+}
 const modulesStore = useModulesStore();
 const authStore = useAuthStore();
 const selectedModule = ref<'all' | string>('all');
 
+const navItems = computed(() =>
+  buildSidebarNav(modulesStore.modules, (code) => authStore.hasPermission(code)),
+);
+const coreNavItems = computed(() => navItems.value.filter((item) => item.isCore));
+
 const switchableModules = computed(() =>
   modulesStore.modules.filter(
-    (module) => !module.isCore && module.routes.some((item) => item.nav),
+    (module) =>
+      !module.isCore &&
+      module.routes.some(
+        (item) =>
+          item.nav &&
+          !item.path.includes(':') &&
+          (!item.permission || authStore.hasPermission(item.permission)),
+      ),
   ),
 );
 
-const packNavItems = computed(() =>
-  modulesStore.modules
-    .filter((module) => !module.isCore)
-    .flatMap((module) =>
-      module.routes
-        .filter((item) => item.nav && !item.path.includes(':'))
-        .filter((item) => !item.permission || authStore.hasPermission(item.permission))
-        .map((item) => ({ ...item, moduleCode: module.code })),
-    )
-    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100)),
-);
+const packNavItems = computed(() => navItems.value.filter((item) => !item.isCore));
 
 const visiblePackItems = computed(() =>
   selectedModule.value === 'all'
@@ -216,7 +175,6 @@ watch(
   },
   { immediate: true },
 );
-const isAnalysesActive = computed(() => route.path.includes('/analyses'));
 const {
   isSidebarExpanded,
   isSidebarPinned,

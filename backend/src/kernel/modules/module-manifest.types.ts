@@ -36,6 +36,13 @@ export interface ModuleRoute {
   order?: number;
 }
 
+export interface OnboardingStep {
+  code: string;
+  title: string;
+  description?: string;
+  route?: string;
+}
+
 export interface ModuleManifest {
   code: string;
   name: string;
@@ -47,6 +54,7 @@ export interface ModuleManifest {
   routes: ModuleRoute[];
   featureFlags?: string[];
   aiTools?: AiToolDefinition[];
+  onboarding?: OnboardingStep[];
 }
 
 export interface EnabledModule extends ModuleManifest {

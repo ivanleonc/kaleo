@@ -18,8 +18,8 @@ export const useModulesStore = defineStore('modules', () => {
 
   const enabledCodes = computed(() => new Set(modules.value.map((m) => m.code)));
 
-  async function load(companyId: string): Promise<void> {
-    if (loadedCompanyId.value === companyId && modules.value.length > 0) return;
+  async function load(companyId: string, force = false): Promise<void> {
+    if (!force && loadedCompanyId.value === companyId && modules.value.length > 0) return;
 
     isLoading.value = true;
     error.value = null;

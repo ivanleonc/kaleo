@@ -110,6 +110,7 @@ npm run migrate -- production --accept-checksum 000
 | `050-plans-trial-readonly.sql` | `limit_kind`, trial del plan core y límite `core.users.max_active`. |
 | `051-notifications.sql` | Notificaciones in-app, preferencias y permiso `core.notifications.read`. |
 | `052-documents.sql` | Documentos, versiones, links, permisos y `shared.documents` en el plan core. |
+| `053-core-shell-modules.sql` | `core.operations` y `core.notifications` en el catálogo y plan core. |
 
 ## Verificar el estado
 

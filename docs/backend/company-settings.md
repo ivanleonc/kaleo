@@ -41,6 +41,40 @@ x-company-id: <uuid>
 
 Permiso: `core.company.update`. La escritura queda auditada.
 
+### Onboarding
+
+El progreso del onboarding se guarda dentro de `settings.onboarding` y se
+actualiza con merge parcial:
+
+```http
+GET /api/company-settings/onboarding
+PUT /api/company-settings/onboarding
+x-company-id: <uuid>
+
+{
+  "completedSteps": ["company", "modules"],
+  "selectedModules": ["shared.documents"],
+  "completed": true
+}
+```
+
+Estado devuelto:
+
+```json
+{
+  "startedAt": "2026-11-10T00:00:00.000Z",
+  "completedAt": null,
+  "completed": false,
+  "completedSteps": ["company", "modules"],
+  "selectedModules": ["shared.documents"]
+}
+```
+
+- `GET` requiere `core.company.read`.
+- `PUT` requiere `core.company.update`.
+- `startedAt` se completa en la primera escritura.
+- Los pasos y módulos se acumulan sin duplicados.
+
 ## Frontend
 
 En **Ajustes → Preferencias regionales**:

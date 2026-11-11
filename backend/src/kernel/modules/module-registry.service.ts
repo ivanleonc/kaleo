@@ -31,6 +31,16 @@ export class ModuleRegistryService implements OnModuleInit {
    *   como `read_only`; sus datos no se borran.
    */
   async getEnabledModules(companyId: string): Promise<EnabledModule[]> {
+    const available = await this.getAvailableModules(companyId);
+    return available.filter((module) => module.status !== 'disabled');
+  }
+
+  /**
+   * Catálogo visible para la empresa, incluyendo módulos del plan desactivados.
+   * El onboarding lo usa para poder volver a activarlos; el sidebar consume
+   * `getEnabledModules` y no muestra los `disabled`.
+   */
+  async getAvailableModules(companyId: string): Promise<EnabledModule[]> {
     const [statuses, planModules, readOnly] = await Promise.all([
       this.repository.getCompanyModuleStatuses(companyId),
       this.entitlements?.getPlanModuleCodes(companyId) ?? Promise.resolve([]),
@@ -47,7 +57,7 @@ export class ModuleRegistryService implements OnModuleInit {
       } else if (planSet.has(manifest.code)) {
         status =
           explicitStatus === 'disabled'
-            ? undefined
+            ? 'disabled'
             : readOnly
               ? 'read_only'
               : explicitStatus === 'trial'
@@ -58,7 +68,7 @@ export class ModuleRegistryService implements OnModuleInit {
         status = 'read_only';
       }
 
-      if (status === undefined || status === 'disabled') return [];
+      if (status === undefined) return [];
       return [{ ...manifest, status }];
     });
   }
