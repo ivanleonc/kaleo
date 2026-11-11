@@ -2,6 +2,7 @@ import type { Component } from 'vue';
 import {
   IconActivity,
   IconBell,
+  IconBook,
   IconChartHistogram,
   IconClipboardList,
   IconFileText,
@@ -25,6 +26,7 @@ const ICONS: Record<string, Component> = {
   documents: IconFileText,
   operations: IconActivity,
   parties: IconUsers,
+  catalog: IconBook,
 };
 
 export function moduleIcon(token?: string): Component {

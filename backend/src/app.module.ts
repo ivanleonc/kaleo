@@ -25,6 +25,7 @@ import { AiModule } from './kernel/ai/ai.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { PartiesModule } from './parties/parties.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -115,6 +116,7 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     NotificationsModule,
     DocumentsModule,
     PartiesModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [

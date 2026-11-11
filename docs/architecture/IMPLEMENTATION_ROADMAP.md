@@ -365,9 +365,10 @@ gantt
 
 > `party_identities` se crea aquí porque depende de `parties`. La ingesta de bots la consumirá en la fase 7; CRM y Construcción pueden usarla antes para evitar duplicados.
 >
-> Estado: `shared.parties`, roles, identidades, contactos y direcciones ya están
-> implementados (migración `054`). Quedan unidades, impuestos, monedas y catálogo
-> para completar 7.1.
+> Estado: `shared.parties` (054) y las fundaciones numéricas —monedas,
+> unidades/conversiones e impuestos— (055) ya están implementados. Queda
+> `catalog_items`, categorías, listas de precios y precios por item para
+> completar 7.1.
 
 ### 7.2 Construcción
 

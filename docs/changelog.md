@@ -18,6 +18,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 - Onboarding en cuatro pasos: empresa, módulos del plan, invitación de equipo y resumen, con progreso persistido.
 - Activación/desactivación de módulos compartidos incluidos en el plan desde el onboarding.
 - `shared.parties`: personas y organizaciones con roles, identidades de canal, contactos y direcciones.
+- `shared.catalog`: monedas, unidades de medida, conversiones e impuestos por empresa.
 
 ---
 

@@ -297,6 +297,39 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
     ],
   },
   {
+    code: 'shared.catalog',
+    name: 'Catálogo',
+    version: '1.0.0',
+    vertical: null,
+    isCore: false,
+    dependsOn: [],
+    permissions: [
+      Permissions.CATALOG.READ,
+      Permissions.CATALOG.CREATE,
+      Permissions.CATALOG.UPDATE,
+      Permissions.CATALOG.DELETE,
+    ],
+    routes: [
+      {
+        path: '/catalog',
+        name: 'Catalog',
+        title: 'Catálogo',
+        permission: Permissions.CATALOG.READ,
+        icon: 'catalog',
+        nav: true,
+        order: 73,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'configure-catalog',
+        title: 'Configura unidades e impuestos',
+        description: 'Define las unidades y tasas que usarás en recursos, APUs y presupuestos.',
+        route: '/catalog',
+      },
+    ],
+  },
+  {
     code: 'shared.documents',
     name: 'Documentos',
     version: '1.0.0',

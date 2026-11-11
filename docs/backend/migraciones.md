@@ -112,6 +112,7 @@ npm run migrate -- production --accept-checksum 000
 | `052-documents.sql` | Documentos, versiones, links, permisos y `shared.documents` en el plan core. |
 | `053-core-shell-modules.sql` | `core.operations` y `core.notifications` en el catálogo y plan core. |
 | `054-shared-parties.sql` | Terceros, roles, identidades, contactos, direcciones y `shared.parties`. |
+| `055-shared-catalog-foundations.sql` | Monedas, unidades/conversiones, impuestos y `shared.catalog`. |
 
 ## Verificar el estado
 
