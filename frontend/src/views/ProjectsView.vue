@@ -119,32 +119,51 @@
     <UiFormModal
       v-model="isFormOpen"
       :title="editing ? 'Editar proyecto' : 'Nuevo proyecto'"
+      :description="
+        editing
+          ? `Actualiza ${editing.code} · ${editing.name}.`
+          : 'El proyecto agrupa presupuesto, equipo, documentos y ejecución.'
+      "
       :submit-label="editing ? 'Guardar' : 'Crear proyecto'"
       :loading="isSaving"
       size="large"
+      footer-hint="Puedes cambiar el estado y los datos del proyecto en cualquier momento."
+      :dirty="isFormDirty"
+      :confirm-on-dirty="true"
       @submit="save"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="form.code" label="Código" required />
-        <UiInput v-model="form.name" label="Nombre" required />
-        <UiSelect v-model="form.status" label="Estado" :options="statusOptions" :clearable="false" />
-        <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-        <UiSelect v-model="form.branchId" label="Sede" :options="branchOptions" />
-        <UiSelect v-model="form.clientPartyId" label="Cliente" :options="partyOptions" />
-        <UiInput v-model="form.category" label="Categoría" placeholder="Presupuesto, Construcción..." />
-        <UiInput v-model="form.coverUrl" label="URL de portada (opcional)" />
-        <UiInput v-model="form.startDate" label="Inicio" type="date" />
-        <UiInput v-model="form.endDate" label="Fin" type="date" />
-        <UiInput v-model="form.timezone" label="Zona horaria" placeholder="America/Bogota" />
-        <UiInput v-model="form.address" label="Dirección" />
-        <UiTextarea v-model="form.description" label="Descripción" class="span-2" />
-      </div>
+      <UiFormSection title="Identificación" description="Código, nombre, estado y responsables.">
+        <div class="form-grid">
+          <UiInput v-model="form.code" label="Código" required hint="Identificador único del proyecto." />
+          <UiInput v-model="form.name" label="Nombre" required />
+          <UiSelect v-model="form.status" label="Estado" :options="statusOptions" :clearable="false" />
+          <UiSelect v-model="form.branchId" label="Sede" :options="branchOptions" />
+          <UiSelect v-model="form.clientPartyId" label="Cliente" :options="partyOptions" />
+          <UiInput v-model="form.category" label="Categoría" placeholder="Presupuesto, Construcción..." />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Fechas y moneda" description="Vigencia del proyecto y moneda de los montos.">
+        <div class="form-grid">
+          <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+          <UiInput v-model="form.timezone" label="Zona horaria" placeholder="America/Bogota" />
+          <UiInput v-model="form.startDate" label="Inicio" type="date" />
+          <UiInput v-model="form.endDate" label="Fin" type="date" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Ubicación y descripción" description="Dirección, portada y notas del proyecto.">
+        <div class="form-grid">
+          <UiInput v-model="form.address" label="Dirección" class="span-2" />
+          <UiInput v-model="form.coverUrl" label="URL de portada (opcional)" class="span-2" />
+          <UiTextarea v-model="form.description" label="Descripción" class="span-2" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <UiFormModal
       v-model="isDetailOpen"
       :title="detail ? `${detail.code} · ${detail.name}` : 'Proyecto'"
+      description="Resumen del proyecto, equipo asignado y accesos rápidos."
       size="large"
       :hide-footer="true"
     >
@@ -237,6 +256,7 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiTextarea from '@/components/ui/UiTextarea.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import { IconFolders, IconPlus } from '@tabler/icons-vue';
@@ -249,6 +269,7 @@ import { memberService } from '@/services/member.service';
 import { useEntitlementsStore } from '@/stores/entitlements.store';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useToast } from '@/composables/useToast';
+import { useDirtyForm } from '@/composables/useDirtyForm';
 import { apiErrorMessage } from '@/utils/error';
 import { formatDate } from '@/utils/date';
 import type { Branch } from '@/types/branch';
@@ -425,6 +446,7 @@ const form = reactive({
   timezone: 'America/Bogota',
   address: '',
 });
+const { isDirty: isFormDirty, capture: captureForm } = useDirtyForm(() => ({ ...form }));
 
 function openCreate(): void {
   editing.value = null;
@@ -443,6 +465,7 @@ function openCreate(): void {
     timezone: 'America/Bogota',
     address: '',
   });
+  captureForm();
   formError.value = null;
   isFormOpen.value = true;
 }
@@ -464,6 +487,7 @@ function openEdit(project: Project): void {
     timezone: project.timezone ?? '',
     address: project.address ?? '',
   });
+  captureForm();
   formError.value = null;
   isFormOpen.value = true;
 }

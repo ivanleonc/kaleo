@@ -31,21 +31,21 @@
         renovar el plan.
       </UiAlert>
 
-      <div class="catalog-tabs" role="tablist" aria-label="Secciones del catálogo">
-        <UiButton
-          v-for="tab in TABS"
-          :key="tab.value"
-          size="sm"
-          width="auto"
-          :variant="activeTab === tab.value ? 'primary' : 'outline'"
-          @click="activeTab = tab.value"
-        >
-          {{ tab.label }}
-        </UiButton>
-      </div>
+      <UiTabs
+        v-model="activeTabModel"
+        :tabs="TABS"
+        group-label="Secciones del catálogo"
+        variant="pills"
+        panel-id-prefix="catalog"
+      />
 
       <!-- Unidades -->
-      <UiCard v-if="activeTab === 'units'">
+      <UiCard
+        v-if="activeTab === 'units'"
+        id="catalog-panel-units"
+        role="tabpanel"
+        aria-labelledby="catalog-tab-units"
+      >
         <div class="catalog-toolbar">
           <UiSearchInput v-model="unitFilters.search" placeholder="Buscar unidad..." aria-label="Buscar unidades" />
           <UiSelect v-model="unitFilters.kind" :options="kindFilterOptions" aria-label="Filtrar por tipo" />
@@ -61,7 +61,7 @@
           <UiSkeleton v-for="n in 5" :key="n" variant="text" width="100%" />
         </div>
 
-        <ul v-else class="catalog-list">
+        <ul v-else-if="units.length > 0" class="catalog-list">
           <li v-for="unit in units" :key="unit.id" class="catalog-row">
             <span class="catalog-badge">{{ unit.code }}</span>
             <div class="catalog-copy">
@@ -106,21 +106,62 @@
               </template>
             </div>
           </li>
-          <li v-if="units.length === 0" class="catalog-empty">No hay unidades para este filtro.</li>
         </ul>
+        <UiEmptyState
+          v-else
+          title="Sin unidades para este filtro"
+          description="Ajusta la búsqueda o crea una unidad propia de la empresa."
+        >
+          <template #action>
+            <UiButton
+              v-if="!entitlementsStore.isReadOnly"
+              v-permission="Permissions.CATALOG.CREATE"
+              width="auto"
+              @click="openUnitCreate"
+            >
+              <IconPlus :size="16" /> Nueva unidad
+            </UiButton>
+          </template>
+        </UiEmptyState>
       </UiCard>
 
       <!-- Ítems -->
-      <CatalogItemsTab v-else-if="activeTab === 'items'" />
+      <div
+        v-else-if="activeTab === 'items'"
+        id="catalog-panel-items"
+        role="tabpanel"
+        aria-labelledby="catalog-tab-items"
+      >
+        <CatalogItemsTab />
+      </div>
 
       <!-- Categorías -->
-      <CatalogCategoriesTab v-else-if="activeTab === 'categories'" />
+      <div
+        v-else-if="activeTab === 'categories'"
+        id="catalog-panel-categories"
+        role="tabpanel"
+        aria-labelledby="catalog-tab-categories"
+      >
+        <CatalogCategoriesTab />
+      </div>
 
       <!-- Listas de precios -->
-      <CatalogPriceListsTab v-else-if="activeTab === 'priceLists'" />
+      <div
+        v-else-if="activeTab === 'priceLists'"
+        id="catalog-panel-priceLists"
+        role="tabpanel"
+        aria-labelledby="catalog-tab-priceLists"
+      >
+        <CatalogPriceListsTab />
+      </div>
 
       <!-- Impuestos -->
-      <UiCard v-else-if="activeTab === 'taxes'">
+      <UiCard
+        v-else-if="activeTab === 'taxes'"
+        id="catalog-panel-taxes"
+        role="tabpanel"
+        aria-labelledby="catalog-tab-taxes"
+      >
         <div class="catalog-toolbar">
           <UiSearchInput v-model="taxFilters.search" placeholder="Buscar impuesto..." aria-label="Buscar impuestos" />
           <UiSelect
@@ -135,7 +176,7 @@
           <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
         </div>
 
-        <ul v-else class="catalog-list">
+        <ul v-else-if="taxRates.length > 0" class="catalog-list">
           <li v-for="tax in taxRates" :key="tax.id" class="catalog-row">
             <span class="catalog-badge">{{ formatRate(tax.rate) }}%</span>
             <div class="catalog-copy">
@@ -169,16 +210,36 @@
               </UiButton>
             </div>
           </li>
-          <li v-if="taxRates.length === 0" class="catalog-empty">No hay impuestos configurados.</li>
         </ul>
+        <UiEmptyState
+          v-else
+          title="Sin impuestos configurados"
+          description="Crea un impuesto para aplicarlo en documentos y listas de precios."
+        >
+          <template #action>
+            <UiButton
+              v-if="!entitlementsStore.isReadOnly"
+              v-permission="Permissions.CATALOG.CREATE"
+              width="auto"
+              @click="openTaxCreate"
+            >
+              <IconPlus :size="16" /> Nuevo impuesto
+            </UiButton>
+          </template>
+        </UiEmptyState>
       </UiCard>
 
       <!-- Monedas -->
-      <UiCard v-else>
+      <UiCard
+        v-else
+        id="catalog-panel-currencies"
+        role="tabpanel"
+        aria-labelledby="catalog-tab-currencies"
+      >
         <div v-if="isLoading" class="catalog-loading" aria-hidden="true">
           <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
         </div>
-        <ul v-else class="catalog-list">
+        <ul v-else-if="currencies.length > 0" class="catalog-list">
           <li v-for="currency in currencies" :key="currency.code" class="catalog-row">
             <span class="catalog-badge">{{ currency.code }}</span>
             <div class="catalog-copy">
@@ -189,6 +250,11 @@
             </div>
           </li>
         </ul>
+        <UiEmptyState
+          v-else
+          title="Sin monedas disponibles"
+          description="La empresa no tiene monedas configuradas en el catálogo compartido."
+        />
       </UiCard>
     </div>
 
@@ -196,35 +262,55 @@
     <UiFormModal
       v-model="isUnitOpen"
       :title="editingUnit ? 'Editar unidad' : 'Nueva unidad'"
+      :description="
+        editingUnit
+          ? `Actualiza ${editingUnit.code} · ${editingUnit.name}.`
+          : 'Las unidades propias se usan en recursos, APUs y presupuestos.'
+      "
       :submit-label="editingUnit ? 'Guardar' : 'Crear unidad'"
       :loading="isSaving"
+      footer-hint="Las unidades globales del sistema no se editan; crea una propia si necesitas otra escala."
       @submit="saveUnit"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="unitForm.code" label="Código" required />
-        <UiInput v-model="unitForm.name" label="Nombre" required />
-        <UiSelect v-model="unitForm.kind" label="Tipo" :options="kindOptions" :clearable="false" />
-        <UiInput v-model="unitForm.precision" label="Decimales" type="number" />
-        <UiSwitch v-if="editingUnit" v-model="unitForm.isActive" label="Activa" />
-      </div>
+      <UiFormSection title="Datos de la unidad" description="Código, nombre y magnitud que representa.">
+        <div class="form-grid">
+          <UiInput v-model="unitForm.code" label="Código" required hint="Ej. m2, kg, hr." />
+          <UiInput v-model="unitForm.name" label="Nombre" required />
+          <UiSelect v-model="unitForm.kind" label="Tipo" :options="kindOptions" :clearable="false" />
+          <UiInput
+            v-model="unitForm.precision"
+            label="Decimales"
+            type="number"
+            hint="Decimales usados al mostrar cantidades."
+          />
+          <UiSwitch v-if="editingUnit" v-model="unitForm.isActive" label="Activa" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Conversiones -->
     <UiFormModal
       v-model="isConversionsOpen"
       :title="conversionUnit ? `Conversiones de ${conversionUnit.code}` : 'Conversiones'"
+      description="Equivalencias entre unidades para convertir cantidades automáticamente."
       size="large"
       :hide-footer="true"
     >
-      <div v-if="!entitlementsStore.isReadOnly" v-permission="Permissions.CATALOG.CREATE" class="inline-form">
+      <UiFormSection v-if="!entitlementsStore.isReadOnly" title="Nueva conversión" description="Indica la unidad destino y el factor de equivalencia.">
+      <div v-permission="Permissions.CATALOG.CREATE" class="inline-form">
         <UiSelect
           v-model="newConversion.toUnitId"
           :options="conversionTargetOptions"
           placeholder="Unidad destino"
           :clearable="false"
         />
-        <UiInput v-model="newConversion.factor" label="Factor" type="number" />
+        <UiInput
+          v-model="newConversion.factor"
+          label="Factor"
+          type="number"
+          hint="1 unidad origen = factor × unidad destino."
+        />
         <UiButton
           size="sm"
           variant="outline"
@@ -235,8 +321,9 @@
           Agregar
         </UiButton>
       </div>
+      </UiFormSection>
 
-      <ul class="catalog-list">
+      <ul v-if="conversions.length > 0" class="catalog-list">
         <li v-for="conversion in conversions" :key="conversion.id" class="catalog-row">
           <div class="catalog-copy">
             <h3>1 {{ conversion.from_code }} = {{ conversion.factor }} {{ conversion.to_code }}</h3>
@@ -257,26 +344,38 @@
             Quitar
           </UiButton>
         </li>
-        <li v-if="conversions.length === 0" class="catalog-empty">Sin conversiones registradas.</li>
       </ul>
+      <UiEmptyState
+        v-else
+        title="Sin conversiones registradas"
+        description="Agrega una equivalencia para convertir esta unidad a otra."
+      />
     </UiFormModal>
 
     <!-- Impuesto -->
     <UiFormModal
       v-model="isTaxOpen"
       :title="editingTax ? 'Editar impuesto' : 'Nuevo impuesto'"
+      :description="
+        editingTax
+          ? `Actualiza ${editingTax.code} · ${editingTax.name}.`
+          : 'Los impuestos se aplican en documentos y listas de precios.'
+      "
       :submit-label="editingTax ? 'Guardar' : 'Crear impuesto'"
       :loading="isSaving"
+      footer-hint="La tasa se expresa en porcentaje; por ejemplo, IVA 19."
       @submit="saveTax"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="taxForm.code" label="Código" required />
-        <UiInput v-model="taxForm.name" label="Nombre" required />
-        <UiInput v-model="taxForm.rate" label="Tasa (%)" type="number" />
-        <UiInput v-model="taxForm.countryCode" label="País ISO (opcional)" placeholder="CO" />
-        <UiSwitch v-if="editingTax" v-model="taxForm.isActive" label="Activo" />
-      </div>
+      <UiFormSection title="Datos del impuesto" description="Código, nombre, tasa y país de aplicación.">
+        <div class="form-grid">
+          <UiInput v-model="taxForm.code" label="Código" required hint="Ej. IVA19." />
+          <UiInput v-model="taxForm.name" label="Nombre" required />
+          <UiInput v-model="taxForm.rate" label="Tasa (%)" type="number" hint="Ej. 19 para IVA del 19 %." />
+          <UiInput v-model="taxForm.countryCode" label="País ISO (opcional)" placeholder="CO" hint="Código de dos letras." />
+          <UiSwitch v-if="editingTax" v-model="taxForm.isActive" label="Activo" class="span-2" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <UiConfirmDialog
@@ -306,6 +405,9 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiSwitch from '@/components/ui/UiSwitch.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiTabs from '@/components/ui/UiTabs.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import CatalogItemsTab from '@/components/catalog/CatalogItemsTab.vue';
 import CatalogCategoriesTab from '@/components/catalog/CatalogCategoriesTab.vue';
@@ -323,18 +425,19 @@ import type {
   UnitConversion,
   UnitKind,
 } from '@/types/catalog';
+import type { UiTabItem } from '@/types/ui';
 
 type CatalogTab = 'units' | 'items' | 'categories' | 'taxes' | 'priceLists' | 'currencies';
 type DeleteKind = 'unit' | 'tax';
 
-const TABS = [
+const TABS: UiTabItem[] = [
   { label: 'Unidades', value: 'units' },
   { label: 'Ítems', value: 'items' },
   { label: 'Categorías', value: 'categories' },
   { label: 'Impuestos', value: 'taxes' },
   { label: 'Listas de precios', value: 'priceLists' },
   { label: 'Monedas', value: 'currencies' },
-] as const;
+];
 
 const KIND_OPTIONS = [
   { label: 'Longitud', value: 'length' },
@@ -357,6 +460,12 @@ const toast = useToast();
 const entitlementsStore = useEntitlementsStore();
 
 const activeTab = ref<CatalogTab>('units');
+const activeTabModel = computed({
+  get: () => activeTab.value as string,
+  set: (value: string) => {
+    activeTab.value = value as CatalogTab;
+  },
+});
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 

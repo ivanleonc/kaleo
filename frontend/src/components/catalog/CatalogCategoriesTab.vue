@@ -61,13 +61,26 @@
   <UiFormModal
     v-model="isFormOpen"
     :title="editing ? 'Editar categoría' : 'Nueva categoría'"
+    :description="
+      editing
+        ? `Actualiza ${editing.name}.`
+        : 'Las categorías agrupan ítems del catálogo y pueden anidarse.'
+    "
     :submit-label="editing ? 'Guardar' : 'Crear categoría'"
     :loading="isSaving"
+    footer-hint="Una categoría padre permite construir una jerarquía de catálogo."
     @submit="save"
   >
     <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-    <UiInput v-model="form.name" label="Nombre" required />
-    <UiSelect v-model="form.parentId" label="Categoría padre" :options="parentOptions" />
+    <UiFormSection title="Datos de la categoría" description="Nombre visible y ubicación en la jerarquía.">
+      <UiInput v-model="form.name" label="Nombre" required />
+      <UiSelect
+        v-model="form.parentId"
+        label="Categoría padre"
+        :options="parentOptions"
+        hint="Déjala vacía para crear una categoría raíz."
+      />
+    </UiFormSection>
   </UiFormModal>
 
   <UiConfirmDialog
@@ -92,6 +105,7 @@ import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { IconPlus } from '@tabler/icons-vue';
 import { Permissions } from '@/constants/permissions';

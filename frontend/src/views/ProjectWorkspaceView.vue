@@ -147,23 +147,34 @@
     >
       <UiAlert v-if="shareError" type="error">{{ shareError }}</UiAlert>
 
-      <div class="share-form">
-        <UiInput v-model="shareForm.label" label="Etiqueta" placeholder="Cliente, interventoría…" />
-        <UiSelect
-          v-model="shareForm.scope"
-          label="Alcance"
-          :options="shareScopeOptions"
-          :clearable="false"
-        />
-        <UiInput
-          v-model="shareForm.expiresInDays"
-          label="Expira en días (1-365)"
-          type="number"
-        />
-        <UiButton width="auto" :loading="isCreatingShare" @click="createShare">
-          <IconLink :size="16" /> Crear enlace
-        </UiButton>
-      </div>
+      <UiFormSection
+        title="Nuevo enlace"
+        description="Cualquiera con la URL verá el alcance elegido hasta que expire o lo revoques."
+      >
+        <div class="share-form">
+          <UiInput
+            v-model="shareForm.label"
+            label="Etiqueta"
+            placeholder="Cliente, interventoría…"
+            hint="Solo visible para tu equipo."
+          />
+          <UiSelect
+            v-model="shareForm.scope"
+            label="Alcance"
+            :options="shareScopeOptions"
+            :clearable="false"
+          />
+          <UiInput
+            v-model="shareForm.expiresInDays"
+            label="Expira en días (1-365)"
+            type="number"
+            hint="Entre 1 y 365 días."
+          />
+          <UiButton width="auto" :loading="isCreatingShare" @click="createShare">
+            <IconLink :size="16" /> Crear enlace
+          </UiButton>
+        </div>
+      </UiFormSection>
 
       <UiAlert v-if="createdShareUrl" type="success">
         Enlace creado. Cópialo ahora; por seguridad no se volverá a mostrar.
@@ -178,7 +189,7 @@
       <div v-if="isLoadingShares" class="workspace-loading" aria-hidden="true">
         <UiSkeleton v-for="n in 3" :key="n" variant="text" width="100%" />
       </div>
-      <ul v-else class="share-list">
+      <ul v-else-if="shares.length > 0" class="share-list">
         <li v-for="link in shares" :key="link.id" class="share-row">
           <div class="share-copy">
             <strong>{{ link.label || 'Sin etiqueta' }}</strong>
@@ -205,10 +216,12 @@
             Revocar
           </UiButton>
         </li>
-        <li v-if="shares.length === 0" class="share-empty">
-          Aún no hay enlaces compartidos para este proyecto.
-        </li>
       </ul>
+      <UiEmptyState
+        v-else
+        title="Aún no hay enlaces compartidos"
+        description="Crea el primero para dar acceso de solo lectura a clientes o interventoría."
+      />
     </UiFormModal>
 
     <UiConfirmDialog
@@ -236,6 +249,8 @@ import UiBadge from '@/components/ui/UiBadge.vue';
 import UiMetricCard from '@/components/ui/UiMetricCard.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
@@ -275,8 +290,16 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 
 const shareScopeOptions = [
-  { label: 'Resumen del proyecto', value: 'summary' },
-  { label: 'Resumen + presupuesto', value: 'budget' },
+  {
+    label: 'Resumen del proyecto',
+    value: 'summary',
+    description: 'Métricas y totales, sin detalle de actividades.',
+  },
+  {
+    label: 'Resumen + presupuesto',
+    value: 'budget',
+    description: 'Incluye el detalle de actividades e insumos.',
+  },
 ];
 const isShareOpen = ref(false);
 const shares = ref<ShareLink[]>([]);

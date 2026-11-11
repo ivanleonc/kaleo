@@ -67,29 +67,47 @@
   <UiFormModal
     v-model="isFormOpen"
     :title="editing ? 'Editar lista de precios' : 'Nueva lista de precios'"
+    :description="
+      editing
+        ? `Actualiza ${editing.name}.`
+        : 'Las listas agrupan precios por moneda y vigencia para cotizar y facturar.'
+    "
     :submit-label="editing ? 'Guardar' : 'Crear lista'"
     :loading="isSaving"
+    footer-hint="Solo puede haber una lista predeterminada por empresa."
     @submit="save"
   >
     <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-    <div class="form-grid">
-      <UiInput v-model="form.code" label="Código" required />
-      <UiInput v-model="form.name" label="Nombre" required />
-      <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-      <UiSwitch v-model="form.isDefault" label="Predeterminada" />
-      <UiInput v-model="form.validFrom" label="Vigente desde" type="date" />
-      <UiInput v-model="form.validTo" label="Vigente hasta" type="date" />
-      <UiSwitch v-if="editing" v-model="form.isActive" label="Activa" />
-    </div>
+    <UiFormSection title="Identificación" description="Código, nombre y moneda de la lista.">
+      <div class="form-grid">
+        <UiInput v-model="form.code" label="Código" required />
+        <UiInput v-model="form.name" label="Nombre" required />
+        <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+        <UiSwitch v-model="form.isDefault" label="Predeterminada" />
+      </div>
+    </UiFormSection>
+    <UiFormSection title="Vigencia" description="Periodo durante el cual aplican los precios.">
+      <div class="form-grid">
+        <UiInput v-model="form.validFrom" label="Vigente desde" type="date" />
+        <UiInput v-model="form.validTo" label="Vigente hasta" type="date" />
+        <UiSwitch v-if="editing" v-model="form.isActive" label="Activa" />
+      </div>
+    </UiFormSection>
   </UiFormModal>
 
   <UiFormModal
     v-model="isPricesOpen"
     :title="priceList ? `Precios · ${priceList.name}` : 'Precios'"
+    description="Precios por ítem y cantidad mínima. La lista se aplica según su moneda y vigencia."
     size="large"
     :hide-footer="true"
   >
-    <div v-if="!entitlementsStore.isReadOnly" v-permission="Permissions.CATALOG.CREATE" class="inline-form">
+    <UiFormSection
+      v-if="!entitlementsStore.isReadOnly"
+      title="Nuevo precio"
+      description="Selecciona el ítem, el precio y la cantidad mínima para aplicarlo."
+    >
+    <div v-permission="Permissions.CATALOG.CREATE" class="inline-form">
       <UiSelect v-model="newPrice.itemId" :options="itemOptions" placeholder="Ítem" :clearable="false" />
       <UiInput v-model="newPrice.price" label="Precio" type="number" />
       <UiInput v-model="newPrice.minQuantity" label="Cantidad mínima" type="number" />
@@ -103,8 +121,9 @@
         Agregar
       </UiButton>
     </div>
+    </UiFormSection>
 
-    <ul class="catalog-list">
+    <ul v-if="prices.length > 0" class="catalog-list">
       <li v-for="price in prices" :key="price.id" class="catalog-row">
         <div class="catalog-copy">
           <h3>{{ price.item_sku }} · {{ price.item_name }}</h3>
@@ -125,8 +144,12 @@
           Quitar
         </UiButton>
       </li>
-      <li v-if="prices.length === 0" class="catalog-empty">Sin precios registrados.</li>
     </ul>
+    <UiEmptyState
+      v-else
+      title="Sin precios registrados"
+      description="Agrega el primer ítem a la lista para usarla en cotizaciones y facturas."
+    />
   </UiFormModal>
 
   <UiConfirmDialog
@@ -152,6 +175,8 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiSwitch from '@/components/ui/UiSwitch.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import { IconPlus } from '@tabler/icons-vue';
 import { Permissions } from '@/constants/permissions';

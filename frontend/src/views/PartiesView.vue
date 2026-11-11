@@ -153,47 +153,52 @@
       :description="editingParty ? 'Actualiza los datos base y roles del tercero.' : 'Registra una persona u organización.'"
       :submit-label="editingParty ? 'Guardar cambios' : 'Crear tercero'"
       :loading="isSaving"
+      footer-hint="Los roles determinan en qué procesos puedes usar el tercero: cliente, proveedor o ambos."
       :confirm-on-dirty="true"
       :dirty="isFormDirty"
       @submit="submitForm"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
 
-      <div class="form-grid">
-        <UiSelect
-          v-model="form.partyType"
-          label="Tipo"
-          :options="typeOptions"
-          :clearable="false"
-        />
-        <UiSelect
-          v-if="editingParty"
-          v-model="form.status"
-          label="Estado"
-          :options="statusOptions"
-          :clearable="false"
-        />
-        <UiInput v-model="form.name" label="Nombre" required class="span-2" />
-        <UiInput v-model="form.legalName" label="Razón social (opcional)" />
-        <UiInput v-model="form.taxId" label="NIT / Documento (opcional)" />
-        <UiInput v-model="form.email" label="Email" type="email" />
-        <UiInput v-model="form.phone" label="Teléfono" type="tel" />
-      </div>
-
-      <div class="roles-picker">
-        <p class="roles-label">Roles</p>
-        <div class="roles-grid">
-          <label v-for="role in ROLE_OPTIONS" :key="role.value" class="role-check">
-            <input v-model="form.roles" type="checkbox" :value="role.value" />
-            <span>{{ role.label }}</span>
-          </label>
+      <UiFormSection title="Identificación" description="Datos legales y de contacto del tercero.">
+        <div class="form-grid">
+          <UiSelect
+            v-model="form.partyType"
+            label="Tipo"
+            :options="typeOptions"
+            :clearable="false"
+          />
+          <UiSelect
+            v-if="editingParty"
+            v-model="form.status"
+            label="Estado"
+            :options="statusOptions"
+            :clearable="false"
+          />
+          <UiInput v-model="form.name" label="Nombre" required class="span-2" />
+          <UiInput v-model="form.legalName" label="Razón social (opcional)" />
+          <UiInput v-model="form.taxId" label="NIT / Documento (opcional)" />
+          <UiInput v-model="form.email" label="Email" type="email" />
+          <UiInput v-model="form.phone" label="Teléfono" type="tel" />
         </div>
-      </div>
+      </UiFormSection>
+
+      <UiFormSection title="Roles" description="Marca todos los procesos en los que participa.">
+        <div class="roles-picker">
+          <div class="roles-grid">
+            <label v-for="role in ROLE_OPTIONS" :key="role.value" class="role-check">
+              <input v-model="form.roles" type="checkbox" :value="role.value" />
+              <span>{{ role.label }}</span>
+            </label>
+          </div>
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <UiFormModal
       v-model="isDetailOpen"
       title="Detalle del tercero"
+      description="Datos de contacto, roles y documentos asociados."
       size="large"
       :hide-footer="true"
     >
@@ -362,6 +367,7 @@ import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import { IconBuilding, IconPlus, IconUser, IconUsers } from '@tabler/icons-vue';

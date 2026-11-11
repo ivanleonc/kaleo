@@ -79,26 +79,40 @@
   <UiFormModal
     v-model="isFormOpen"
     :title="editing ? 'Editar ítem' : 'Nuevo ítem'"
+    :description="
+      editing
+        ? `Actualiza ${editing.sku} · ${editing.name}.`
+        : 'Los ítems del catálogo alimentan compras, inventario y listas de precios.'
+    "
     :submit-label="editing ? 'Guardar' : 'Crear ítem'"
     :loading="isSaving"
     size="large"
+    footer-hint="El costo y el precio son de referencia; las listas de precios pueden sobreescribirlos."
     @submit="save"
   >
     <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-    <div class="form-grid">
-      <UiInput v-model="form.sku" label="SKU" required />
-      <UiInput v-model="form.name" label="Nombre" required />
-      <UiSelect v-model="form.itemType" label="Tipo" :options="itemTypeOptions" :clearable="false" />
-      <UiSelect v-model="form.categoryId" label="Categoría" :options="categoryOptions" />
-      <UiSelect v-model="form.unitId" label="Unidad" :options="unitOptions" :clearable="false" />
-      <UiSelect v-model="form.taxRateId" label="Impuesto" :options="taxOptions" />
-      <UiInput v-model="form.cost" label="Costo" type="number" />
-      <UiInput v-model="form.price" label="Precio" type="number" />
-      <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-      <UiSwitch v-model="form.isStockable" label="Inventariable" />
-      <UiSelect v-if="editing" v-model="form.status" label="Estado" :options="statusOptions" :clearable="false" />
-      <UiTextarea v-model="form.description" label="Descripción" class="span-2" />
-    </div>
+    <UiFormSection title="Identificación" description="SKU, nombre y clasificación del ítem.">
+      <div class="form-grid">
+        <UiInput v-model="form.sku" label="SKU" required hint="Identificador único del ítem." />
+        <UiInput v-model="form.name" label="Nombre" required />
+        <UiSelect v-model="form.itemType" label="Tipo" :options="itemTypeOptions" :clearable="false" />
+        <UiSelect v-model="form.categoryId" label="Categoría" :options="categoryOptions" />
+        <UiSelect v-model="form.unitId" label="Unidad" :options="unitOptions" :clearable="false" />
+        <UiSelect v-model="form.taxRateId" label="Impuesto" :options="taxOptions" />
+      </div>
+    </UiFormSection>
+    <UiFormSection title="Precios e inventario" description="Costos, moneda y control de existencias.">
+      <div class="form-grid">
+        <UiInput v-model="form.cost" label="Costo" type="number" />
+        <UiInput v-model="form.price" label="Precio" type="number" />
+        <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+        <UiSwitch v-model="form.isStockable" label="Inventariable" />
+        <UiSelect v-if="editing" v-model="form.status" label="Estado" :options="statusOptions" :clearable="false" />
+      </div>
+    </UiFormSection>
+    <UiFormSection title="Descripción" description="Notas internas o especificaciones del ítem.">
+      <UiTextarea v-model="form.description" label="Descripción" />
+    </UiFormSection>
   </UiFormModal>
 
   <UiConfirmDialog
@@ -126,6 +140,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiTextarea from '@/components/ui/UiTextarea.vue';
 import UiSwitch from '@/components/ui/UiSwitch.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiPagination from '@/components/ui/UiPagination.vue';
 import { IconPlus } from '@tabler/icons-vue';
