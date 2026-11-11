@@ -59,6 +59,13 @@ export const Permissions = {
     UPDATE: 'core.documents.update',
     DELETE: 'core.documents.delete',
   },
+
+  PARTIES: {
+    READ: 'core.parties.read',
+    CREATE: 'core.parties.create',
+    UPDATE: 'core.parties.update',
+    DELETE: 'core.parties.delete',
+  },
 } as const;
 
 /** Unión de todos los códigos de permiso: 'core.users.read' | ... */

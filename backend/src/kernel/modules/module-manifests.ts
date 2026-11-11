@@ -264,6 +264,39 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
     ],
   },
   {
+    code: 'shared.parties',
+    name: 'Terceros',
+    version: '1.0.0',
+    vertical: null,
+    isCore: false,
+    dependsOn: [],
+    permissions: [
+      Permissions.PARTIES.READ,
+      Permissions.PARTIES.CREATE,
+      Permissions.PARTIES.UPDATE,
+      Permissions.PARTIES.DELETE,
+    ],
+    routes: [
+      {
+        path: '/parties',
+        name: 'Parties',
+        title: 'Terceros',
+        permission: Permissions.PARTIES.READ,
+        icon: 'parties',
+        nav: true,
+        order: 72,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'create-first-party',
+        title: 'Registra tu primer cliente o proveedor',
+        description: 'Centraliza personas y organizaciones para reutilizarlas en proyectos y documentos.',
+        route: '/parties',
+      },
+    ],
+  },
+  {
     code: 'shared.documents',
     name: 'Documentos',
     version: '1.0.0',

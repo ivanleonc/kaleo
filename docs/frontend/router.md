@@ -22,6 +22,7 @@
 | `/companies/:companyId/audit` | Auth | `core.audit.read` | `AuditView` |
 | `/companies/:companyId/operations` | Auth | — | `OperationsView` |
 | `/companies/:companyId/notifications` | Auth | — | `NotificationsView` |
+| `/companies/:companyId/parties` | Auth | `core.parties.read` | `PartiesView` |
 | `/companies/:companyId/documents` | Auth | `core.documents.read` | `DocumentsView` |
 | `/:pathMatch(.*)*` | — | — | `NotFoundView` |
 

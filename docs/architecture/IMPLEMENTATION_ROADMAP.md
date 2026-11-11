@@ -364,6 +364,10 @@ gantt
 7. API y UI de maestros, con la party como ficha única.
 
 > `party_identities` se crea aquí porque depende de `parties`. La ingesta de bots la consumirá en la fase 7; CRM y Construcción pueden usarla antes para evitar duplicados.
+>
+> Estado: `shared.parties`, roles, identidades, contactos y direcciones ya están
+> implementados (migración `054`). Quedan unidades, impuestos, monedas y catálogo
+> para completar 7.1.
 
 ### 7.2 Construcción
 

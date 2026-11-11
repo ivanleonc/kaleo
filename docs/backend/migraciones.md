@@ -111,6 +111,7 @@ npm run migrate -- production --accept-checksum 000
 | `051-notifications.sql` | Notificaciones in-app, preferencias y permiso `core.notifications.read`. |
 | `052-documents.sql` | Documentos, versiones, links, permisos y `shared.documents` en el plan core. |
 | `053-core-shell-modules.sql` | `core.operations` y `core.notifications` en el catálogo y plan core. |
+| `054-shared-parties.sql` | Terceros, roles, identidades, contactos, direcciones y `shared.parties`. |
 
 ## Verificar el estado
 

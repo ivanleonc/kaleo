@@ -126,6 +126,17 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/parties',
+    name: 'Parties',
+    component: () => import('@/views/PartiesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.PARTIES.READ,
+      title: 'Terceros',
+      moduleCode: 'shared.parties',
+    },
+  },
+  {
     path: '/companies/:companyId/documents',
     name: 'Documents',
     component: () => import('@/views/DocumentsView.vue'),

@@ -155,6 +155,7 @@ export default defineConfig({
             { text: 'Repositorios SQL', link: '/backend/repositorios' },
             { text: 'Emails', link: '/backend/emails' },
             { text: 'Notificaciones', link: '/backend/notifications' },
+            { text: 'Terceros', link: '/backend/parties' },
             { text: 'Documentos', link: '/backend/documents' },
             { text: 'Migraciones', link: '/backend/migraciones' },
           ],

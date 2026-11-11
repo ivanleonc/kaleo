@@ -65,6 +65,9 @@ vi.mock('./notifications/notifications.module.js', () => ({
 vi.mock('./documents/documents.module.js', () => ({
   DocumentsModule: class DocumentsModule {},
 }));
+vi.mock('./parties/parties.module.js', () => ({
+  PartiesModule: class PartiesModule {},
+}));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));

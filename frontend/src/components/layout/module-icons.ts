@@ -24,6 +24,7 @@ const ICONS: Record<string, Component> = {
   notifications: IconBell,
   documents: IconFileText,
   operations: IconActivity,
+  parties: IconUsers,
 };
 
 export function moduleIcon(token?: string): Component {
