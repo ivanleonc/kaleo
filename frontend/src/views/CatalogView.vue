@@ -110,6 +110,15 @@
         </ul>
       </UiCard>
 
+      <!-- Ítems -->
+      <CatalogItemsTab v-else-if="activeTab === 'items'" />
+
+      <!-- Categorías -->
+      <CatalogCategoriesTab v-else-if="activeTab === 'categories'" />
+
+      <!-- Listas de precios -->
+      <CatalogPriceListsTab v-else-if="activeTab === 'priceLists'" />
+
       <!-- Impuestos -->
       <UiCard v-else-if="activeTab === 'taxes'">
         <div class="catalog-toolbar">
@@ -298,6 +307,9 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiSwitch from '@/components/ui/UiSwitch.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import CatalogItemsTab from '@/components/catalog/CatalogItemsTab.vue';
+import CatalogCategoriesTab from '@/components/catalog/CatalogCategoriesTab.vue';
+import CatalogPriceListsTab from '@/components/catalog/CatalogPriceListsTab.vue';
 import { IconPlus } from '@tabler/icons-vue';
 import { Permissions } from '@/constants/permissions';
 import { catalogService } from '@/services/catalog.service';
@@ -312,12 +324,15 @@ import type {
   UnitKind,
 } from '@/types/catalog';
 
-type CatalogTab = 'units' | 'taxes' | 'currencies';
+type CatalogTab = 'units' | 'items' | 'categories' | 'taxes' | 'priceLists' | 'currencies';
 type DeleteKind = 'unit' | 'tax';
 
 const TABS = [
   { label: 'Unidades', value: 'units' },
+  { label: 'Ítems', value: 'items' },
+  { label: 'Categorías', value: 'categories' },
   { label: 'Impuestos', value: 'taxes' },
+  { label: 'Listas de precios', value: 'priceLists' },
   { label: 'Monedas', value: 'currencies' },
 ] as const;
 
@@ -385,7 +400,7 @@ async function load(): Promise<void> {
         search: taxFilters.search || undefined,
         includeInactive: taxFilters.includeInactive === 'true',
       });
-    } else {
+    } else if (activeTab.value === 'currencies') {
       currencies.value = await catalogService.getCurrencies();
     }
   } catch (err) {

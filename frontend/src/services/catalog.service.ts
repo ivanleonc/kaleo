@@ -1,8 +1,16 @@
 import { apiClient } from '@/api/axios';
 import type {
+  CatalogItem,
+  CreateCatalogItemPayload,
+  CreateItemCategoryPayload,
+  CreateItemPricePayload,
+  CreatePriceListPayload,
   CreateTaxRatePayload,
   CreateUnitPayload,
   Currency,
+  ItemCategory,
+  ItemPrice,
+  PriceList,
   TaxRate,
   Unit,
   UnitConversion,
@@ -97,5 +105,149 @@ export const catalogService = {
 
   async deleteTaxRate(id: string): Promise<void> {
     await apiClient.delete(`/catalog/tax-rates/${id}`);
+  },
+
+  async listCategories(): Promise<ItemCategory[]> {
+    const response = await apiClient.get<DataResponse<ItemCategory[]>>(
+      '/catalog/item-categories',
+    );
+    return response.data.data;
+  },
+
+  async createCategory(payload: CreateItemCategoryPayload): Promise<ItemCategory> {
+    const response = await apiClient.post<DataResponse<ItemCategory>>(
+      '/catalog/item-categories',
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updateCategory(
+    id: string,
+    payload: Partial<CreateItemCategoryPayload>,
+  ): Promise<ItemCategory> {
+    const response = await apiClient.patch<DataResponse<ItemCategory>>(
+      `/catalog/item-categories/${id}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteCategory(id: string): Promise<void> {
+    await apiClient.delete(`/catalog/item-categories/${id}`);
+  },
+
+  async listItems(filters: {
+    search?: string;
+    categoryId?: string;
+    itemType?: 'product' | 'service';
+    status?: 'active' | 'inactive';
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{ data: CatalogItem[]; total: number; page: number; limit: number }> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: CatalogItem[];
+      total: number;
+      page: number;
+      limit: number;
+    }>('/catalog/items', {
+      params: {
+        search: filters.search || undefined,
+        categoryId: filters.categoryId || undefined,
+        itemType: filters.itemType || undefined,
+        status: filters.status || undefined,
+        page: filters.page,
+        limit: filters.limit,
+      },
+    });
+    return response.data;
+  },
+
+  async getItem(id: string): Promise<CatalogItem> {
+    const response = await apiClient.get<DataResponse<CatalogItem>>(`/catalog/items/${id}`);
+    return response.data.data;
+  },
+
+  async createItem(payload: CreateCatalogItemPayload): Promise<CatalogItem> {
+    const response = await apiClient.post<DataResponse<CatalogItem>>('/catalog/items', payload);
+    return response.data.data;
+  },
+
+  async updateItem(
+    id: string,
+    payload: Partial<CreateCatalogItemPayload>,
+  ): Promise<CatalogItem> {
+    const response = await apiClient.patch<DataResponse<CatalogItem>>(
+      `/catalog/items/${id}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteItem(id: string): Promise<void> {
+    await apiClient.delete(`/catalog/items/${id}`);
+  },
+
+  async listPriceLists(): Promise<PriceList[]> {
+    const response = await apiClient.get<DataResponse<PriceList[]>>('/catalog/price-lists');
+    return response.data.data;
+  },
+
+  async createPriceList(payload: CreatePriceListPayload): Promise<PriceList> {
+    const response = await apiClient.post<DataResponse<PriceList>>(
+      '/catalog/price-lists',
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updatePriceList(
+    id: string,
+    payload: Partial<CreatePriceListPayload>,
+  ): Promise<PriceList> {
+    const response = await apiClient.patch<DataResponse<PriceList>>(
+      `/catalog/price-lists/${id}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deletePriceList(id: string): Promise<void> {
+    await apiClient.delete(`/catalog/price-lists/${id}`);
+  },
+
+  async listItemPrices(priceListId: string): Promise<ItemPrice[]> {
+    const response = await apiClient.get<DataResponse<ItemPrice[]>>(
+      `/catalog/price-lists/${priceListId}/prices`,
+    );
+    return response.data.data;
+  },
+
+  async createItemPrice(
+    priceListId: string,
+    payload: CreateItemPricePayload,
+  ): Promise<ItemPrice> {
+    const response = await apiClient.post<DataResponse<ItemPrice>>(
+      `/catalog/price-lists/${priceListId}/prices`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async updateItemPrice(
+    priceListId: string,
+    priceId: string,
+    payload: Partial<Omit<CreateItemPricePayload, 'itemId'>>,
+  ): Promise<ItemPrice> {
+    const response = await apiClient.patch<DataResponse<ItemPrice>>(
+      `/catalog/price-lists/${priceListId}/prices/${priceId}`,
+      payload,
+    );
+    return response.data.data;
+  },
+
+  async deleteItemPrice(priceListId: string, priceId: string): Promise<void> {
+    await apiClient.delete(`/catalog/price-lists/${priceListId}/prices/${priceId}`);
   },
 };

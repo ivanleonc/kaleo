@@ -45,7 +45,7 @@ import UiFieldError from '@/components/ui/UiFieldError.vue';
 
 interface Props {
   label?: string;
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search';
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search' | 'date';
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;

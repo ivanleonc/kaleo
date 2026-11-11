@@ -11,6 +11,10 @@
 | `units_of_measure` | Unidades globales (`company_id NULL`) o propias de la empresa |
 | `unit_conversions` | Factores entre unidades del mismo tipo |
 | `tax_rates` | Impuestos por empresa (`rate numeric(9,4)`, país ISO opcional) |
+| `item_categories` | Árbol de categorías por empresa |
+| `catalog_items` | Productos/servicios con SKU, unidad, impuesto y precio base |
+| `price_lists` | Listas de precios por moneda y vigencia |
+| `item_prices` | Precio por lista, ítem y cantidad mínima |
 
 Reglas:
 
@@ -48,9 +52,41 @@ POST   /api/catalog/tax-rates
 PATCH  /api/catalog/tax-rates/:id
 DELETE /api/catalog/tax-rates/:id
 
+GET    /api/catalog/item-categories
+POST   /api/catalog/item-categories
+PATCH  /api/catalog/item-categories/:id
+DELETE /api/catalog/item-categories/:id
+
+GET    /api/catalog/items?search=&categoryId=&itemType=&status=&page=&limit=
+POST   /api/catalog/items
+GET    /api/catalog/items/:id
+PATCH  /api/catalog/items/:id
+DELETE /api/catalog/items/:id
+
+GET    /api/catalog/price-lists
+POST   /api/catalog/price-lists
+PATCH  /api/catalog/price-lists/:id
+DELETE /api/catalog/price-lists/:id
+GET    /api/catalog/price-lists/:id/prices
+POST   /api/catalog/price-lists/:id/prices
+PATCH  /api/catalog/price-lists/:id/prices/:priceId
+DELETE /api/catalog/price-lists/:id/prices/:priceId
+
 x-company-id: <uuid>
 Authorization: Bearer <token>
 ```
+
+## Ítems y precios
+
+- `catalog_items.sku` es único por empresa y solo entre activos.
+- El ítem referencia una unidad global o propia y un impuesto de la empresa.
+- `item_type` distingue producto de servicio.
+- Las categorías forman un árbol; no se puede mover una categoría dentro de su
+  descendencia ni eliminar una con hijos o ítems.
+- Solo puede haber una lista de precios predeterminada por empresa.
+- Los precios se guardan por lista, ítem y cantidad mínima; la misma combinación
+  no se repite.
+- No se usa `float` para costos, precios ni cantidades.
 
 ## Permisos
 
