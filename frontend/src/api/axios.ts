@@ -62,6 +62,18 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // Axios convierte un FormData a JSON si el Content-Type es
+    // application/json. El cliente tiene ese default para el resto de la API,
+    // así que en multipart se elimina para que el navegador ponga el boundary.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      const headers = config.headers as any;
+      if (typeof headers?.delete === 'function') {
+        headers.delete('Content-Type');
+      } else if (headers) {
+        delete headers['Content-Type'];
+      }
+    }
+
     const token = TokenService.getToken();
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
