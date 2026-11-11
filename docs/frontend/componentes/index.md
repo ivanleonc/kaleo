@@ -1,6 +1,6 @@
 # Catálogo de Componentes UI
 
-34 componentes del sistema de diseño, organizados por categoría. Todos usan exclusivamente **CSS custom properties** del sistema de tokens — sin dependencias de frameworks externos.
+45 componentes del sistema de diseño, organizados por categoría. Todos usan exclusivamente **CSS custom properties** del sistema de tokens — sin dependencias de frameworks externos.
 
 ## Layout
 
@@ -10,6 +10,7 @@
 | [UiCard](/frontend/componentes/layout/ui-card) | Contenedor de tarjeta con `#header` y `#footer` opcionales |
 | [UiDetailGrid](/frontend/componentes/layout/ui-detail-grid) | Contenedor para grupos de `UiInfoRow` (vistas de detalle) |
 | [UiInfoRow](/frontend/componentes/layout/ui-info-row) | Par label/valor con borde inferior |
+| [UiTabs](/frontend/componentes/layout/ui-tabs) | Pestañas accesibles con variantes subrayada y píldora |
 
 ## Datos
 

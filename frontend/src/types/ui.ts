@@ -1,5 +1,14 @@
+import type { Component } from 'vue';
+
 /** Paleta común a todos los estados mostrados como chip. */
 export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+
+export interface UiTabItem {
+  value: string;
+  label: string;
+  icon?: Component;
+  count?: number | string;
+}
 
 export type UiSelectValue = string | number;
 

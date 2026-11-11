@@ -12,18 +12,19 @@
       :disabled="disabled"
       :maxlength="maxlength"
       :aria-invalid="!!error"
-      :aria-describedby="error ? errorId : undefined"
+      :aria-describedby="describedBy"
       class="ui-textarea"
       :class="{ 'has-error': !!error }"
       @blur="emit('blur', $event)"
       @focus="emit('focus', $event)"
     ></textarea>
+    <p v-if="hint" :id="hintId" class="ui-hint">{{ hint }}</p>
     <UiFieldError :message="error" :id="errorId" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useId } from 'vue';
+import { computed, useId } from 'vue';
 import UiFieldError from '@/components/ui/UiFieldError.vue';
 
 interface Props {
@@ -34,9 +35,10 @@ interface Props {
   disabled?: boolean;
   maxlength?: number;
   error?: string | null;
+  hint?: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   label: '',
   placeholder: '',
   rows: 3,
@@ -44,6 +46,7 @@ withDefaults(defineProps<Props>(), {
   disabled: false,
   maxlength: undefined,
   error: null,
+  hint: '',
 });
 
 const model = defineModel<string>({ default: '' });
@@ -55,6 +58,12 @@ const emit = defineEmits<{
 
 const id = useId();
 const errorId = `${id}-error`;
+const hintId = `${id}-hint`;
+
+const describedBy = computed(() =>
+  [props.error ? errorId : null, props.hint ? hintId : null].filter(Boolean).join(' ') ||
+  undefined,
+);
 </script>
 
 <style scoped>
@@ -99,6 +108,13 @@ const errorId = `${id}-error`;
 .ui-textarea:focus {
   border-color: var(--text-main);
   box-shadow: 0 0 0 1px var(--text-main);
+}
+
+.ui-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .ui-textarea.has-error {

@@ -65,7 +65,12 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in visibleRows" :key="row.id">
+        <tr
+          v-for="row in visibleRows"
+          :key="row.id"
+          :class="[rowClass?.(row.original), { 'is-clickable': !!onRowClick }]"
+          @click="onRowClick?.(row.original)"
+        >
           <td
             v-for="cell in row.getVisibleCells()"
             :key="cell.id"
@@ -160,6 +165,10 @@ const props = withDefaults(defineProps<{
   caption?: string;
   /** Cabecera fija con scroll interno (útil en tablas largas dentro del layout). */
   sticky?: boolean;
+  /** Clase(s) por fila: resaltar capítulos, filas agrupadas, estados… */
+  rowClass?: (row: TData) => string | undefined;
+  /** Habilita la fila como zona clicable (selección maestro-detalle). */
+  onRowClick?: (row: TData) => void;
 }>(), {
   loading: false,
   skeletonRows: 5,
@@ -169,6 +178,8 @@ const props = withDefaults(defineProps<{
   emptyDescription: '',
   caption: '',
   sticky: false,
+  rowClass: undefined,
+  onRowClick: undefined,
 });
 
 const emit = defineEmits<{

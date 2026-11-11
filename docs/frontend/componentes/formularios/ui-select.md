@@ -12,6 +12,7 @@ Select nativo con opciones tipadas.
 | `disabled` | boolean | `false` | Deshabilita |
 | `required` | boolean | `false` | Campo obligatorio |
 | `error` | `string\|null` | `null` | Mensaje de error |
+| `hint` | string | `''` | Texto de ayuda bajo el control (se enlaza con `aria-describedby`) |
 
 ## Model
 

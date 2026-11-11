@@ -420,6 +420,8 @@ body {
 
 .ui-table tr:hover td { background-color: var(--bg-hover); }
 .ui-table tr:last-child td { border-bottom: none; }
+.ui-table tr.is-clickable { cursor: pointer; }
+.ui-table tr.is-selected-row td { background-color: var(--bg-hover); box-shadow: inset 3px 0 0 var(--primary); }
 
 .user-cell { display: flex; align-items: center; gap: var(--space-3); }
 .user-avatar-table {

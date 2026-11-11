@@ -69,7 +69,7 @@
             :aria-label="label ? undefined : ariaLabel || undefined"
             :aria-invalid="!!error"
             :aria-required="required"
-            :aria-describedby="error ? errorId : undefined"
+            :aria-describedby="describedBy"
             autocapitalize="none"
             spellcheck="false"
           />
@@ -147,6 +147,7 @@
       </ComboboxPortal>
     </ComboboxRoot>
 
+    <p v-if="hint" :id="hintId" class="ui-hint">{{ hint }}</p>
     <UiFieldError :message="error" :id="errorId" />
   </div>
 </template>
@@ -187,6 +188,7 @@ interface Props {
   ariaLabel?: string;
   multiple?: boolean;
   maxTags?: number;
+  hint?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -204,12 +206,19 @@ const props = withDefaults(defineProps<Props>(), {
   ariaLabel: '',
   multiple: false,
   maxTags: 2,
+  hint: '',
 });
 
 const model = defineModel<UiSelectValue | UiSelectValue[]>({ required: true });
 
 const id = useId();
 const errorId = `${id}-error`;
+const hintId = `${id}-hint`;
+
+const describedBy = computed(() =>
+  [props.error ? errorId : null, props.hint ? hintId : null].filter(Boolean).join(' ') ||
+  undefined,
+);
 const open = ref(false);
 const emptyValue = `__ui_select_empty__${id}__`;
 
@@ -355,6 +364,13 @@ const removeValue = (value: UiSelectValue) => {
 
 .required-mark {
   color: var(--color-danger);
+}
+
+.ui-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .ui-select {

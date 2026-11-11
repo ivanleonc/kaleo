@@ -231,6 +231,37 @@ describe('UiDataTable — reactividad de datos (regresión)', () => {
   });
 });
 
+describe('UiDataTable — filas interactivas', () => {
+  it('aplica rowClass por fila', async () => {
+    await mountTable({
+      data: [
+        { id: 1, name: 'Activa', role: 'Editor', score: 10, active: true },
+        { id: 2, name: 'Archivada', role: 'Viewer', score: 0, active: false },
+      ],
+      props: {
+        rowClass: (row: TestRow) => (row.active === false ? 'is-muted-row' : undefined),
+      },
+    });
+
+    const rows = document.querySelectorAll('tbody tr');
+    expect(rows[0]?.className).not.toContain('is-muted-row');
+    expect(rows[1]?.className).toContain('is-muted-row');
+  });
+
+  it('emite onRowClick con la fila original y la marca como clicable', async () => {
+    const onClick = vi.fn();
+    await mountTable({
+      data: [{ id: 1, name: 'Zoe', role: 'Editor', score: 10 }],
+      props: { onRowClick: onClick },
+    });
+
+    const row = document.querySelector('tbody tr') as HTMLElement;
+    expect(row.classList.contains('is-clickable')).toBe(true);
+    row.click();
+    expect(onClick).toHaveBeenCalledWith(expect.objectContaining({ id: 1, name: 'Zoe' }));
+  });
+});
+
 describe('UiDataTable — estructura', () => {
   it('renderiza celdas custom por slot cell-{id}', async () => {
     await mountTable({

@@ -14,6 +14,9 @@ La tabla central del sistema — renderiza cualquier `AppVueTable` de TanStack c
 | `emptyTitle` | `string` | `'Sin resultados'` | Título en el empty state |
 | `emptyDescription` | `string` | `''` | Descripción en el empty state |
 | `sticky` | `boolean` | `false` | Cabecera fija con scroll interno |
+| `caption` | `string` | `''` | Descripción accesible de la tabla (`<caption>` sr-only) |
+| `rowClass` | `(row: TData) => string \| undefined` | — | Clases por fila (capítulos, fila seleccionada, cambios del comparador) |
+| `onRowClick` | `(row: TData) => void` | — | Hace la fila clicable para selección maestro-detalle |
 
 ## Emits
 

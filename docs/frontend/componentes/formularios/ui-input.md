@@ -14,6 +14,7 @@ Input de texto con label flotante, validación de error y toggle de contraseña.
 | `autocomplete` | string | — | Atributo HTML autocomplete |
 | `name` | string | — | Atributo HTML name |
 | `error` | `string \| null` | `null` | Mensaje de error (se muestra debajo del input) |
+| `hint` | string | `''` | Texto de ayuda bajo el campo (se enlaza con `aria-describedby`) |
 
 ## Model
 

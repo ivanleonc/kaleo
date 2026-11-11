@@ -15,13 +15,12 @@
         :name="name"
         :aria-label="ariaLabel"
         :aria-invalid="!!error"
-        :aria-describedby="error ? errorId : undefined"
+        :aria-describedby="describedBy"
         class="ui-input"
         :class="{ 'has-toggle': type === 'password', 'has-error': !!error }"
         @blur="emit('blur', $event)"
         @focus="emit('focus', $event)"
       />
-      <UiFieldError :message="error" :id="errorId" />
       <button
         v-if="type === 'password'"
         type="button"
@@ -35,6 +34,8 @@
         <IconEyeOff v-else :size="16" stroke-width="1.8" />
       </button>
     </div>
+    <p v-if="hint" :id="hintId" class="ui-hint">{{ hint }}</p>
+    <UiFieldError :message="error" :id="errorId" />
   </div>
 </template>
 
@@ -53,6 +54,7 @@ interface Props {
   name?: string;
   ariaLabel?: string;
   error?: string | null;
+  hint?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -63,6 +65,7 @@ const props = withDefaults(defineProps<Props>(), {
   autocomplete: undefined,
   name: undefined,
   error: null,
+  hint: '',
 });
 
 const model = defineModel<string>({ default: '' });
@@ -74,7 +77,13 @@ const emit = defineEmits<{
 
 const id = useId();
 const errorId = `${id}-error`;
+const hintId = `${id}-hint`;
 const showPassword = ref(false);
+
+const describedBy = computed(() =>
+  [props.error ? errorId : null, props.hint ? hintId : null].filter(Boolean).join(' ') ||
+  undefined,
+);
 
 const inputType = computed(() => {
   if (props.type !== 'password') return props.type;
@@ -178,6 +187,13 @@ const togglePassword = () => {
 .password-toggle:hover {
   color: var(--text-main);
   background-color: var(--bg-hover);
+}
+
+.ui-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 /* Objetivo táctil mínimo en Android/iPhone (WCAG 2.5.5: 44×44px) */

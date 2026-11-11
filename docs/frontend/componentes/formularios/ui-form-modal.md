@@ -12,10 +12,13 @@ El componente más usado en el proyecto. Encapsula `UiModal` + `UiCard` + protec
 | `dirty` | boolean | `false` | Si hay cambios sin guardar |
 | `confirmOnDirty` | boolean | `false` | Muestra confirmación al cerrar con cambios |
 | `confirmMessage` | string | `'Tienes cambios sin guardar. ¿Cerrar de todos modos?'` | Mensaje del diálogo de confirmación |
+| `preventClose` | boolean | `false` | Bloquea el cierre por overlay/Esc (procesos en curso) |
+| `showClose` | boolean | `true` | Muestra u oculta la X del header |
 | `submitLabel` | string | `'Guardar'` | Texto del botón de envío (footer por defecto) |
 | `cancelLabel` | string | `'Cancelar'` | Texto del botón de cancelar (footer por defecto) |
 | `loading` | boolean | `false` | Estado loading del botón de envío |
 | `hideFooter` | boolean | `false` | Oculta el footer completamente |
+| `footerHint` | string | `''` | Nota breve a la izquierda de los botones (consecuencias, límites, formato) |
 
 ## Model
 
@@ -33,7 +36,7 @@ El componente más usado en el proyecto. Encapsula `UiModal` + `UiCard` + protec
 |---|---|---|
 | `#header` | — | Reemplaza el header título/descripción |
 | default | — | Cuerpo del formulario |
-| `#footer` | `{ requestClose }` | Footer personalizado. Si no se provee, se usa el footer por defecto. |
+| `#footer` | `{ requestClose, formId, submit }` | Footer personalizado. Si no se provee, se usa el footer por defecto. |
 
 ## Expone
 

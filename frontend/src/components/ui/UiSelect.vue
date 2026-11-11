@@ -13,6 +13,7 @@
     :required="required"
     :disabled="disabled"
     :error="error"
+    :hint="hint"
     :aria-label="ariaLabel"
     @update:model-value="handleUpdate"
   />
@@ -36,6 +37,7 @@ interface Props {
   disabled?: boolean;
   error?: string | null;
   ariaLabel?: string;
+  hint?: string;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -51,6 +53,7 @@ withDefaults(defineProps<Props>(), {
   disabled: false,
   error: null,
   ariaLabel: '',
+  hint: '',
 });
 
 const model = defineModel<UiSelectValue>({ default: '' });
