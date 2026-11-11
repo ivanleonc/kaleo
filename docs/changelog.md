@@ -6,6 +6,17 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 
 ---
 
+## [Unreleased]
+
+### Añadido
+
+- Notificaciones in-app y por email, con preferencias por usuario/empresa y avisos de operaciones.
+- Documentos con versiones inmutables, checksum SHA-256, vínculos polimórficos y binarios en Supabase Storage.
+- Módulos `core.notifications` y `shared.documents` (este último incluido en el plan core).
+- Campana de notificaciones en el topbar, historial, preferencias en el perfil y vista de documentos.
+
+---
+
 ## [1.0.0] — 2026-10-03
 
 ### Añadido

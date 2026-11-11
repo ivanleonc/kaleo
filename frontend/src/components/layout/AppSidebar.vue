@@ -69,6 +69,15 @@
         <IconActivity :size="22" stroke-width="1.8" />
         <span class="nav-label">Operaciones</span>
       </router-link>
+      <router-link
+        :to="companyPath('/notifications')"
+        class="nav-link"
+        active-class="active"
+        v-if="modulesStore.isEnabled('core.notifications')"
+      >
+        <IconBell :size="22" stroke-width="1.8" />
+        <span class="nav-label">Notificaciones</span>
+      </router-link>
       <router-link :to="companyPath('/settings')" class="nav-link" active-class="active" v-permission="Permissions.COMPANY.READ" v-if="modulesStore.isEnabled('core.company')">
         <IconSettings :size="22" stroke-width="1.8" />
         <span class="nav-label">Ajustes</span>
@@ -161,6 +170,7 @@ import {
   IconBuildingCommunity,
   IconPuzzle,
   IconCreditCard,
+  IconBell,
 } from '@tabler/icons-vue';
 
 const route = useRoute();

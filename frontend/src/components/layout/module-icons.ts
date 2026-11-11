@@ -1,7 +1,9 @@
 import type { Component } from 'vue';
 import {
+  IconBell,
   IconChartHistogram,
   IconClipboardList,
+  IconFileText,
   IconLayoutDashboard,
   IconPuzzle,
   IconSettings,
@@ -18,6 +20,8 @@ const ICONS: Record<string, Component> = {
   roles: IconShieldLock,
   audit: IconClipboardList,
   settings: IconSettings,
+  notifications: IconBell,
+  documents: IconFileText,
 };
 
 export function moduleIcon(token?: string): Component {

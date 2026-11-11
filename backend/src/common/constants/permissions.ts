@@ -52,6 +52,13 @@ export const Permissions = {
     RUN: 'core.ai.run',
     APPROVE: 'core.ai.approve',
   },
+
+  DOCUMENTS: {
+    READ: 'core.documents.read',
+    CREATE: 'core.documents.create',
+    UPDATE: 'core.documents.update',
+    DELETE: 'core.documents.delete',
+  },
 } as const;
 
 /**

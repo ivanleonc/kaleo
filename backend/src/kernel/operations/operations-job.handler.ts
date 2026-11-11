@@ -4,6 +4,7 @@ import { BranchService } from '../../branches/branches.service.js';
 import { AnalysesService } from '../../analyses/analyses.service.js';
 import { AuditLogService } from '../../audit/audit-log.service.js';
 import type { ExportFormat } from '../../common/export/export.types.js';
+import { NotificationsService } from '../../notifications/notifications.service.js';
 import { JobsService } from '../jobs/jobs.service.js';
 import type { JobRow } from '../jobs/jobs.types.js';
 import {
@@ -12,6 +13,7 @@ import {
   OperationsService,
   REPORT_JOB_QUEUE,
 } from './operations.service.js';
+import type { OperationRow } from './operations.types.js';
 
 @Injectable()
 export class OperationsJobHandler implements OnModuleInit {
@@ -24,6 +26,7 @@ export class OperationsJobHandler implements OnModuleInit {
     private readonly branches: BranchService,
     private readonly analyses: AnalysesService,
     private readonly audit: AuditLogService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   onModuleInit(): void {
@@ -110,10 +113,12 @@ export class OperationsJobHandler implements OnModuleInit {
         contentType: file.contentType,
         data: file.buffer,
       });
+      await this.notifyCompleted(operation, `Tu exportación ${file.filename} está lista`);
     } catch (error) {
       const message = (error as Error).message;
       await this.operations.markFailed(operation.id, message);
       this.logger.error(`Export ${operation.id} falló: ${message}`);
+      await this.notifyFailed(operation, message);
       throw error;
     }
   }
@@ -138,10 +143,12 @@ export class OperationsJobHandler implements OnModuleInit {
         contentType: file.contentType,
         data: file.buffer,
       });
+      await this.notifyCompleted(operation, `Tu reporte ${file.filename} está listo`);
     } catch (error) {
       const message = (error as Error).message;
       await this.operations.markFailed(operation.id, message);
       this.logger.error(`Reporte ${operation.id} falló: ${message}`);
+      await this.notifyFailed(operation, message);
       throw error;
     }
   }
@@ -182,6 +189,59 @@ export class OperationsJobHandler implements OnModuleInit {
     await this.operations.markReady(operation.id, {
       summary: { created, failed: errors.length, errors: errors.slice(0, 50) },
     });
+
+    await this.notifyCompleted(
+      operation,
+      errors.length === 0
+        ? `Se importaron ${created} sedes`
+        : `Se importaron ${created} sedes; ${errors.length} filas fallaron`,
+    );
+  }
+
+  private async notifyCompleted(operation: OperationRow, body: string): Promise<void> {
+    await this.safeNotify({
+      companyId: operation.company_id,
+      userId: operation.user_id,
+      type: 'operation.completed',
+      category: 'operations',
+      title: 'Operación completada',
+      body,
+      link: '/operations',
+      data: {
+        operationId: operation.id,
+        kind: operation.kind,
+        resource: operation.resource,
+      },
+    });
+  }
+
+  private async notifyFailed(operation: OperationRow, error: string): Promise<void> {
+    await this.safeNotify({
+      companyId: operation.company_id,
+      userId: operation.user_id,
+      type: 'operation.failed',
+      category: 'operations',
+      title: 'Operación fallida',
+      body: error.slice(0, 500),
+      link: '/operations',
+      data: {
+        operationId: operation.id,
+        kind: operation.kind,
+        resource: operation.resource,
+      },
+    });
+  }
+
+  private async safeNotify(
+    input: Parameters<NotificationsService['notify']>[0],
+  ): Promise<void> {
+    try {
+      await this.notifications.notify(input);
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo crear la notificación de la operación: ${(error as Error).message}`,
+      );
+    }
   }
 }
 

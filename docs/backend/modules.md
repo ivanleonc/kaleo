@@ -14,7 +14,9 @@
 Reglas:
 
 - `core.*` siempre está habilitado y no necesita fila en `company_modules`.
-- Un módulo shared/pack aparece solo si tiene fila `enabled`, `trial` o `read_only`.
+- Un módulo shared/pack aparece si está incluido en el plan (salvo que tenga
+  fila `disabled`) o si tiene fila `enabled`, `trial` o `read_only` aunque haya
+  salido del plan. `shared.documents` se incluye hoy en el plan core.
 - Un módulo `core.*` no puede depender de un pack.
 - Los ciclos de dependencias se rechazan al arrancar.
 - `modules` y `module_dependencies` son catálogo global de solo lectura para `kaleo_app`.

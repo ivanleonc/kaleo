@@ -27,7 +27,7 @@ export function filenameFromDisposition(
   return plain?.[1]?.trim() || fallback;
 }
 
-async function throwExportError(error: unknown): Promise<never> {
+export async function throwExportError(error: unknown): Promise<never> {
   if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
     const text = await error.response.data.text();
 

@@ -378,6 +378,17 @@ export class AuditLogInterceptor implements NestInterceptor {
     for (const field of sensitiveFields) {
       if (sanitized[field]) sanitized[field] = '[REDACTED]';
     }
+    // Multipart: nunca guardar el buffer del archivo en audit_logs.
+    for (const [field, value] of Object.entries(sanitized)) {
+      if (value && typeof value === 'object' && 'buffer' in (value as object)) {
+        const file = value as { originalname?: string; mimetype?: string; size?: number };
+        sanitized[field] = {
+          filename: file.originalname,
+          contentType: file.mimetype,
+          size: file.size,
+        };
+      }
+    }
     return sanitized;
   }
 }

@@ -86,6 +86,52 @@
         <p class="card-description">Tu contraseña se mantiene segura. Haz clic en editar para actualizarla.</p>
       </UiCard>
 
+      <!-- Notification preferences -->
+      <UiCard>
+        <template #header>
+          <div class="card-header-row">
+            <h3 class="card-title">Notificaciones</h3>
+            <UiButton
+              variant="outline"
+              size="sm"
+              width="auto"
+              :loading="isSavingPreferences"
+              :disabled="isLoadingPreferences"
+              @click="saveNotificationPreferences"
+            >
+              Guardar preferencias
+            </UiButton>
+          </div>
+        </template>
+
+        <p class="card-description">
+          Elige cómo quieres recibir cada tipo de aviso. El historial in-app también respeta
+          estas preferencias.
+        </p>
+
+        <UiAlert v-if="notificationsError" type="error">{{ notificationsError }}</UiAlert>
+
+        <div v-if="isLoadingPreferences" class="preference-list" aria-hidden="true">
+          <div v-for="n in 3" :key="n" class="preference-row">
+            <UiSkeleton variant="text" width="180px" />
+            <UiSkeleton variant="text" width="140px" />
+          </div>
+        </div>
+
+        <div v-else class="preference-list">
+          <div v-for="preference in notificationPreferences" :key="preference.category" class="preference-row">
+            <div class="preference-copy">
+              <strong>{{ preference.name }}</strong>
+              <span>{{ preference.description }}</span>
+            </div>
+            <div class="preference-channels">
+              <UiSwitch v-model="preference.inApp" label="In-app" />
+              <UiSwitch v-model="preference.email" label="Email" />
+            </div>
+          </div>
+        </div>
+      </UiCard>
+
       <!-- Profile Edit Modal — footer generado automáticamente por UiFormModal -->
       <UiFormModal
         v-model="isProfileModalOpen"
@@ -205,7 +251,10 @@ import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiDetailGrid from '@/components/ui/UiDetailGrid.vue';
 import UiInfoRow from '@/components/ui/UiInfoRow.vue';
+import UiSwitch from '@/components/ui/UiSwitch.vue';
 import { IconEdit } from '@tabler/icons-vue';
+import { notificationService } from '@/services/notification.service';
+import type { NotificationPreference } from '@/types/notification';
 import { useToast } from '@/composables/useToast';
 import { passwordErrorMessage } from '@/utils/password';
 import { apiErrorMessage } from '@/utils/error';
@@ -271,8 +320,52 @@ const emailChangeNotice = computed(() => {
 });
 
 onMounted(async () => {
-  await loadProfile();
+  await Promise.all([loadProfile(), loadNotificationPreferences()]);
 });
+
+// --- NOTIFICATION PREFERENCES ---
+const notificationPreferences = ref<NotificationPreference[]>([]);
+const isLoadingPreferences = ref(true);
+const isSavingPreferences = ref(false);
+const notificationsError = ref<string | null>(null);
+
+async function loadNotificationPreferences(): Promise<void> {
+  isLoadingPreferences.value = true;
+  notificationsError.value = null;
+  try {
+    notificationPreferences.value = (await notificationService.getPreferences()).data;
+  } catch (error) {
+    notificationsError.value = apiErrorMessage(
+      error,
+      'No pudimos cargar tus preferencias de notificación',
+    );
+  } finally {
+    isLoadingPreferences.value = false;
+  }
+}
+
+async function saveNotificationPreferences(): Promise<void> {
+  isSavingPreferences.value = true;
+  notificationsError.value = null;
+  try {
+    const response = await notificationService.updatePreferences(
+      notificationPreferences.value.map((preference) => ({
+        category: preference.category,
+        inApp: preference.inApp,
+        email: preference.email,
+      })),
+    );
+    notificationPreferences.value = response.data;
+    toast.success('Preferencias de notificación actualizadas');
+  } catch (error) {
+    notificationsError.value = apiErrorMessage(
+      error,
+      'No pudimos guardar tus preferencias de notificación',
+    );
+  } finally {
+    isSavingPreferences.value = false;
+  }
+}
 
 const { isDirty: isProfileDirty, capture: snapshotProfileForm } = useDirtyForm(() => ({ ...form }));
 
@@ -485,4 +578,58 @@ const handlePasswordChange = async () => {
   border-bottom: 1px solid var(--border);
 }
 .info-row-skeleton:last-child { border-bottom: none; }
+
+/* Preferencias de notificación */
+.preference-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+}
+
+.preference-row + .preference-row {
+  border-top: 1px solid var(--border);
+}
+
+.preference-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.preference-copy strong {
+  font-size: var(--text-sm);
+  color: var(--text-main);
+}
+
+.preference-copy span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.preference-channels {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .preference-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .preference-channels {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
 </style>

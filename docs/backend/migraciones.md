@@ -108,6 +108,8 @@ npm run migrate -- production --accept-checksum 000
 | `048-idempotency-keys.sql` | Idempotencia de POST por empresa/usuario con TTL. |
 | `049-core-ai.sql` | Catálogo de tools, runs y acciones HITL de `core.ai`. |
 | `050-plans-trial-readonly.sql` | `limit_kind`, trial del plan core y límite `core.users.max_active`. |
+| `051-notifications.sql` | Notificaciones in-app, preferencias y permiso `core.notifications.read`. |
+| `052-documents.sql` | Documentos, versiones, links, permisos y `shared.documents` en el plan core. |
 
 ## Verificar el estado
 

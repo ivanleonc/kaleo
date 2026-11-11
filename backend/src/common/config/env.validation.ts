@@ -41,6 +41,15 @@ export const envValidationSchema = Joi.object({
   SMTP_PASS: Joi.string().optional(),
   EMAIL_FROM: Joi.string().optional(),
 
+  // ─── Documentos / object storage ─────────────────────────────────────────
+  // `local` solo para desarrollo/tests. En producción se usa `supabase` y
+  // falla rápido si falta la configuración.
+  DOCUMENTS_STORAGE_DRIVER: Joi.string().valid('local', 'supabase').optional(),
+  DOCUMENTS_STORAGE_DIR: Joi.string().optional(),
+  SUPABASE_URL: Joi.string().uri({ scheme: ['https', 'http'] }).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().optional(),
+  SUPABASE_STORAGE_BUCKET: Joi.string().optional(),
+
   // ─── Swagger (opt-in, apagado por defecto) ───────────────────────────────
   SWAGGER_ENABLED: Joi.string().valid('true', 'false').default('false'),
   SWAGGER_USER: Joi.string().optional(),

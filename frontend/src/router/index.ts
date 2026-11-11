@@ -116,6 +116,27 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/notifications',
+    name: 'Notifications',
+    component: () => import('@/views/NotificationsView.vue'),
+    meta: {
+      requiresAuth: true,
+      title: 'Notificaciones',
+      moduleCode: 'core.notifications',
+    },
+  },
+  {
+    path: '/companies/:companyId/documents',
+    name: 'Documents',
+    component: () => import('@/views/DocumentsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.DOCUMENTS.READ,
+      title: 'Documentos',
+      moduleCode: 'shared.documents',
+    },
+  },
+  {
     path: '/companies/:companyId/operations',
     name: 'Operations',
     component: () => import('@/views/OperationsView.vue'),

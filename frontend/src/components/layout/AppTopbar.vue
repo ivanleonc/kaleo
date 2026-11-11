@@ -118,6 +118,67 @@
         <span class="search-shortcut">Ctrl K</span>
       </button>
 
+      <UiDropdown align="end" label="Notificaciones" :min-width="340">
+        <template #trigger="{ toggle, triggerAria }">
+          <button
+            type="button"
+            class="notification-trigger"
+            v-bind="triggerAria"
+            :aria-label="unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : 'Notificaciones'"
+            @click="toggle(); refreshNotifications()"
+          >
+            <IconBell :size="18" stroke-width="1.8" />
+            <span v-if="unreadCount > 0" class="notification-badge" aria-hidden="true">
+              {{ unreadCount > 9 ? '9+' : unreadCount }}
+            </span>
+          </button>
+        </template>
+
+        <template #default="{ close }">
+          <div class="notification-dropdown">
+            <div class="notification-dropdown-head">
+              <span>Notificaciones</span>
+              <button
+                v-if="unreadCount > 0"
+                type="button"
+                class="notification-link-btn"
+                @click="handleMarkAllRead"
+              >
+                Marcar leídas
+              </button>
+            </div>
+
+            <p v-if="notificationsStore.isLoading && notifications.length === 0" class="notification-empty">
+              Cargando notificaciones…
+            </p>
+            <p v-else-if="notifications.length === 0" class="notification-empty">
+              No tienes notificaciones.
+            </p>
+            <button
+              v-for="notification in recentNotifications"
+              :key="notification.id"
+              type="button"
+              class="notification-item"
+              :class="{ 'is-unread': !notification.read_at }"
+              @click="openNotification(notification, close)"
+            >
+              <span v-if="!notification.read_at" class="notification-dot" aria-hidden="true"></span>
+              <span class="notification-copy">
+                <span class="notification-title">{{ notification.title }}</span>
+                <span v-if="notification.body" class="notification-body">{{ notification.body }}</span>
+                <span class="notification-time">{{ formatRelativeTime(notification.created_at) }}</span>
+              </span>
+            </button>
+
+            <div class="dropdown-divider"></div>
+            <button type="button" class="dropdown-item" role="menuitem" @click="goToNotifications(close)">
+              <IconBell :size="16" />
+              <span>Ver todas</span>
+            </button>
+          </div>
+        </template>
+      </UiDropdown>
+
       <UiDropdown align="end" label="Menú de usuario" :min-width="240">
         <template #trigger="{ toggle, triggerAria }">
           <button class="user-trigger" v-bind="triggerAria" @click="toggle" aria-label="Abrir menú de usuario">
@@ -211,10 +272,13 @@ import { computed, reactive, ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCompanyStore } from '@/stores/company.store';
+import { useNotificationsStore } from '@/stores/notifications.store';
 import { useTheme } from '@/composables/useTheme';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useSidebar } from '@/composables/useSidebar';
 import { companyPathFor, tenantUrlParam, preservableSection } from '@/utils/tenant';
+import { formatRelativeTime } from '@/utils/date';
+import type { AppNotification } from '@/types/notification';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
@@ -233,15 +297,62 @@ import {
   IconArrowsUpDown,
   IconMenu2,
   IconBook,
+  IconBell,
 } from '@tabler/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const companyStore = useCompanyStore();
+const notificationsStore = useNotificationsStore();
 const { isDarkMode, applyTheme } = useTheme();
 const { companyPath } = useCompanyPath();
 const { isMobileSidebarOpen, toggleMobileSidebar, registerMobileMenuButton } = useSidebar();
+
+const notifications = computed(() => notificationsStore.items);
+const unreadCount = computed(() => notificationsStore.unreadCount);
+const recentNotifications = computed(() => notificationsStore.items.slice(0, 5));
+
+function refreshNotifications(silent = false): void {
+  const companyId = authStore.activeTenantId;
+  if (companyId) void notificationsStore.load(companyId, { silent });
+}
+
+async function openNotification(notification: AppNotification, close: () => void): Promise<void> {
+  try {
+    await notificationsStore.markRead(notification.id);
+  } catch {
+    // La navegación no depende de que el marcado como leído funcione.
+  }
+  close();
+  if (notification.link) router.push(companyPath(notification.link));
+}
+
+function goToNotifications(close: () => void): void {
+  close();
+  router.push(companyPath('/notifications'));
+}
+
+async function handleMarkAllRead(): Promise<void> {
+  try {
+    await notificationsStore.markAllRead();
+  } catch {
+    // Silencioso: el badge se actualizará en el siguiente refresco.
+  }
+}
+
+let notificationsTimer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+  refreshNotifications();
+  notificationsTimer = setInterval(() => refreshNotifications(true), 30_000);
+});
+onUnmounted(() => {
+  if (notificationsTimer) clearInterval(notificationsTimer);
+});
+watch(
+  () => authStore.activeTenantId,
+  () => refreshNotifications(true),
+);
 
 const mobileMenuBtn = ref<HTMLButtonElement | null>(null);
 watch(mobileMenuBtn, (el) => registerMobileMenuButton(el));
@@ -304,6 +415,9 @@ const SECTION_LABELS: Record<string, string> = {
   branches: 'Sedes',
   roles: 'Roles',
   audit: 'Auditoría',
+  operations: 'Operaciones',
+  notifications: 'Notificaciones',
+  documents: 'Documentos',
   settings: 'Empresa',
   profile: 'Mi Cuenta',
   'change-password': 'Cambiar Contraseña',
@@ -671,6 +785,137 @@ button.search-box:hover {
 
 p.dropdown-section-label {
   margin: 0;
+}
+
+/* NOTIFICATIONS */
+.notification-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-app);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.notification-trigger:hover {
+  color: var(--text-main);
+  background: var(--bg-hover);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+
+.notification-dropdown {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+}
+
+.notification-dropdown-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.notification-link-btn {
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 0;
+}
+
+.notification-link-btn:hover {
+  text-decoration: underline;
+}
+
+.notification-empty {
+  margin: 0;
+  padding: var(--space-4) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+}
+
+.notification-item:hover {
+  background: var(--bg-hover);
+}
+
+.notification-item.is-unread {
+  background: var(--primary-active);
+}
+
+.notification-dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.notification-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.notification-title {
+  font-size: var(--text-sm);
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.notification-body {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-time {
+  font-size: 10px;
+  color: var(--text-light);
 }
 
 /* USER MENU */

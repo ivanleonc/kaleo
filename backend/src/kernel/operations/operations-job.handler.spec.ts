@@ -57,6 +57,9 @@ function createHandler(operationOverrides: Record<string, unknown> = {}) {
   const branches = {
     createBranch: vi.fn(async () => ({ id: 'b-1' })),
   } as any;
+  const notifications = {
+    notify: vi.fn(async () => ({ id: 'notification-1' })),
+  } as any;
 
   const handler = new OperationsJobHandler(
     { registerHandler: (queue: string, fn: any) => handlers.set(queue, fn) } as any,
@@ -65,9 +68,10 @@ function createHandler(operationOverrides: Record<string, unknown> = {}) {
     branches,
     {} as any,
     {} as any,
+    notifications,
   );
   handler.onModuleInit();
-  return { handler, handlers, operations, members, branches };
+  return { handler, handlers, operations, members, branches, notifications };
 }
 
 describe('OperationsJobHandler', () => {
@@ -90,13 +94,41 @@ describe('OperationsJobHandler', () => {
     );
   });
 
+  it('notifica al usuario cuando la exportación termina', async () => {
+    const { handlers, notifications } = createHandler();
+    const run = handlers.get('export.generate')!;
+
+    await run(job());
+
+    expect(notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        userId: 'user-1',
+        type: 'operation.completed',
+        link: '/operations',
+      }),
+    );
+  });
+
   it('marca failed si el export lanza', async () => {
-    const { handlers, operations, members } = createHandler();
+    const { handlers, operations, members, notifications } = createHandler();
     members.exportMembers.mockRejectedValueOnce(new Error('export boom'));
     const run = handlers.get('export.generate')!;
 
     await expect(run(job())).rejects.toThrow('export boom');
     expect(operations.markFailed).toHaveBeenCalledWith('op-1', 'export boom');
+    expect(notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'operation.failed', body: 'export boom' }),
+    );
+  });
+
+  it('no falla la operación si la notificación falla', async () => {
+    const { handlers, operations, notifications } = createHandler();
+    notifications.notify.mockRejectedValueOnce(new Error('notify boom'));
+    const run = handlers.get('export.generate')!;
+
+    await expect(run(job())).resolves.toBeUndefined();
+    expect(operations.markReady).toHaveBeenCalled();
   });
 
   it('procesa filas de import y reporta creadas/fallidas', async () => {

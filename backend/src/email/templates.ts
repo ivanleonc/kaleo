@@ -71,6 +71,34 @@ export function invitationTemplate(companyName: string, invitationUrl: string): 
   };
 }
 
+export function notificationTemplate(
+  title: string,
+  body?: string | null,
+  url?: string | null,
+): { subject: string; html: string } {
+  const safeTitle = escapeHtml(title);
+  const safeBody = body ? escapeHtml(body) : '';
+  return {
+    subject: `${title} - ${BRAND_NAME}`,
+    html: emailLayout(
+      safeTitle,
+      `<h2>${safeTitle}</h2>
+       ${safeBody ? `<p>${safeBody}</p>` : ''}
+       ${url ? primaryButton(url, 'Abrir en Kaleo') : ''}
+       <p>Puedes gestionar tus preferencias de notificaciones desde tu perfil.</p>`,
+    ),
+  };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function temporaryPasswordTemplate(tempPassword: string, loginUrl: string): { subject: string; html: string } {
   return {
     subject: `Tu contraseña temporal - ${BRAND_NAME}`,

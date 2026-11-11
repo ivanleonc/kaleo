@@ -154,6 +154,8 @@ export default defineConfig({
             { text: 'Guards', link: '/backend/guards' },
             { text: 'Repositorios SQL', link: '/backend/repositorios' },
             { text: 'Emails', link: '/backend/emails' },
+            { text: 'Notificaciones', link: '/backend/notifications' },
+            { text: 'Documentos', link: '/backend/documents' },
             { text: 'Migraciones', link: '/backend/migraciones' },
           ],
         },
