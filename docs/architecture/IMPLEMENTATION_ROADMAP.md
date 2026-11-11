@@ -366,8 +366,10 @@ gantt
 > `party_identities` se crea aquí porque depende de `parties`. La ingesta de bots la consumirá en la fase 7; CRM y Construcción pueden usarla antes para evitar duplicados.
 >
 > Estado: **7.1 completo.** `shared.parties` (054), monedas/unidades/impuestos
-> (055) e ítems/categorías/listas de precios (056) están implementados. El
-> siguiente bloque es 7.2 Construcción: `projects` y `project_members`.
+> (055) e ítems/categorías/listas de precios (056) están implementados.
+>
+> **7.2 en curso:** `projects` y `project_members` implementados (057). Siguen
+> recursos, precios de proveedor, APUs, takeoff y presupuestos.
 
 ### 7.2 Construcción
 

@@ -73,6 +73,13 @@ export const Permissions = {
     UPDATE: 'core.catalog.update',
     DELETE: 'core.catalog.delete',
   },
+
+  PROJECTS: {
+    READ: 'construction.projects.read',
+    CREATE: 'construction.projects.create',
+    UPDATE: 'construction.projects.update',
+    DELETE: 'construction.projects.delete',
+  },
 } as const;
 
 /**

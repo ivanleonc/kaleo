@@ -297,6 +297,39 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
     ],
   },
   {
+    code: 'construction.projects',
+    name: 'Proyectos',
+    version: '1.0.0',
+    vertical: 'construction',
+    isCore: false,
+    dependsOn: ['shared.parties'],
+    permissions: [
+      Permissions.PROJECTS.READ,
+      Permissions.PROJECTS.CREATE,
+      Permissions.PROJECTS.UPDATE,
+      Permissions.PROJECTS.DELETE,
+    ],
+    routes: [
+      {
+        path: '/projects',
+        name: 'Projects',
+        title: 'Proyectos',
+        permission: Permissions.PROJECTS.READ,
+        icon: 'projects',
+        nav: true,
+        order: 80,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'create-first-project',
+        title: 'Crea tu primer proyecto',
+        description: 'Asocia un cliente y un equipo para empezar a estimar.',
+        route: '/projects',
+      },
+    ],
+  },
+  {
     code: 'shared.catalog',
     name: 'Catálogo',
     version: '1.0.0',

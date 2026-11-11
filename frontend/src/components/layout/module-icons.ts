@@ -6,6 +6,7 @@ import {
   IconChartHistogram,
   IconClipboardList,
   IconFileText,
+  IconFolders,
   IconLayoutDashboard,
   IconPuzzle,
   IconSettings,
@@ -27,6 +28,7 @@ const ICONS: Record<string, Component> = {
   operations: IconActivity,
   parties: IconUsers,
   catalog: IconBook,
+  projects: IconFolders,
 };
 
 export function moduleIcon(token?: string): Component {

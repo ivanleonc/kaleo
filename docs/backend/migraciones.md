@@ -114,6 +114,7 @@ npm run migrate -- production --accept-checksum 000
 | `054-shared-parties.sql` | Terceros, roles, identidades, contactos, direcciones y `shared.parties`. |
 | `055-shared-catalog-foundations.sql` | Monedas, unidades/conversiones, impuestos y `shared.catalog`. |
 | `056-catalog-items-prices.sql` | Categorías, ítems, listas de precios y precios por ítem. |
+| `057-construction-projects.sql` | Proyectos, equipo, permisos y módulo `construction.projects`. |
 
 ## Verificar el estado
 

@@ -20,6 +20,7 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 - `shared.parties`: personas y organizaciones con roles, identidades de canal, contactos y direcciones.
 - `shared.catalog`: monedas, unidades de medida, conversiones e impuestos por empresa.
 - Ítems de catálogo, categorías jerárquicas, listas de precios y precios por cantidad mínima.
+- `construction.projects`: proyectos con cliente, sede, moneda, fechas y equipo por rol.
 
 ---
 

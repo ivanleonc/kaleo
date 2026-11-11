@@ -126,6 +126,17 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/projects',
+    name: 'Projects',
+    component: () => import('@/views/ProjectsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.PROJECTS.READ,
+      title: 'Proyectos',
+      moduleCode: 'construction.projects',
+    },
+  },
+  {
     path: '/companies/:companyId/catalog',
     name: 'Catalog',
     component: () => import('@/views/CatalogView.vue'),

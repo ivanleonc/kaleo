@@ -157,6 +157,7 @@ export default defineConfig({
             { text: 'Notificaciones', link: '/backend/notifications' },
             { text: 'Terceros', link: '/backend/parties' },
             { text: 'Catálogo', link: '/backend/catalog' },
+            { text: 'Proyectos', link: '/backend/projects' },
             { text: 'Documentos', link: '/backend/documents' },
             { text: 'Migraciones', link: '/backend/migraciones' },
           ],

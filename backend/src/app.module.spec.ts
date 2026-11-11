@@ -71,6 +71,9 @@ vi.mock('./parties/parties.module.js', () => ({
 vi.mock('./catalog/catalog.module.js', () => ({
   CatalogModule: class CatalogModule {},
 }));
+vi.mock('./projects/projects.module.js', () => ({
+  ProjectsModule: class ProjectsModule {},
+}));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));

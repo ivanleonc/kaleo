@@ -1,0 +1,56 @@
+export type ProjectStatus = 'draft' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+export type ProjectRole = 'manager' | 'estimator' | 'resident' | 'supervisor' | 'viewer';
+
+export interface Project {
+  id: string;
+  company_id: string;
+  branch_id: string | null;
+  branch_name: string | null;
+  client_party_id: string | null;
+  client_name: string | null;
+  code: string;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  currency_code: string;
+  start_date: string | null;
+  end_date: string | null;
+  timezone: string | null;
+  address: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  members_count: number;
+}
+
+export interface ProjectMember {
+  company_id: string;
+  project_id: string;
+  membership_id: string;
+  project_role: ProjectRole;
+  created_at: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  membership_status: string;
+}
+
+export interface ProjectDetail extends Project {
+  members: ProjectMember[];
+}
+
+export interface CreateProjectPayload {
+  code: string;
+  name: string;
+  description?: string | null;
+  status?: ProjectStatus;
+  branchId?: string | null;
+  clientPartyId?: string | null;
+  currencyCode: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  timezone?: string | null;
+  address?: string | null;
+}
