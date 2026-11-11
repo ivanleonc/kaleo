@@ -11,6 +11,7 @@ export interface BudgetRow {
   code: string;
   name: string;
   version: number;
+  label: string | null;
   status: BudgetStatus;
   currency_code: string;
   apu_base_id: string | null;
@@ -83,4 +84,112 @@ export interface UpdateBudgetItemInput {
 export interface AddApusInput {
   apuIds: string[];
   parentId?: string | null;
+}
+
+export interface BudgetVersionSummary {
+  id: string;
+  version: number;
+  label: string | null;
+  status: BudgetStatus;
+  subtotal: number;
+  indirect_total: number;
+  total: number;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  items_count: number;
+}
+
+export interface CompareDiffRow {
+  code: string;
+  name: string;
+  item_type: BudgetItemType;
+  base_quantity: number | null;
+  base_unit_price: number | null;
+  base_partial: number | null;
+  target_quantity: number | null;
+  target_unit_price: number | null;
+  target_partial: number | null;
+  delta: number;
+  change: 'added' | 'removed' | 'modified' | 'unchanged';
+}
+
+export interface CompareResult {
+  base: BudgetVersionSummary & { name: string; code: string };
+  target: BudgetVersionSummary & { name: string; code: string };
+  rows: CompareDiffRow[];
+  totals: {
+    base_total: number;
+    target_total: number;
+    delta: number;
+  };
+}
+
+export interface MaterialRow {
+  resource_code: string;
+  resource_name: string;
+  component_type: string;
+  unit_code: string;
+  currency_code: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  apu_count: number;
+}
+
+export const TAKEOFF_SHEET_STATUSES = ['draft', 'confirmed'] as const;
+export type TakeoffSheetStatus = (typeof TAKEOFF_SHEET_STATUSES)[number];
+
+export interface TakeoffSheetRow {
+  id: string;
+  company_id: string;
+  project_id: string;
+  budget_item_id: string | null;
+  budget_item_name: string | null;
+  name: string;
+  description: string | null;
+  status: TakeoffSheetStatus;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  lines_count: number;
+  total_quantity: number;
+}
+
+export interface TakeoffLineRow {
+  id: string;
+  company_id: string;
+  sheet_id: string;
+  description: string;
+  unit_id: string;
+  unit_code: string;
+  unit_name: string;
+  parts: number;
+  length: number;
+  width: number;
+  height: number;
+  quantity: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface TakeoffSheetDetail extends TakeoffSheetRow {
+  lines: TakeoffLineRow[];
+}
+
+export interface CreateTakeoffSheetInput {
+  budgetItemId?: string | null;
+  name: string;
+  description?: string | null;
+}
+
+export interface CreateTakeoffLineInput {
+  description: string;
+  unitId: string;
+  parts?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  quantity?: number;
+  notes?: string | null;
 }

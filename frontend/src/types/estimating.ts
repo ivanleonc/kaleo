@@ -145,3 +145,11 @@ export interface CreateApuLinePayload {
   performance?: number;
   notes?: string | null;
 }
+
+export interface ImportApusResult {
+  apusCreated: number;
+  apusUpdated: number;
+  linesCreated: number;
+  resourcesCreated: number;
+  errors: string[];
+}

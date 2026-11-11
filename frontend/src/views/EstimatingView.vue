@@ -25,6 +25,15 @@
           <UiButton
             v-if="activeTab === 'apus'"
             v-permission="Permissions.ESTIMATING.CREATE"
+            variant="outline"
+            width="auto"
+            @click="openImport"
+          >
+            <IconFileImport :size="16" /> Importar
+          </UiButton>
+          <UiButton
+            v-if="activeTab === 'apus'"
+            v-permission="Permissions.ESTIMATING.CREATE"
             width="auto"
             @click="openApuCreate"
           >
@@ -254,22 +263,62 @@
             <div v-for="line in group.lines" :key="line.id" class="line-row">
               <span>{{ line.resource_code }} · {{ line.resource_name }}</span>
               <span>{{ line.unit_code }}</span>
-              <span>{{ line.quantity }}</span>
-              <span>{{ line.waste_pct }}%</span>
-              <span>{{ line.performance }}</span>
+              <input
+                v-if="canEditLines"
+                v-model.number="line.quantity"
+                type="number"
+                min="0"
+                step="0.000001"
+                class="line-input"
+                aria-label="Cantidad"
+                @change="saveLine(line.id, { quantity: Number(line.quantity) })"
+              />
+              <span v-else>{{ line.quantity }}</span>
+              <input
+                v-if="canEditLines"
+                v-model.number="line.waste_pct"
+                type="number"
+                min="0"
+                step="0.01"
+                class="line-input"
+                aria-label="Desperdicio %"
+                @change="saveLine(line.id, { wastePct: Number(line.waste_pct) })"
+              />
+              <span v-else>{{ line.waste_pct }}%</span>
+              <input
+                v-if="canEditLines"
+                v-model.number="line.performance"
+                type="number"
+                min="0.000001"
+                step="0.000001"
+                class="line-input"
+                aria-label="Rendimiento"
+                @change="saveLine(line.id, { performance: Number(line.performance) })"
+              />
+              <span v-else>{{ line.performance }}</span>
               <span>{{ formatMoney(line.unit_cost_snapshot, line.currency_code) }}</span>
               <span>{{ formatMoney(line.partial_amount, line.currency_code) }}</span>
-              <UiButton
-                v-if="apuDetail.current_version_status !== 'approved' && !entitlementsStore.isReadOnly"
-                v-permission="Permissions.ESTIMATING.UPDATE"
-                size="sm"
-                variant="ghost"
-                width="auto"
-                class="danger-action"
-                @click="deleteLine(line.id)"
-              >
-                Quitar
-              </UiButton>
+              <span class="line-actions">
+                <UiButton
+                  size="sm"
+                  variant="ghost"
+                  width="auto"
+                  @click="openPrices(line)"
+                >
+                  Precios
+                </UiButton>
+                <UiButton
+                  v-if="canEditLines"
+                  v-permission="Permissions.ESTIMATING.UPDATE"
+                  size="sm"
+                  variant="ghost"
+                  width="auto"
+                  class="danger-action"
+                  @click="deleteLine(line.id)"
+                >
+                  Quitar
+                </UiButton>
+              </span>
             </div>
             <p v-if="group.lines.length === 0" class="estimating-empty">Sin insumos.</p>
           </section>
@@ -288,6 +337,90 @@
           APU aprobado. Crea una nueva versión para editar los insumos.
         </p>
       </template>
+    </UiFormModal>
+
+    <!-- Precios de proveedor del insumo -->
+    <UiFormModal
+      v-model="isPricesOpen"
+      :title="priceTarget ? `Precios · ${priceTarget.resource_name}` : 'Precios de proveedor'"
+      size="large"
+      :hide-footer="true"
+    >
+      <div class="price-add">
+        <UiSelect
+          v-model="priceForm.supplierPartyId"
+          :options="supplierOptions"
+          placeholder="Proveedor (opcional)"
+          label="Proveedor"
+        />
+        <UiInput v-model="priceForm.price" label="Precio" type="number" />
+        <UiSelect v-model="priceForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+        <UiInput v-model="priceForm.validFrom" label="Desde" type="date" />
+        <UiInput v-model="priceForm.validTo" label="Hasta" type="date" />
+        <UiButton
+          size="sm"
+          variant="outline"
+          width="auto"
+          :loading="isSaving"
+          :disabled="!priceTarget"
+          @click="addPrice"
+        >
+          Agregar precio
+        </UiButton>
+      </div>
+
+      <div v-if="isLoadingPrices" class="estimating-loading" aria-hidden="true">
+        <UiSkeleton v-for="n in 3" :key="n" variant="text" width="100%" />
+      </div>
+      <ul v-else class="prices-list">
+        <li v-for="price in prices" :key="price.id" class="price-row">
+          <span>{{ price.supplier_name || 'Sin proveedor' }}</span>
+          <span>{{ formatMoney(price.price, price.currency_code) }}</span>
+          <span>{{ price.valid_from ? formatDate(price.valid_from) : '—' }} → {{ price.valid_to ? formatDate(price.valid_to) : '—' }}</span>
+          <span>{{ price.source || '—' }}</span>
+          <UiButton
+            v-if="!entitlementsStore.isReadOnly"
+            v-permission="Permissions.ESTIMATING.UPDATE"
+            size="sm"
+            variant="ghost"
+            width="auto"
+            class="danger-action"
+            @click="removePrice(price.id)"
+          >
+            Quitar
+          </UiButton>
+        </li>
+        <li v-if="prices.length === 0" class="estimating-empty">Sin precios de proveedor registrados.</li>
+      </ul>
+    </UiFormModal>
+
+    <!-- Importar APUs -->
+    <UiFormModal
+      v-model="isImportOpen"
+      title="Importar APUs"
+      description="Cada fila es un insumo. Las filas con el mismo código de APU se agrupan."
+      submit-label="Importar"
+      size="large"
+      :loading="isImporting"
+      @submit="importApus"
+    >
+      <UiAlert v-if="importError" type="error">{{ importError }}</UiAlert>
+      <UiAlert v-if="importResult" type="success">
+        {{ importResult.apusCreated }} APUs creados, {{ importResult.apusUpdated }} actualizados,
+        {{ importResult.linesCreated }} insumos y {{ importResult.resourcesCreated }} recursos nuevos.
+      </UiAlert>
+      <UiAlert v-if="importResult?.errors.length" type="warning">
+        {{ importResult.errors.length }} filas con observaciones:
+        <ul>
+          <li v-for="(message, index) in importResult.errors.slice(0, 8)" :key="index">{{ message }}</li>
+        </ul>
+      </UiAlert>
+      <UiSelect v-model="importBaseId" label="Base destino" :options="baseOptions" :clearable="false" />
+      <UiFileDropzone
+        v-model="importFile"
+        accept=".csv,.xlsx"
+        hint="Columnas: apu_codigo, apu_nombre, apu_unidad, insumo_codigo, insumo_nombre, tipo, unidad_insumo, cantidad, desperdicio, rendimiento, costo. Máximo 500 filas."
+      />
     </UiFormModal>
 
     <UiConfirmDialog
@@ -317,21 +450,28 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
-import { IconPlus } from '@tabler/icons-vue';
+import UiFileDropzone from '@/components/ui/UiFileDropzone.vue';
+import { IconFileImport, IconPlus } from '@tabler/icons-vue';
 import { Permissions } from '@/constants/permissions';
 import { estimatingService } from '@/services/estimating.service';
 import { catalogService } from '@/services/catalog.service';
+import { partyService } from '@/services/party.service';
 import { useEntitlementsStore } from '@/stores/entitlements.store';
 import { useToast } from '@/composables/useToast';
 import { apiErrorMessage } from '@/utils/error';
+import { formatDate } from '@/utils/date';
 import type {
   Apu,
   ApuBase,
   ApuDetail,
+  ApuLine,
+  ImportApusResult,
   Resource,
+  ResourcePrice,
   ResourceType,
 } from '@/types/estimating';
 import type { Currency, Unit } from '@/types/catalog';
+import type { PartyListItem } from '@/types/party';
 
 type Tab = 'resources' | 'bases' | 'apus';
 type DeleteTarget =
@@ -751,6 +891,157 @@ async function newApuVersion(): Promise<void> {
   }
 }
 
+const canEditLines = computed(
+  () =>
+    Boolean(apuDetail.value) &&
+    apuDetail.value?.current_version_status !== 'approved' &&
+    !entitlementsStore.isReadOnly,
+);
+
+async function saveLine(
+  lineId: string,
+  payload: { quantity?: number; wastePct?: number; performance?: number },
+): Promise<void> {
+  if (!apuDetail.value) return;
+  try {
+    await estimatingService.updateApuLine(lineId, payload);
+    apuDetail.value = await estimatingService.getApu(apuDetail.value.id);
+    await load();
+  } catch (err) {
+    toast.error(apiErrorMessage(err, 'No pudimos actualizar el insumo'));
+    apuDetail.value = await estimatingService.getApu(apuDetail.value.id);
+  }
+}
+
+// --- Precios de proveedor ---
+const isPricesOpen = ref(false);
+const priceTarget = ref<ApuLine | null>(null);
+const prices = ref<ResourcePrice[]>([]);
+const isLoadingPrices = ref(false);
+const suppliers = ref<PartyListItem[]>([]);
+const priceForm = reactive({
+  supplierPartyId: '',
+  price: '0',
+  currencyCode: 'COP',
+  validFrom: '',
+  validTo: '',
+});
+
+const supplierOptions = computed(() =>
+  suppliers.value.map((supplier) => ({ label: supplier.name, value: supplier.id })),
+);
+
+async function loadSuppliers(): Promise<void> {
+  if (suppliers.value.length > 0) return;
+  try {
+    const response = await partyService.list({ role: 'supplier', limit: 100 });
+    suppliers.value = response.data;
+  } catch {
+    suppliers.value = [];
+  }
+}
+
+async function openPrices(line: ApuLine): Promise<void> {
+  priceTarget.value = line;
+  isPricesOpen.value = true;
+  isLoadingPrices.value = true;
+  prices.value = [];
+  Object.assign(priceForm, {
+    supplierPartyId: '',
+    price: String(line.unit_cost_snapshot),
+    currencyCode: line.currency_code || 'COP',
+    validFrom: '',
+    validTo: '',
+  });
+  try {
+    const [priceData] = await Promise.all([
+      estimatingService.listResourcePrices(line.resource_id),
+      loadSuppliers(),
+    ]);
+    prices.value = priceData;
+  } catch (err) {
+    toast.error(apiErrorMessage(err, 'No pudimos cargar los precios'));
+  } finally {
+    isLoadingPrices.value = false;
+  }
+}
+
+async function addPrice(): Promise<void> {
+  if (!priceTarget.value) return;
+  const price = Number(priceForm.price);
+  if (!Number.isFinite(price) || price < 0) {
+    toast.error('El precio debe ser un número mayor o igual a cero');
+    return;
+  }
+  isSaving.value = true;
+  try {
+    await estimatingService.addResourcePrice(priceTarget.value.resource_id, {
+      supplierPartyId: priceForm.supplierPartyId || null,
+      price,
+      currencyCode: priceForm.currencyCode,
+      validFrom: priceForm.validFrom || null,
+      validTo: priceForm.validTo || null,
+      source: 'manual',
+    });
+    prices.value = await estimatingService.listResourcePrices(priceTarget.value.resource_id);
+    toast.success('Precio agregado');
+  } catch (err) {
+    toast.error(apiErrorMessage(err, 'No pudimos agregar el precio'));
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function removePrice(id: string): Promise<void> {
+  if (!priceTarget.value) return;
+  try {
+    await estimatingService.deleteResourcePrice(priceTarget.value.resource_id, id);
+    prices.value = await estimatingService.listResourcePrices(priceTarget.value.resource_id);
+    toast.success('Precio eliminado');
+  } catch (err) {
+    toast.error(apiErrorMessage(err, 'No pudimos eliminar el precio'));
+  }
+}
+
+// --- Importar APUs ---
+const isImportOpen = ref(false);
+const importBaseId = ref('');
+const importFile = ref<File | null>(null);
+const isImporting = ref(false);
+const importError = ref<string | null>(null);
+const importResult = ref<ImportApusResult | null>(null);
+
+function openImport(): void {
+  importBaseId.value = bases.value[0]?.id ?? '';
+  importFile.value = null;
+  importError.value = null;
+  importResult.value = null;
+  isImportOpen.value = true;
+}
+
+async function importApus(): Promise<void> {
+  importError.value = null;
+  if (!importBaseId.value) {
+    importError.value = 'Selecciona la base de APUs destino.';
+    return;
+  }
+  if (!importFile.value) {
+    importError.value = 'Adjunta un archivo .csv o .xlsx.';
+    return;
+  }
+  isImporting.value = true;
+  try {
+    importResult.value = await estimatingService.importApus(importBaseId.value, importFile.value);
+    importFile.value = null;
+    await load();
+    toast.success('Importación procesada');
+  } catch (err) {
+    importError.value = apiErrorMessage(err, 'No pudimos importar los APUs');
+  } finally {
+    isImporting.value = false;
+  }
+}
+
 // --- Eliminar ---
 const isDeleteOpen = ref(false);
 const isDeleting = ref(false);
@@ -923,12 +1214,58 @@ onMounted(load);
 
 .line-row {
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) 55px 70px 70px 70px 100px 100px auto;
+  grid-template-columns: minmax(170px, 1fr) 55px 70px 70px 70px 100px 100px 160px;
   gap: var(--space-2);
   align-items: center;
   padding: var(--space-2) 0;
   font-size: var(--text-xs);
   border-top: 1px solid var(--border);
+}
+
+.line-input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-main);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.line-actions {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.price-add {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 110px 110px 130px 130px auto;
+  gap: var(--space-2);
+  align-items: end;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-3);
+}
+
+.prices-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.price-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 110px 190px minmax(120px, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+  font-size: var(--text-xs);
+  border-bottom: 1px solid var(--border);
 }
 
 .inline-form {
@@ -954,6 +1291,14 @@ onMounted(load);
     width: 100%;
     justify-content: flex-start;
     padding-left: calc(58px + var(--space-3));
+  }
+
+  .price-add {
+    grid-template-columns: 1fr;
+  }
+
+  .price-row {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

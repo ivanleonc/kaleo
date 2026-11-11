@@ -10,8 +10,11 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -26,18 +29,62 @@ import {
   CreateApuLineDto,
   CreateResourceDto,
   CreateResourcePriceDto,
+  ImportApusDto,
   ResourceQueryDto,
   UpdateApuBaseDto,
   UpdateApuDto,
   UpdateApuLineDto,
   UpdateResourceDto,
 } from './dto/estimating.dto.js';
+import {
+  mapRecords,
+  parseTabularMatrix,
+} from '../common/import/tabular-import.js';
 import { Ok } from '../common/dto/api-response.dto.js';
 import { Permissions } from '../common/constants/permissions.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { PermissionsGuard } from '../common/guards/permissions.guard.js';
 import { Audit } from '../common/decorators/audit-context.decorator.js';
+
+const APU_IMPORT_ALIASES: Record<string, string> = {
+  apu_codigo: 'apu_code',
+  apu_code: 'apu_code',
+  codigo_apu: 'apu_code',
+  apu: 'apu_code',
+  apu_nombre: 'apu_name',
+  nombre_apu: 'apu_name',
+  actividad: 'apu_name',
+  descripcion_apu: 'apu_name',
+  unidad_apu: 'apu_unit',
+  unidad_salida: 'apu_unit',
+  unidad: 'apu_unit',
+  insumo_codigo: 'resource_code',
+  codigo_insumo: 'resource_code',
+  codigo: 'resource_code',
+  insumo_nombre: 'resource_name',
+  nombre_insumo: 'resource_name',
+  insumo: 'resource_name',
+  nombre: 'resource_name',
+  descripcion: 'resource_name',
+  tipo: 'resource_type',
+  tipo_insumo: 'resource_type',
+  componente: 'resource_type',
+  unidad_insumo: 'resource_unit',
+  und_insumo: 'resource_unit',
+  cantidad: 'quantity',
+  qty: 'quantity',
+  desperdicio: 'waste_pct',
+  desperdicio_pct: 'waste_pct',
+  rendimiento: 'performance',
+  costo: 'cost',
+  costo_unitario: 'cost',
+  precio: 'cost',
+  valor: 'cost',
+  moneda: 'currency',
+  notas: 'notes',
+  nota: 'notes',
+};
 
 @ApiTags('Estimating - Estimación')
 @ApiBearerAuth()
@@ -308,6 +355,26 @@ export class EstimatingController {
     return Ok(
       await this.estimating.addApuLine(requireCompany(companyId), id, dto),
       'Insumo agregado',
+    );
+  }
+
+  @Post('apus/import')
+  @RequirePermissions(Permissions.ESTIMATING.CREATE)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @Audit({ entityType: 'Estimating' })
+  @ApiOperation({ summary: 'Importar APUs desde CSV/XLSX' })
+  async importApus(
+    @CurrentUser('id') userId: string,
+    @Headers('x-company-id') companyId: string | undefined,
+    @Body() dto: ImportApusDto,
+    @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
+  ) {
+    if (!file?.buffer) throw new BadRequestException('Adjunta un archivo .csv o .xlsx');
+    const matrix = await parseTabularMatrix(file);
+    const records = mapRecords(matrix, APU_IMPORT_ALIASES, ['apu_code']);
+    return Ok(
+      await this.estimating.importApus(requireCompany(companyId), userId, dto.baseId, records),
+      'Importación procesada',
     );
   }
 

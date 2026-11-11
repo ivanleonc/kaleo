@@ -118,6 +118,10 @@ npm run migrate -- production --accept-checksum 000
 | `058-project-workspace.sql` | Categoría y portada de proyectos. |
 | `059-construction-estimating.sql` | Recursos, precios, bases de APUs y APUs versionados. |
 | `060-project-budgets.sql` | Presupuestos, WBS, indirectos y aprobaciones. |
+| `061-budget-versions.sql` | Etiqueta y versiones múltiples de presupuestos. |
+| `062-takeoff.sql` | Hojas y líneas de memoria de cantidades (takeoff). |
+| `063-construction-execution.sql` | Módulo `construction.execution`: programación, contratos, nómina, almacén y compras. |
+| `064-project-share-links.sql` | Enlaces públicos de proyecto con token, alcance y expiración. |
 
 ## Verificar el estado
 

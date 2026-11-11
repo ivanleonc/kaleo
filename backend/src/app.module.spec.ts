@@ -80,6 +80,9 @@ vi.mock('./estimating/estimating.module.js', () => ({
 vi.mock('./budgets/budgets.module.js', () => ({
   BudgetsModule: class BudgetsModule {},
 }));
+vi.mock('./execution/execution.module.js', () => ({
+  ExecutionModule: class ExecutionModule {},
+}));
 vi.mock('./common/middleware/request-logger.middleware.js', () => ({
   RequestLoggerMiddleware: class RequestLoggerMiddleware {},
 }));

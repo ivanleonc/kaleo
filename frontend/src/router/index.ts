@@ -159,6 +159,23 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/projects/:projectId/execution',
+    name: 'ProjectExecution',
+    component: () => import('@/views/ExecutionView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.EXECUTION.READ,
+      title: 'Ejecución',
+      moduleCode: 'construction.execution',
+    },
+  },
+  {
+    path: '/share/:token',
+    name: 'SharedProject',
+    component: () => import('@/views/SharedProjectView.vue'),
+    meta: { title: 'Proyecto compartido' },
+  },
+  {
     path: '/companies/:companyId/estimating',
     name: 'Estimating',
     component: () => import('@/views/EstimatingView.vue'),

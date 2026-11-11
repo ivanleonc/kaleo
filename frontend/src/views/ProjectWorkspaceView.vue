@@ -10,11 +10,27 @@
             <IconArrowLeft :size="16" /> Proyectos
           </UiButton>
           <UiButton
+            v-permission="Permissions.EXECUTION.READ"
+            variant="outline"
+            width="auto"
+            @click="openExecution"
+          >
+            <IconTimeline :size="16" /> Ejecución
+          </UiButton>
+          <UiButton
             v-if="project?.budget_id"
             width="auto"
             @click="openBudget"
           >
             <IconCalculator :size="16" /> Presupuesto
+          </UiButton>
+          <UiButton
+            v-permission="Permissions.PROJECTS.SHARE"
+            variant="outline"
+            width="auto"
+            @click="openShares"
+          >
+            <IconShare3 :size="16" /> Compartir
           </UiButton>
         </template>
       </UiPageHeader>
@@ -107,22 +123,109 @@
             </UiButton>
           </UiCard>
 
-          <UiCard v-for="future in FUTURE_CARDS" :key="future.title" class="workspace-card is-disabled">
+          <UiCard class="workspace-card" hoverable @click="openExecution">
             <div class="workspace-card-head">
-              <span class="workspace-card-icon icon-neutral"><component :is="future.icon" :size="22" /></span>
-              <UiBadge label="Próximamente" variant="neutral" size="sm" />
+              <span class="workspace-card-icon icon-orange"><IconTimeline :size="22" /></span>
+              <UiBadge label="Ejecución" size="sm" />
             </div>
-            <h3>{{ future.title }}</h3>
-            <p>{{ future.description }}</p>
+            <h3>Ejecución de obra</h3>
+            <p>Programación, contratos, nómina, almacén y compras.</p>
+            <UiButton size="sm" variant="outline" width="auto" @click.stop="openExecution">
+              Abrir ejecución
+            </UiButton>
           </UiCard>
         </div>
       </template>
     </div>
+
+    <UiFormModal
+      v-model="isShareOpen"
+      title="Compartir proyecto"
+      description="Enlaces públicos de solo lectura para clientes o interventoría."
+      size="large"
+      :hide-footer="true"
+    >
+      <UiAlert v-if="shareError" type="error">{{ shareError }}</UiAlert>
+
+      <div class="share-form">
+        <UiInput v-model="shareForm.label" label="Etiqueta" placeholder="Cliente, interventoría…" />
+        <UiSelect
+          v-model="shareForm.scope"
+          label="Alcance"
+          :options="shareScopeOptions"
+          :clearable="false"
+        />
+        <UiInput
+          v-model="shareForm.expiresInDays"
+          label="Expira en días (1-365)"
+          type="number"
+        />
+        <UiButton width="auto" :loading="isCreatingShare" @click="createShare">
+          <IconLink :size="16" /> Crear enlace
+        </UiButton>
+      </div>
+
+      <UiAlert v-if="createdShareUrl" type="success">
+        Enlace creado. Cópialo ahora; por seguridad no se volverá a mostrar.
+        <div class="share-created">
+          <code>{{ createdShareUrl }}</code>
+          <UiButton size="sm" variant="outline" width="auto" @click="copyShareUrl(createdShareUrl)">
+            <IconCopy :size="15" /> Copiar
+          </UiButton>
+        </div>
+      </UiAlert>
+
+      <div v-if="isLoadingShares" class="workspace-loading" aria-hidden="true">
+        <UiSkeleton v-for="n in 3" :key="n" variant="text" width="100%" />
+      </div>
+      <ul v-else class="share-list">
+        <li v-for="link in shares" :key="link.id" class="share-row">
+          <div class="share-copy">
+            <strong>{{ link.label || 'Sin etiqueta' }}</strong>
+            <span>
+              {{ shareScopeLabel(link.scope) }} ·
+              {{ link.expires_at ? `Expira ${formatDate(link.expires_at)}` : 'Sin expiración' }} ·
+              {{ link.views_count }} visitas
+            </span>
+          </div>
+          <UiBadge
+            :label="link.revoked_at ? 'Revocado' : 'Activo'"
+            :variant="link.revoked_at ? 'neutral' : 'success'"
+            size="sm"
+          />
+          <UiButton
+            v-if="!link.revoked_at"
+            v-permission="Permissions.PROJECTS.SHARE"
+            size="sm"
+            variant="ghost"
+            width="auto"
+            class="danger-action"
+            @click="confirmRevokeShare(link)"
+          >
+            Revocar
+          </UiButton>
+        </li>
+        <li v-if="shares.length === 0" class="share-empty">
+          Aún no hay enlaces compartidos para este proyecto.
+        </li>
+      </ul>
+    </UiFormModal>
+
+    <UiConfirmDialog
+      v-model="isRevokeShareOpen"
+      title="Revocar enlace"
+      variant="danger"
+      confirm-label="Revocar"
+      :loading="isRevokingShare"
+      @confirm="revokeShare"
+    >
+      El enlace dejará de funcionar inmediatamente y no se podrá reactivar.
+    </UiConfirmDialog>
   </AuthenticatedLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
@@ -132,41 +235,63 @@ import UiCard from '@/components/ui/UiCard.vue';
 import UiBadge from '@/components/ui/UiBadge.vue';
 import UiMetricCard from '@/components/ui/UiMetricCard.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
+import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
+import UiInput from '@/components/ui/UiInput.vue';
+import UiSelect from '@/components/ui/UiSelect.vue';
 import {
   IconArrowLeft,
   IconCalculator,
+  IconCopy,
   IconFileText,
   IconHistory,
+  IconLink,
   IconListNumbers,
+  IconShare3,
   IconStack2,
+  IconTimeline,
   IconUserCircle,
   IconUsers,
-  IconCalendar,
-  IconContract,
-  IconCash,
-  IconPackage,
 } from '@tabler/icons-vue';
 import { useCompanyPath } from '@/composables/useCompanyPath';
+import { useToast } from '@/composables/useToast';
 import { projectService } from '@/services/project.service';
+import { shareService } from '@/services/share.service';
 import { formatDate } from '@/utils/date';
 import { apiErrorMessage } from '@/utils/error';
+import { Permissions } from '@/constants/permissions';
 import type { ProjectDetail, ProjectStatus } from '@/types/project';
+import type { ShareLink, ShareScope } from '@/types/project-share';
 
 const route = useRoute();
 const router = useRouter();
 const { companyPath } = useCompanyPath();
+
+const toast = useToast();
 
 const projectId = computed(() => String(route.params.projectId ?? ''));
 const project = ref<ProjectDetail | null>(null);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
-const FUTURE_CARDS = [
-  { title: 'Programación', description: 'Cronograma y dependencias de actividades.', icon: IconCalendar },
-  { title: 'Contratos', description: 'Contratos de obra y subcontratos.', icon: IconContract },
-  { title: 'Nómina', description: 'Mano de obra y pagos del proyecto.', icon: IconCash },
-  { title: 'Almacén', description: 'Requisiciones, órdenes y entradas.', icon: IconPackage },
+const shareScopeOptions = [
+  { label: 'Resumen del proyecto', value: 'summary' },
+  { label: 'Resumen + presupuesto', value: 'budget' },
 ];
+const isShareOpen = ref(false);
+const shares = ref<ShareLink[]>([]);
+const isLoadingShares = ref(false);
+const isCreatingShare = ref(false);
+const isRevokingShare = ref(false);
+const isRevokeShareOpen = ref(false);
+const shareError = ref<string | null>(null);
+const createdShareUrl = ref('');
+const shareToRevoke = ref<ShareLink | null>(null);
+const shareForm = reactive({
+  label: '',
+  scope: 'summary' as ShareScope,
+  expiresInDays: '30',
+});
 
 const coverStyle = computed(() => {
   if (project.value?.cover_url) {
@@ -211,6 +336,95 @@ function formatMoney(value: number, currency: string): string {
 
 function openBudget(): void {
   router.push(companyPath(`/projects/${projectId.value}/budget`));
+}
+
+function openExecution(): void {
+  router.push(companyPath(`/projects/${projectId.value}/execution`));
+}
+
+// --- Enlaces compartidos ---
+function shareScopeLabel(scope: ShareScope): string {
+  return scope === 'budget' ? 'Resumen + presupuesto' : 'Resumen';
+}
+
+async function openShares(): Promise<void> {
+  createdShareUrl.value = '';
+  shareError.value = null;
+  shareForm.label = '';
+  shareForm.scope = 'summary';
+  shareForm.expiresInDays = '30';
+  isShareOpen.value = true;
+  await loadShares();
+}
+
+async function loadShares(): Promise<void> {
+  isLoadingShares.value = true;
+  try {
+    shares.value = await shareService.list(projectId.value);
+  } catch (err) {
+    shareError.value = apiErrorMessage(err, 'No pudimos cargar los enlaces');
+  } finally {
+    isLoadingShares.value = false;
+  }
+}
+
+async function createShare(): Promise<void> {
+  const days = Number(shareForm.expiresInDays);
+  if (!Number.isInteger(days) || days < 1 || days > 365) {
+    shareError.value = 'La expiración debe estar entre 1 y 365 días.';
+    return;
+  }
+  isCreatingShare.value = true;
+  shareError.value = null;
+  createdShareUrl.value = '';
+  try {
+    const link = await shareService.create(projectId.value, {
+      label: shareForm.label.trim() || null,
+      scope: shareForm.scope,
+      expiresInDays: days,
+    });
+    if (link.token) {
+      createdShareUrl.value = `${window.location.origin}/share/${link.token}`;
+    } else {
+      toast.error('El enlace se creó, pero no se recibió el token para copiarlo');
+    }
+    await loadShares();
+    toast.success('Enlace creado');
+  } catch (err) {
+    shareError.value = apiErrorMessage(err, 'No pudimos crear el enlace');
+  } finally {
+    isCreatingShare.value = false;
+  }
+}
+
+async function copyShareUrl(url: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success('Enlace copiado');
+  } catch {
+    toast.error('No pudimos copiar el enlace; selecciónalo manualmente');
+  }
+}
+
+function confirmRevokeShare(link: ShareLink): void {
+  shareToRevoke.value = link;
+  isRevokeShareOpen.value = true;
+}
+
+async function revokeShare(): Promise<void> {
+  if (!shareToRevoke.value) return;
+  isRevokingShare.value = true;
+  try {
+    await shareService.revoke(projectId.value, shareToRevoke.value.id);
+    isRevokeShareOpen.value = false;
+    shareToRevoke.value = null;
+    await loadShares();
+    toast.success('Enlace revocado');
+  } catch (err) {
+    toast.error(apiErrorMessage(err, 'No pudimos revocar el enlace'));
+  } finally {
+    isRevokingShare.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -323,4 +537,72 @@ onMounted(async () => {
 .icon-purple { background: rgba(147,51,234,.12); color: #9333ea; }
 .icon-orange { background: rgba(249,115,22,.12); color: #ea580c; }
 .icon-neutral { background: var(--bg-hover); color: var(--text-muted); }
+
+.share-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(170px, 210px) 150px auto;
+  gap: var(--space-2);
+  align-items: end;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.share-created {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.share-created code {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+}
+
+.share-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.share-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
+.share-copy span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.share-empty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 800px) {
+  .share-form {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

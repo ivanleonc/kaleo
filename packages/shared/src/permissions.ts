@@ -82,6 +82,7 @@ export const Permissions = {
     BUDGET_READ: 'construction.projects.budget.read',
     BUDGET_UPDATE: 'construction.projects.budget.update',
     BUDGET_APPROVE: 'construction.projects.budget.approve',
+    SHARE: 'construction.projects.share',
   },
 
   ESTIMATING: {
@@ -89,6 +90,13 @@ export const Permissions = {
     CREATE: 'construction.estimating.create',
     UPDATE: 'construction.estimating.update',
     DELETE: 'construction.estimating.delete',
+  },
+
+  EXECUTION: {
+    READ: 'construction.execution.read',
+    CREATE: 'construction.execution.create',
+    UPDATE: 'construction.execution.update',
+    DELETE: 'construction.execution.delete',
   },
 } as const;
 

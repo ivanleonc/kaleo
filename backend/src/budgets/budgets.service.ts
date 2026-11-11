@@ -13,9 +13,29 @@ import type {
   BudgetDetail,
   BudgetItemRow,
   BudgetRow,
+  BudgetVersionSummary,
+  CompareDiffRow,
+  CompareResult,
   CreateBudgetItemInput,
+  MaterialRow,
   UpdateBudgetItemInput,
 } from './budgets.types.js';
+
+export interface BudgetImportRow {
+  chapterCode?: string;
+  chapterName?: string;
+  code?: string;
+  name: string;
+  unitCode?: string;
+  quantity?: number;
+  unitPrice?: number;
+}
+
+export interface BudgetImportResult {
+  budget: BudgetDetail;
+  created: number;
+  updated: number;
+}
 
 const PROJECTS_MODULE_CODE = 'construction.projects';
 
@@ -30,9 +50,184 @@ export class BudgetsService {
 
   async getByProject(companyId: string, projectId: string): Promise<BudgetDetail | null> {
     await this.projects.get(companyId, projectId);
-    const budget = await this.repository.findByProject(companyId, projectId);
+    const budget = await this.repository.findLatestVersion(companyId, projectId);
     if (!budget) return null;
     return this.repository.getDetail(companyId, budget.id);
+  }
+
+  listVersions(companyId: string, projectId: string): Promise<BudgetVersionSummary[]> {
+    return this.repository.listVersions(companyId, projectId);
+  }
+
+  async createVersion(
+    companyId: string,
+    userId: string,
+    id: string,
+    label?: string | null,
+  ): Promise<BudgetDetail> {
+    await this.assertWritable(companyId);
+    const budget = await this.getBudget(companyId, id);
+    if (budget.status === 'draft' || budget.status === 'in_review') {
+      throw new BadRequestException(
+        'Solo puedes versionar un presupuesto aprobado o superseded; edita el borrador actual',
+      );
+    }
+    const created = await this.repository.createVersion(companyId, userId, id, label);
+    if (!created) throw new NotFoundException('Presupuesto no encontrado');
+    await this.recalculate(companyId, created.id);
+    return this.getBudget(companyId, created.id);
+  }
+
+  async updateLabel(companyId: string, id: string, label: string | null): Promise<BudgetDetail> {
+    await this.assertWritable(companyId);
+    const updated = await this.repository.updateLabel(companyId, id, label);
+    if (!updated) throw new NotFoundException('Presupuesto no encontrado');
+    return this.getBudget(companyId, id);
+  }
+
+  async compare(
+    companyId: string,
+    baseId: string,
+    targetId: string,
+  ): Promise<CompareResult> {
+    const base = await this.getBudget(companyId, baseId);
+    const target = await this.getBudget(companyId, targetId);
+    if (base.project_id !== target.project_id) {
+      throw new BadRequestException('Solo se pueden comparar versiones del mismo proyecto');
+    }
+
+    const baseItems = new Map(base.items.map((item) => [item.code, item]));
+    const targetItems = new Map(target.items.map((item) => [item.code, item]));
+    const codes = [...new Set([...baseItems.keys(), ...targetItems.keys()])].sort();
+
+    const rows: CompareDiffRow[] = codes.map((code) => {
+      const left = baseItems.get(code) ?? null;
+      const right = targetItems.get(code) ?? null;
+      const basePartial = left?.partial_amount ?? null;
+      const targetPartial = right?.partial_amount ?? null;
+      const delta = money((targetPartial ?? 0) - (basePartial ?? 0));
+      let change: CompareDiffRow['change'] = 'unchanged';
+      if (!left) change = 'added';
+      else if (!right) change = 'removed';
+      else if (delta !== 0) change = 'modified';
+      return {
+        code,
+        name: (right ?? left)!.name,
+        item_type: (right ?? left)!.item_type,
+        base_quantity: left?.quantity ?? null,
+        base_unit_price: left?.unit_price ?? null,
+        base_partial: basePartial,
+        target_quantity: right?.quantity ?? null,
+        target_unit_price: right?.unit_price ?? null,
+        target_partial: targetPartial,
+        delta,
+        change,
+      };
+    });
+
+    return {
+      base: summarize(base),
+      target: summarize(target),
+      rows,
+      totals: {
+        base_total: base.total,
+        target_total: target.total,
+        delta: money(target.total - base.total),
+      },
+    };
+  }
+
+  async getMaterials(companyId: string, id: string): Promise<MaterialRow[]> {
+    await this.getBudget(companyId, id);
+    return this.repository.listMaterials(companyId, id);
+  }
+
+  async importBudget(
+    companyId: string,
+    userId: string,
+    projectId: string,
+    rows: BudgetImportRow[],
+  ): Promise<BudgetImportResult> {
+    await this.assertWritable(companyId);
+    if (rows.length === 0) throw new BadRequestException('El archivo no contiene filas válidas');
+    let budget = await this.repository.findLatestVersion(companyId, projectId);
+    if (!budget) {
+      await this.createBudget(companyId, userId, projectId, null);
+      budget = await this.repository.findLatestVersion(companyId, projectId);
+    }
+    if (!budget) throw new BadRequestException('No pudimos preparar el presupuesto');
+    const detail = await this.getBudget(companyId, budget.id);
+    this.assertEditable(detail);
+
+    let created = 0;
+    let updated = 0;
+    for (const row of rows) {
+      const items = (await this.repository.listItems(companyId, detail.id));
+      let parentId: string | null = null;
+      if (row.chapterCode || row.chapterName) {
+        const chapterCode = row.chapterCode?.trim();
+        const chapterName = row.chapterName?.trim();
+        const existing = items.find(
+          (item) =>
+            item.item_type === 'chapter' &&
+            ((chapterCode && item.code === chapterCode) ||
+              (!chapterCode && chapterName && item.name === chapterName)),
+        );
+        if (existing) {
+          parentId = existing.id;
+        } else {
+          const chapter = await this.repository.createItem(companyId, detail.id, {
+            parentId: null,
+            code:
+              chapterCode ||
+              this.nextCode(items, null, 'chapter'),
+            name: chapterName || chapterCode || 'Capítulo',
+            itemType: 'chapter',
+            unitId: null,
+            quantity: 0,
+            unitPrice: 0,
+            sortOrder: items.filter((item) => item.parent_id === null).length,
+          });
+          parentId = chapter.id;
+          created++;
+        }
+      }
+
+      const code = row.code?.trim();
+      const existingItem = items.find(
+        (item) => item.item_type === 'activity' && code && item.code === code,
+      );
+      if (existingItem) {
+        await this.repository.updateItem(companyId, detail.id, existingItem.id, {
+          name: row.name,
+          quantity: row.quantity ?? existingItem.quantity,
+          unitPrice: row.unitPrice ?? existingItem.unit_price,
+        });
+        updated++;
+      } else {
+        let unitId: string | null = null;
+        if (row.unitCode) {
+          unitId = await this.repository.findUnitIdByCode(companyId, row.unitCode.trim());
+          if (!unitId) {
+            throw new BadRequestException(`La unidad "${row.unitCode}" no existe en el catálogo`);
+          }
+        }
+        await this.repository.createItem(companyId, detail.id, {
+          parentId,
+          code: code || this.nextCode(items, parentId, 'activity'),
+          name: row.name,
+          itemType: 'activity',
+          unitId,
+          quantity: row.quantity ?? 0,
+          unitPrice: row.unitPrice ?? 0,
+          sortOrder: items.filter((item) => item.parent_id === parentId).length,
+        });
+        created++;
+      }
+    }
+
+    await this.recalculate(companyId, detail.id);
+    return { budget: await this.getBudget(companyId, detail.id), created, updated };
   }
 
   async createBudget(
@@ -43,7 +238,7 @@ export class BudgetsService {
   ): Promise<BudgetDetail> {
     await this.assertWritable(companyId);
     const project = await this.projects.get(companyId, projectId);
-    const existing = await this.repository.findByProject(companyId, projectId);
+    const existing = await this.repository.findLatestVersion(companyId, projectId);
     if (existing) throw new ConflictException('El proyecto ya tiene un presupuesto');
     if (apuBaseId) {
       const bases = await this.estimating.listApuBases(companyId);
@@ -62,7 +257,7 @@ export class BudgetsService {
   async updateBudget(
     companyId: string,
     id: string,
-    input: { name?: string; indirectPct?: number; indirectFixed?: number },
+    input: { name?: string; label?: string | null; indirectPct?: number; indirectFixed?: number },
   ): Promise<BudgetDetail> {
     await this.assertWritable(companyId);
     const budget = await this.getBudget(companyId, id);
@@ -281,6 +476,10 @@ export class BudgetsService {
     return budget;
   }
 
+  getBudgetById(companyId: string, id: string): Promise<BudgetDetail> {
+    return this.getBudget(companyId, id);
+  }
+
   private assertEditable(budget: BudgetRow): void {
     if (budget.status === 'approved' || budget.status === 'superseded') {
       throw new BadRequestException('El presupuesto está bloqueado');
@@ -327,4 +526,22 @@ export class BudgetsService {
 
 function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function summarize(budget: BudgetDetail): CompareResult['base'] {
+  return {
+    id: budget.id,
+    version: budget.version,
+    label: budget.label,
+    status: budget.status,
+    subtotal: budget.subtotal,
+    indirect_total: budget.indirect_total,
+    total: budget.total,
+    approved_by: budget.approved_by,
+    approved_at: budget.approved_at,
+    created_at: budget.created_at,
+    items_count: budget.items.length,
+    name: budget.name,
+    code: budget.code,
+  };
 }

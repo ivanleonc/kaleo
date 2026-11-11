@@ -24,6 +24,13 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 - Workspace de proyecto con portada, métricas y accesos a presupuesto, equipo, documentos y auditoría.
 - `construction.estimating`: recursos, precios de proveedor, bases de APUs y APUs versionados.
 - Presupuesto WBS por proyecto, actividades desde APUs, indirectos, aprobación y snapshot.
+- Versiones de presupuesto con etiqueta, comparador de cambios y bloqueo por aprobación.
+- Listado total de insumos con exportación CSV/XLSX y reporte imprimible/PDF.
+- Importación de presupuestos y APUs desde Excel/CSV con validación por fila.
+- Takeoff por dimensiones o cantidad explícita, aplicable a la actividad del presupuesto.
+- Precios de proveedor editables desde el detalle del insumo.
+- `construction.execution`: programación, contratos, nómina, almacén y compras.
+- Enlaces públicos de proyecto con alcance, expiración, contador de visitas y portal `/share/:token`.
 
 ---
 

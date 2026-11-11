@@ -30,6 +30,12 @@ export class UpdateBudgetDto {
   @MaxLength(200)
   name?: string;
 
+  @ApiPropertyOptional({ description: 'Etiqueta de la versión (ej. "Rev A")' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  label?: string | null;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
@@ -43,6 +49,14 @@ export class UpdateBudgetDto {
   @IsNumber()
   @Min(0)
   indirectFixed?: number;
+}
+
+export class CreateBudgetVersionDto {
+  @ApiPropertyOptional({ description: 'Etiqueta de la nueva versión' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  label?: string | null;
 }
 
 export class CreateBudgetItemDto {

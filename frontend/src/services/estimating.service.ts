@@ -8,6 +8,7 @@ import type {
   CreateApuLinePayload,
   CreateApuPayload,
   CreateResourcePayload,
+  ImportApusResult,
   Resource,
   ResourcePrice,
   ResourceType,
@@ -171,5 +172,16 @@ export const estimatingService = {
 
   async deleteApuLine(lineId: string) {
     await apiClient.delete(`/estimating/apu-lines/${lineId}`);
+  },
+
+  async importApus(baseId: string, file: File): Promise<ImportApusResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('baseId', baseId);
+    const response = await apiClient.post<DataResponse<ImportApusResult>>(
+      '/estimating/apus/import',
+      formData,
+    );
+    return response.data.data;
   },
 };

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EstimatingRepository } from './estimating.repository.js';
 import { EntitlementService } from '../kernel/billing/entitlement.service.js';
+import { parseNumeric } from '../common/import/tabular-import.js';
 import {
   RESOURCE_TYPES,
   type ApuBaseRow,
@@ -24,6 +25,31 @@ import {
 } from './estimating.types.js';
 
 export const ESTIMATING_MODULE_CODE = 'construction.estimating';
+
+export interface ImportApusResult {
+  apusCreated: number;
+  apusUpdated: number;
+  linesCreated: number;
+  resourcesCreated: number;
+  errors: string[];
+}
+
+const IMPORT_TYPE_ALIASES: Record<string, ResourceType> = {
+  material: 'material',
+  materiales: 'material',
+  labor: 'labor',
+  mano_de_obra: 'labor',
+  mano_obra: 'labor',
+  equipment: 'equipment',
+  equipo: 'equipment',
+  equipos: 'equipment',
+  transport: 'transport',
+  transporte: 'transport',
+  transportes: 'transport',
+  subcontract: 'subcontract',
+  subcontrato: 'subcontract',
+  subcontratos: 'subcontract',
+};
 
 @Injectable()
 export class EstimatingService {
@@ -328,6 +354,150 @@ export class EstimatingService {
     );
     if (!approved) throw new NotFoundException('Versión de APU no encontrada');
     return this.getApu(companyId, apuId);
+  }
+
+  /**
+   * Importa APUs desde filas parseadas de CSV/XLSX. Cada fila es un insumo;
+   * las filas con el mismo `apu_code` componen el mismo APU. Los recursos se
+   * buscan por código y se crean si no existen. Si el APU ya existe y su
+   * versión está aprobada, se crea una nueva versión en borrador.
+   */
+  async importApus(
+    companyId: string,
+    userId: string,
+    baseId: string,
+    records: Record<string, string>[],
+  ): Promise<ImportApusResult> {
+    await this.assertWritable(companyId);
+    const base = await this.repository.findApuBaseById(companyId, baseId);
+    if (!base) throw new NotFoundException('Base de APUs no encontrada');
+    if (records.length === 0) {
+      throw new BadRequestException('El archivo no contiene filas válidas');
+    }
+
+    const result: ImportApusResult = {
+      apusCreated: 0,
+      apusUpdated: 0,
+      linesCreated: 0,
+      resourcesCreated: 0,
+      errors: [],
+    };
+
+    const groups = new Map<string, Array<{ row: number; data: Record<string, string> }>>();
+    records.forEach((record, index) => {
+      const code = record.apu_code?.trim().toLowerCase();
+      if (!code) {
+        result.errors.push(`Fila ${index + 2}: falta apu_codigo`);
+        return;
+      }
+      groups.set(code, [...(groups.get(code) ?? []), { row: index + 2, data: record }]);
+    });
+
+    for (const [code, entries] of groups) {
+      try {
+        const first = entries[0]!.data;
+        const name = first.apu_name?.trim() || code;
+        let apu = await this.repository.findApuByCode(companyId, baseId, code);
+        if (!apu) {
+          const unitId = first.apu_unit
+            ? await this.repository.findUnitIdByCode(companyId, first.apu_unit.trim())
+            : null;
+          if (!unitId) {
+            throw new Error(`unidad de salida "${first.apu_unit ?? ''}" no encontrada`);
+          }
+          const created = await this.repository.createApu(companyId, userId, {
+            baseId,
+            code,
+            name,
+            unitId,
+          });
+          result.apusCreated++;
+          apu = created;
+        } else {
+          result.apusUpdated++;
+        }
+
+        let detail = await this.repository.getApuDetail(companyId, apu.id);
+        if (!detail) throw new Error('APU no encontrado tras la creación');
+        if (detail.current_version_status === 'approved') {
+          detail = await this.repository.createApuVersion(companyId, userId, apu.id);
+          if (!detail) throw new Error('no se pudo crear la nueva versión');
+        }
+        if (!detail.current_version_id) throw new Error('el APU no tiene versión actual');
+
+        for (const entry of entries) {
+          const { row, data } = entry;
+          if (!data.resource_code && !data.resource_name) continue;
+          const resource = await this.resolveImportResource(companyId, userId, data, result);
+          if (!resource) {
+            result.errors.push(`Fila ${row}: insumo omitido`);
+            continue;
+          }
+          await this.repository.addLine(companyId, detail.current_version_id, {
+            resourceId: resource.id,
+            quantity: parseNumeric(data.quantity) ?? 0,
+            wastePct: parseNumeric(data.waste_pct) ?? 0,
+            performance: parseNumeric(data.performance) ?? 1,
+            notes: data.notes ?? null,
+          });
+          result.linesCreated++;
+        }
+      } catch (error) {
+        result.errors.push(`APU ${code}: ${(error as Error).message}`);
+      }
+    }
+
+    return result;
+  }
+
+  private async resolveImportResource(
+    companyId: string,
+    userId: string,
+    row: Record<string, string>,
+    result: ImportApusResult,
+  ): Promise<ResourceRow | null> {
+    const rawCode = row.resource_code?.trim().toLowerCase();
+    const name = row.resource_name?.trim();
+    const code =
+      rawCode ||
+      (name
+        ? name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            .slice(0, 40)
+        : '');
+    if (!code) return null;
+
+    const existing = await this.repository.findResourceByCode(companyId, code);
+    if (existing) return existing;
+    if (!name) {
+      result.errors.push(`Recurso ${code}: falta el nombre`);
+      return null;
+    }
+    const unitId = row.resource_unit
+      ? await this.repository.findUnitIdByCode(companyId, row.resource_unit.trim())
+      : null;
+    if (!unitId) {
+      result.errors.push(`Recurso ${code}: unidad "${row.resource_unit ?? ''}" no encontrada`);
+      return null;
+    }
+    const type =
+      IMPORT_TYPE_ALIASES[
+        (row.resource_type?.trim().toLowerCase() ?? '').replace(/\s+/g, '_')
+      ] ?? 'material';
+    const created = await this.repository.createResource(companyId, userId, {
+      resourceType: type,
+      code,
+      name,
+      unitId,
+      baseCost: parseNumeric(row.cost) ?? 0,
+      currencyCode: (row.currency ?? 'COP').toUpperCase(),
+    });
+    result.resourcesCreated++;
+    return created;
   }
 
   private async validateResource(

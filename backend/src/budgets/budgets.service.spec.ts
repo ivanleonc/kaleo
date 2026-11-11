@@ -8,6 +8,7 @@ const BUDGET = {
   code: 'PRES-PRY-001',
   name: 'Presupuesto Torre',
   version: 1,
+  label: null,
   status: 'draft',
   currency_code: 'COP',
   apu_base_id: null,
@@ -55,7 +56,12 @@ const ITEM = {
 
 function createService(overrides: Record<string, any> = {}) {
   const repository = {
-    findByProject: vi.fn(async () => BUDGET),
+    findLatestVersion: vi.fn(async () => BUDGET),
+    listVersions: vi.fn(async () => []),
+    createVersion: vi.fn(async () => BUDGET),
+    updateLabel: vi.fn(async () => true),
+    listMaterials: vi.fn(async () => []),
+    findUnitIdByCode: vi.fn(async () => 'unit-1'),
     findById: vi.fn(async () => BUDGET),
     getDetail: vi.fn(async () => BUDGET),
     create: vi.fn(async () => BUDGET),
@@ -102,7 +108,7 @@ function createService(overrides: Record<string, any> = {}) {
 describe('BudgetsService', () => {
   it('crea el presupuesto del proyecto con su moneda y código', async () => {
     const { service, repository } = createService({
-      findByProject: vi.fn(async () => null),
+      findLatestVersion: vi.fn(async () => null),
     });
 
     await service.createBudget('company-1', 'user-1', 'project-1');
@@ -170,5 +176,112 @@ describe('BudgetsService', () => {
       expect.objectContaining({ status: 'approved', approvedBy: 'user-1' }),
     );
     expect(repository.insertApproval).toHaveBeenCalled();
+  });
+
+  it('versiona solo presupuestos aprobados', async () => {
+    const { service, repository } = createService({
+      getDetail: vi.fn(async () => ({ ...BUDGET, status: 'approved' })),
+    });
+
+    await service.createVersion('company-1', 'user-1', 'budget-1', 'Rev A');
+
+    expect(repository.createVersion).toHaveBeenCalledWith(
+      'company-1',
+      'user-1',
+      'budget-1',
+      'Rev A',
+    );
+  });
+
+  it('rechaza versionar un borrador', async () => {
+    const { service } = createService();
+
+    await expect(
+      service.createVersion('company-1', 'user-1', 'budget-1'),
+    ).rejects.toThrow('Solo puedes versionar');
+  });
+
+  it('compara dos versiones del mismo proyecto', async () => {
+    const base = {
+      ...BUDGET,
+      id: 'budget-1',
+      version: 1,
+      total: 100,
+      items: [{ ...ITEM, code: '01', partial_amount: 100, quantity: 1 }],
+    };
+    const target = {
+      ...BUDGET,
+      id: 'budget-2',
+      version: 2,
+      total: 150,
+      items: [
+        { ...ITEM, code: '01', partial_amount: 120, quantity: 2 },
+        { ...ITEM, id: 'item-2', code: '02', partial_amount: 30, quantity: 1 },
+      ],
+    };
+    const { service } = createService({
+      getDetail: vi
+        .fn()
+        .mockResolvedValueOnce(base)
+        .mockResolvedValueOnce(target),
+    });
+
+    const result = await service.compare('company-1', 'budget-1', 'budget-2');
+
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows.find((row) => row.code === '01')?.change).toBe('modified');
+    expect(result.rows.find((row) => row.code === '02')?.change).toBe('added');
+    expect(result.totals).toEqual({ base_total: 100, target_total: 150, delta: 50 });
+  });
+
+  it('lista el total de insumos del presupuesto', async () => {
+    const material = {
+      resource_code: 'CEM',
+      resource_name: 'Cemento',
+      component_type: 'material',
+      unit_code: 'kg',
+      currency_code: 'COP',
+      quantity: 10,
+      unit_cost: 500,
+      total_cost: 5000,
+      apu_count: 2,
+    };
+    const { service, repository } = createService({
+      listMaterials: vi.fn(async () => [material]),
+    });
+
+    await expect(service.getMaterials('company-1', 'budget-1')).resolves.toEqual([material]);
+    expect(repository.listMaterials).toHaveBeenCalledWith('company-1', 'budget-1');
+  });
+
+  it('importa un presupuesto creando capítulo y actividades', async () => {
+    const { service, repository } = createService();
+
+    const result = await service.importBudget('company-1', 'user-1', 'project-1', [
+      {
+        chapterCode: '01',
+        chapterName: 'Preliminares',
+        code: '01.01',
+        name: 'Cerramiento',
+        unitCode: 'm2',
+        quantity: 12,
+        unitPrice: 5000,
+      },
+    ]);
+
+    expect(repository.createItem).toHaveBeenCalledTimes(2);
+    expect(repository.createItem).toHaveBeenLastCalledWith(
+      'company-1',
+      'budget-1',
+      expect.objectContaining({
+        code: '01.01',
+        name: 'Cerramiento',
+        itemType: 'activity',
+        quantity: 12,
+        unitPrice: 5000,
+      }),
+    );
+    expect(result.created).toBe(2);
+    expect(result.updated).toBe(0);
   });
 });

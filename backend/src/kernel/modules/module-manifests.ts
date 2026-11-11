@@ -363,6 +363,39 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
     ],
   },
   {
+    code: 'construction.execution',
+    name: 'Ejecución',
+    version: '1.0.0',
+    vertical: 'construction',
+    isCore: false,
+    dependsOn: ['construction.projects', 'shared.parties', 'shared.catalog'],
+    permissions: [
+      Permissions.EXECUTION.READ,
+      Permissions.EXECUTION.CREATE,
+      Permissions.EXECUTION.UPDATE,
+      Permissions.EXECUTION.DELETE,
+    ],
+    routes: [
+      {
+        path: '/execution',
+        name: 'Execution',
+        title: 'Ejecución',
+        permission: Permissions.EXECUTION.READ,
+        icon: 'execution',
+        nav: true,
+        order: 82,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'plan-first-activity',
+        title: 'Programa tu primera actividad',
+        description: 'Crea el cronograma, contratos y compras de la ejecución.',
+        route: '/execution',
+      },
+    ],
+  },
+  {
     code: 'shared.catalog',
     name: 'Catálogo',
     version: '1.0.0',

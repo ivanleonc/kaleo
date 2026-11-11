@@ -94,6 +94,7 @@ function createService(overrides: Record<string, any> = {}) {
     createApu: vi.fn(async () => APU_DETAIL),
     updateApu: vi.fn(async () => APU_DETAIL),
     createApuVersion: vi.fn(async () => APU_DETAIL),
+    findUnitIdByCode: vi.fn(async () => 'unit-1'),
     addLine: vi.fn(async () => ({ id: 'line-1' })),
     updateLine: vi.fn(async () => ({ id: 'line-1' })),
     deleteLine: vi.fn(async () => true),
@@ -168,5 +169,74 @@ describe('EstimatingService', () => {
       'user-1',
       'version-1',
     );
+  });
+
+  it('importa filas agrupadas por código de APU y crea insumos faltantes', async () => {
+    const { service, repository } = createService();
+
+    const result = await service.importApus('company-1', 'user-1', 'base-1', [
+      {
+        apu_code: 'muro',
+        apu_name: 'Muro en bloque',
+        apu_unit: 'm2',
+        resource_code: 'cem-001',
+        resource_name: 'Cemento',
+        resource_unit: 'kg',
+        resource_type: 'material',
+        quantity: '0.5',
+        waste_pct: '5',
+        cost: '500',
+      },
+      {
+        apu_code: 'muro',
+        apu_name: 'Muro en bloque',
+        apu_unit: 'm2',
+        resource_code: 'mano-001',
+        resource_name: 'Oficial',
+        resource_unit: 'hr',
+        resource_type: 'mano de obra',
+        quantity: '0.2',
+        performance: '1.5',
+        cost: '12000',
+      },
+    ]);
+
+    expect(repository.createApu).toHaveBeenCalledWith(
+      'company-1',
+      'user-1',
+      expect.objectContaining({ baseId: 'base-1', code: 'muro', unitId: 'unit-1' }),
+    );
+    expect(repository.addLine).toHaveBeenCalledTimes(2);
+    expect(repository.addLine).toHaveBeenLastCalledWith(
+      'company-1',
+      'version-1',
+      expect.objectContaining({ resourceId: 'resource-1', quantity: 0.2, performance: 1.5 }),
+    );
+    expect(result).toMatchObject({ apusCreated: 1, apusUpdated: 0, linesCreated: 2 });
+  });
+
+  it('versiona un APU aprobado al importar insumos', async () => {
+    const approved = {
+      ...APU_DETAIL,
+      current_version_status: 'approved',
+      versions: [{ ...APU_DETAIL.versions[0], status: 'approved' }],
+    };
+    const { service, repository } = createService({
+      findApuByCode: vi.fn(async () => APU_DETAIL),
+      getApuDetail: vi.fn(async () => approved),
+    });
+
+    const result = await service.importApus('company-1', 'user-1', 'base-1', [
+      {
+        apu_code: 'muro',
+        resource_code: 'cem-001',
+        resource_name: 'Cemento',
+        resource_unit: 'kg',
+        quantity: '1',
+      },
+    ]);
+
+    expect(repository.createApuVersion).toHaveBeenCalledWith('company-1', 'user-1', 'apu-1');
+    expect(result.apusUpdated).toBe(1);
   });
 });

@@ -160,6 +160,8 @@ export default defineConfig({
             { text: 'Proyectos', link: '/backend/projects' },
             { text: 'Estimación', link: '/backend/estimating' },
             { text: 'Presupuestos', link: '/backend/budgets' },
+            { text: 'Ejecución', link: '/backend/execution' },
+            { text: 'Enlaces compartidos', link: '/backend/project-shares' },
             { text: 'Documentos', link: '/backend/documents' },
             { text: 'Migraciones', link: '/backend/migraciones' },
           ],

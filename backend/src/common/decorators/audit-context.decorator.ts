@@ -24,7 +24,9 @@ export type AuditEntityType =
   | 'Catalog'
   | 'Project'
   | 'Estimating'
-  | 'Budget';
+  | 'Budget'
+  | 'Execution'
+  | 'ProjectShare';
 
 export interface AuditContextOptions {
   /** Entidad afectada. Evita que el interceptor la infiera del path. */

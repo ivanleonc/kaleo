@@ -7,7 +7,9 @@ import type {
   BudgetDetail,
   BudgetItemRow,
   BudgetRow,
+  BudgetVersionSummary,
   CreateBudgetItemInput,
+  MaterialRow,
   UpdateBudgetItemInput,
 } from './budgets.types.js';
 
@@ -90,6 +92,7 @@ export class BudgetsRepository {
     id: string,
     input: {
       name?: string;
+      label?: string | null;
       status?: string;
       apuBaseId?: string | null;
       indirectPct?: number;
@@ -103,6 +106,7 @@ export class BudgetsRepository {
       const { updates, values, startIndex } = buildDynamicUpdate(
         {
           name: input.name,
+          label: input.label,
           status: input.status,
           apu_base_id: input.apuBaseId,
           indirect_pct: input.indirectPct,
@@ -112,6 +116,7 @@ export class BudgetsRepository {
         },
         [
           'name',
+          'label',
           'status',
           'apu_base_id',
           'indirect_pct',
@@ -119,7 +124,7 @@ export class BudgetsRepository {
           'approved_by',
           'approved_at',
         ],
-        { extraSet: ['updated_at = now()'] },
+        { nullEmptyStrings: ['label'], extraSet: ['updated_at = now()'] },
       );
       values.push(id, companyId);
       const rows = (await queryRunner.query(
@@ -315,6 +320,253 @@ export class BudgetsRepository {
         [unitId, companyId],
       )) as Array<{ id: string }>;
       return Boolean(rows[0]);
+    });
+  }
+
+  async findUnitIdByCode(companyId: string, code: string): Promise<string | null> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `SELECT id FROM units_of_measure
+         WHERE lower(code) = lower($1)
+           AND (company_id IS NULL OR company_id = $2)
+           AND deleted_at IS NULL
+         LIMIT 1`,
+        [code, companyId],
+      )) as Array<{ id: string }>;
+      return rows[0]?.id ?? null;
+    });
+  }
+
+  // ─── Versiones ────────────────────────────────────────────────────────────
+  async listVersions(companyId: string, projectId: string): Promise<BudgetVersionSummary[]> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `SELECT b.id, b.version, b.label, b.status,
+                b.subtotal::float8 AS subtotal,
+                b.indirect_total::float8 AS indirect_total,
+                b.total::float8 AS total,
+                b.approved_by, b.approved_at, b.created_at,
+                (SELECT COUNT(*)::int FROM budget_items bi WHERE bi.budget_id = b.id)
+                  AS items_count
+         FROM budgets b
+         WHERE b.company_id = $1 AND b.project_id = $2 AND b.deleted_at IS NULL
+         ORDER BY b.version DESC`,
+        [companyId, projectId],
+      )) as BudgetVersionSummary[];
+      return rows.map((row) => ({
+        ...row,
+        subtotal: Number(row.subtotal),
+        indirect_total: Number(row.indirect_total),
+        total: Number(row.total),
+      }));
+    });
+  }
+
+  async findLatestVersion(companyId: string, projectId: string): Promise<BudgetRow | null> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `${BUDGET_SELECT}
+         WHERE b.company_id = $1 AND b.project_id = $2 AND b.deleted_at IS NULL
+         ORDER BY b.version DESC LIMIT 1`,
+        [companyId, projectId],
+      )) as BudgetRow[];
+      return rows[0] ? mapBudget(rows[0]) : null;
+    });
+  }
+
+  /**
+   * Crea una nueva versión copiando la cabecera y los ítems (capítulos y sus
+   * actividades) del presupuesto origen. Las versiones anteriores en borrador
+   * quedan marcadas como `superseded`.
+   */
+  async createVersion(
+    companyId: string,
+    userId: string,
+    sourceBudgetId: string,
+    label?: string | null,
+  ): Promise<BudgetDetail | null> {
+    this.assertCompany(companyId);
+    const newId = await withTenantTransaction(
+      this.dataSource,
+      this.tenantContext,
+      async (queryRunner) => {
+        const source = (await queryRunner.query(
+          `SELECT * FROM budgets
+           WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL`,
+          [sourceBudgetId, companyId],
+        )) as BudgetRow[];
+        if (!source[0]) return null;
+        const budget = source[0]!;
+        const next = (await queryRunner.query(
+          `SELECT COALESCE(MAX(version), 0) + 1 AS next FROM budgets
+           WHERE company_id = $1 AND project_id = $2`,
+          [companyId, budget.project_id],
+        )) as Array<{ next: number }>;
+        const rows = (await queryRunner.query(
+          `INSERT INTO budgets
+             (company_id, project_id, code, name, version, label, currency_code,
+              apu_base_id, indirect_pct, indirect_fixed, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           RETURNING id`,
+          [
+            companyId,
+            budget.project_id,
+            budget.code,
+            budget.name,
+            Number(next[0]?.next ?? 1),
+            label ?? null,
+            budget.currency_code,
+            budget.apu_base_id,
+            budget.indirect_pct,
+            budget.indirect_fixed,
+            userId,
+          ],
+        )) as Array<{ id: string }>;
+        const targetId = rows[0]!.id;
+
+        // Copia capítulos y luego las actividades hijas con el nuevo padre.
+        const chapters = (await queryRunner.query(
+          `SELECT * FROM budget_items
+           WHERE budget_id = $1 AND company_id = $2 AND parent_id IS NULL
+           ORDER BY sort_order, code`,
+          [sourceBudgetId, companyId],
+        )) as BudgetItemRow[];
+        for (const chapter of chapters) {
+          const created = (await queryRunner.query(
+            `INSERT INTO budget_items
+               (company_id, budget_id, parent_id, code, name, item_type, unit_id,
+                quantity, unit_price, partial_amount, apu_id, apu_version_id,
+                assigned_membership_id, sort_order, notes)
+             VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             RETURNING id`,
+            [
+              companyId,
+              targetId,
+              chapter.code,
+              chapter.name,
+              chapter.item_type,
+              chapter.unit_id,
+              chapter.quantity,
+              chapter.unit_price,
+              chapter.partial_amount,
+              chapter.apu_id,
+              chapter.apu_version_id,
+              chapter.assigned_membership_id,
+              chapter.sort_order,
+              chapter.notes,
+            ],
+          )) as Array<{ id: string }>;
+          await queryRunner.query(
+            `INSERT INTO budget_items
+               (company_id, budget_id, parent_id, code, name, item_type, unit_id,
+                quantity, unit_price, partial_amount, apu_id, apu_version_id,
+                assigned_membership_id, sort_order, notes)
+             SELECT $1, $2, $3, code, name, item_type, unit_id, quantity,
+                    unit_price, partial_amount, apu_id, apu_version_id,
+                    assigned_membership_id, sort_order, notes
+             FROM budget_items
+             WHERE budget_id = $4 AND company_id = $1 AND parent_id = $5`,
+            [companyId, targetId, created[0]!.id, sourceBudgetId, chapter.id],
+          );
+        }
+        // Actividades sin capítulo.
+        await queryRunner.query(
+          `INSERT INTO budget_items
+             (company_id, budget_id, parent_id, code, name, item_type, unit_id,
+              quantity, unit_price, partial_amount, apu_id, apu_version_id,
+              assigned_membership_id, sort_order, notes)
+           SELECT $1, $2, NULL, code, name, item_type, unit_id, quantity,
+                  unit_price, partial_amount, apu_id, apu_version_id,
+                  assigned_membership_id, sort_order, notes
+           FROM budget_items
+           WHERE budget_id = $3 AND company_id = $1
+             AND parent_id IS NULL AND item_type = 'activity'`,
+          [companyId, targetId, sourceBudgetId],
+        );
+
+        // Versiones previas sin aprobar quedan superseded.
+        await queryRunner.query(
+          `UPDATE budgets SET status = 'superseded', updated_at = now()
+           WHERE company_id = $1 AND project_id = $2 AND id <> $3
+             AND deleted_at IS NULL AND status IN ('draft', 'in_review')`,
+          [companyId, budget.project_id, targetId],
+        );
+        return targetId;
+      },
+    );
+    if (!newId) return null;
+    return this.getDetail(companyId, newId);
+  }
+
+  async updateLabel(companyId: string, id: string, label: string | null): Promise<boolean> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `UPDATE budgets SET label = $3, updated_at = now()
+         WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL RETURNING id`,
+        [id, companyId, label],
+      )) as Array<{ id: string }>;
+      return Boolean(rows[0]);
+    });
+  }
+
+  // ─── Materiales (listado total de insumos) ────────────────────────────────
+  async listMaterials(companyId: string, budgetId: string): Promise<MaterialRow[]> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `SELECT r.code AS resource_code, r.name AS resource_name,
+                l.component_type, u.code AS unit_code, l.currency_code,
+                SUM(l.quantity * (1 + l.waste_pct / 100) * l.performance * bi.quantity)::float8
+                  AS quantity,
+                SUM(l.quantity * (1 + l.waste_pct / 100) * l.performance
+                    * l.unit_cost_snapshot * bi.quantity)::float8
+                  AS total_cost,
+                COUNT(DISTINCT bi.id)::int AS apu_count
+         FROM budget_items bi
+         JOIN apu_lines l
+           ON l.apu_version_id = bi.apu_version_id AND l.company_id = bi.company_id
+         JOIN resources r ON r.id = l.resource_id
+         JOIN units_of_measure u ON u.id = r.unit_id
+         WHERE bi.company_id = $1 AND bi.budget_id = $2
+           AND bi.item_type = 'activity' AND bi.apu_version_id IS NOT NULL
+           AND bi.quantity > 0
+         GROUP BY r.code, r.name, l.component_type, u.code, l.currency_code
+         ORDER BY l.component_type, r.name`,
+        [companyId, budgetId],
+      )) as Array<Omit<MaterialRow, 'unit_cost'> & { total_cost: number; quantity: number }>;
+      return rows.map((row) => ({
+        resource_code: row.resource_code,
+        resource_name: row.resource_name,
+        component_type: row.component_type,
+        unit_code: row.unit_code,
+        currency_code: row.currency_code.trim(),
+        quantity: Number(row.quantity),
+        unit_cost: row.quantity > 0 ? Number(row.total_cost) / Number(row.quantity) : 0,
+        total_cost: Number(row.total_cost),
+        apu_count: row.apu_count,
+      }));
+    });
+  }
+
+  async findItemById(
+    companyId: string,
+    itemId: string,
+  ): Promise<(BudgetItemRow & { budget_id: string }) | null> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `SELECT bi.*, u.code AS unit_code, u.name AS unit_name,
+                NULL::text AS assigned_user_name
+         FROM budget_items bi
+         LEFT JOIN units_of_measure u ON u.id = bi.unit_id
+         WHERE bi.id = $1 AND bi.company_id = $2`,
+        [itemId, companyId],
+      )) as BudgetItemRow[];
+      return rows[0] ? mapItem(rows[0]) : null;
     });
   }
 

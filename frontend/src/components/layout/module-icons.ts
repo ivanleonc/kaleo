@@ -14,6 +14,7 @@ import {
   IconShieldLock,
   IconUsers,
   IconBuildingCommunity,
+  IconCalendarStats,
 } from '@tabler/icons-vue';
 
 const ICONS: Record<string, Component> = {
@@ -31,6 +32,7 @@ const ICONS: Record<string, Component> = {
   catalog: IconBook,
   projects: IconFolders,
   estimating: IconCalculator,
+  execution: IconCalendarStats,
 };
 
 export function moduleIcon(token?: string): Component {

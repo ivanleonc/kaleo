@@ -251,3 +251,9 @@ export class UpdateApuLineDto {
   @MaxLength(500)
   notes?: string | null;
 }
+
+export class ImportApusDto {
+  @ApiProperty({ description: 'Base de APUs destino' })
+  @IsUUID()
+  baseId!: string;
+}

@@ -243,6 +243,20 @@ export class EstimatingRepository {
     });
   }
 
+  async findUnitIdByCode(companyId: string, code: string): Promise<string | null> {
+    this.assertCompany(companyId);
+    return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
+      const rows = (await queryRunner.query(
+        `SELECT id FROM units_of_measure
+         WHERE lower(code) = lower($1)
+           AND (company_id IS NULL OR company_id = $2) AND deleted_at IS NULL
+         LIMIT 1`,
+        [code, companyId],
+      )) as Array<{ id: string }>;
+      return rows[0]?.id ?? null;
+    });
+  }
+
   async currencyExists(code: string): Promise<boolean> {
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       const rows = (await queryRunner.query(
