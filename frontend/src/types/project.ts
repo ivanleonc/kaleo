@@ -11,6 +11,8 @@ export interface Project {
   code: string;
   name: string;
   description: string | null;
+  category: string | null;
+  cover_url: string | null;
   status: ProjectStatus;
   currency_code: string;
   start_date: string | null;
@@ -18,11 +20,16 @@ export interface Project {
   timezone: string | null;
   address: string | null;
   created_by: string | null;
+  creator_name: string | null;
+  creator_email: string | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
   members_count: number;
+  budget_id: string | null;
+  budget_total: number;
+  activity_count: number;
 }
 
 export interface ProjectMember {
@@ -45,6 +52,8 @@ export interface CreateProjectPayload {
   code: string;
   name: string;
   description?: string | null;
+  category?: string | null;
+  coverUrl?: string | null;
   status?: ProjectStatus;
   branchId?: string | null;
   clientPartyId?: string | null;

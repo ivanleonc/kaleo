@@ -79,6 +79,16 @@ export const Permissions = {
     CREATE: 'construction.projects.create',
     UPDATE: 'construction.projects.update',
     DELETE: 'construction.projects.delete',
+    BUDGET_READ: 'construction.projects.budget.read',
+    BUDGET_UPDATE: 'construction.projects.budget.update',
+    BUDGET_APPROVE: 'construction.projects.budget.approve',
+  },
+
+  ESTIMATING: {
+    READ: 'construction.estimating.read',
+    CREATE: 'construction.estimating.create',
+    UPDATE: 'construction.estimating.update',
+    DELETE: 'construction.estimating.delete',
   },
 } as const;
 

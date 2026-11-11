@@ -418,6 +418,8 @@ const SECTION_LABELS: Record<string, string> = {
   operations: 'Operaciones',
   notifications: 'Notificaciones',
   projects: 'Proyectos',
+  estimating: 'Estimación',
+  budget: 'Presupuesto',
   catalog: 'Catálogo',
   parties: 'Terceros',
   documents: 'Documentos',

@@ -22,7 +22,9 @@ export type AuditEntityType =
   | 'Notification'
   | 'Party'
   | 'Catalog'
-  | 'Project';
+  | 'Project'
+  | 'Estimating'
+  | 'Budget';
 
 export interface AuditContextOptions {
   /** Entidad afectada. Evita que el interceptor la infiera del path. */

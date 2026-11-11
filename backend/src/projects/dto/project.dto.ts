@@ -71,6 +71,18 @@ export class CreateProjectDto {
   @MaxLength(2000)
   description?: string | null;
 
+  @ApiPropertyOptional({ example: 'Presupuesto' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  category?: string | null;
+
+  @ApiPropertyOptional({ description: 'URL de portada' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  coverUrl?: string | null;
+
   @ApiPropertyOptional({ enum: PROJECT_STATUSES })
   @IsOptional()
   @IsIn(PROJECT_STATUSES)

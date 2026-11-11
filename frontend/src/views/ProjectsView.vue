@@ -65,13 +65,19 @@
               <p class="project-meta">
                 <span v-if="project.client_name">Cliente: {{ project.client_name }}</span>
                 <span v-if="project.branch_name">Sede: {{ project.branch_name }}</span>
+                <span v-if="project.category">{{ project.category }}</span>
                 <span>{{ project.members_count }} miembros</span>
+                <span>{{ project.activity_count }} actividades</span>
+                <span>{{ formatMoney(project.budget_total, project.currency_code) }}</span>
                 <span v-if="project.start_date">Inicio: {{ formatDate(project.start_date) }}</span>
               </p>
             </div>
             <div class="project-actions">
+              <UiButton size="sm" width="auto" @click="openProject(project)">
+                Abrir
+              </UiButton>
               <UiButton size="sm" variant="ghost" width="auto" @click="openDetail(project)">
-                Ver equipo
+                Equipo
               </UiButton>
               <template v-if="!entitlementsStore.isReadOnly">
                 <UiButton
@@ -126,6 +132,8 @@
         <UiSelect v-model="form.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
         <UiSelect v-model="form.branchId" label="Sede" :options="branchOptions" />
         <UiSelect v-model="form.clientPartyId" label="Cliente" :options="partyOptions" />
+        <UiInput v-model="form.category" label="Categoría" placeholder="Presupuesto, Construcción..." />
+        <UiInput v-model="form.coverUrl" label="URL de portada (opcional)" />
         <UiInput v-model="form.startDate" label="Inicio" type="date" />
         <UiInput v-model="form.endDate" label="Fin" type="date" />
         <UiInput v-model="form.timezone" label="Zona horaria" placeholder="America/Bogota" />
@@ -215,6 +223,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
@@ -238,6 +247,7 @@ import { partyService } from '@/services/party.service';
 import { catalogService } from '@/services/catalog.service';
 import { memberService } from '@/services/member.service';
 import { useEntitlementsStore } from '@/stores/entitlements.store';
+import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useToast } from '@/composables/useToast';
 import { apiErrorMessage } from '@/utils/error';
 import { formatDate } from '@/utils/date';
@@ -273,8 +283,26 @@ const statusOptions = [...STATUS_OPTIONS];
 const statusFilterOptions = [{ label: 'Todos los estados', value: '' }, ...STATUS_OPTIONS];
 const roleOptions = [...ROLE_OPTIONS];
 
+const router = useRouter();
 const toast = useToast();
 const entitlementsStore = useEntitlementsStore();
+const { companyPath } = useCompanyPath();
+
+function openProject(project: Project): void {
+  router.push(companyPath(`/projects/${project.id}`));
+}
+
+function formatMoney(value: number, currency = 'COP'): string {
+  try {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${value}`;
+  }
+}
 
 const projects = ref<Project[]>([]);
 const total = ref(0);
@@ -386,6 +414,8 @@ const form = reactive({
   code: '',
   name: '',
   description: '',
+  category: '',
+  coverUrl: '',
   status: 'draft' as ProjectStatus,
   branchId: '',
   clientPartyId: '',
@@ -402,6 +432,8 @@ function openCreate(): void {
     code: '',
     name: '',
     description: '',
+    category: '',
+    coverUrl: '',
     status: 'draft',
     branchId: '',
     clientPartyId: '',
@@ -421,6 +453,8 @@ function openEdit(project: Project): void {
     code: project.code,
     name: project.name,
     description: project.description ?? '',
+    category: project.category ?? '',
+    coverUrl: project.cover_url ?? '',
     status: project.status,
     branchId: project.branch_id ?? '',
     clientPartyId: project.client_party_id ?? '',
@@ -445,6 +479,8 @@ async function save(): Promise<void> {
     code: form.code.trim(),
     name: form.name.trim(),
     description: form.description.trim() || null,
+    category: form.category.trim() || null,
+    coverUrl: form.coverUrl.trim() || null,
     status: form.status,
     branchId: form.branchId || null,
     clientPartyId: form.clientPartyId || null,

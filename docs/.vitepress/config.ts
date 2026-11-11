@@ -158,6 +158,8 @@ export default defineConfig({
             { text: 'Terceros', link: '/backend/parties' },
             { text: 'Catálogo', link: '/backend/catalog' },
             { text: 'Proyectos', link: '/backend/projects' },
+            { text: 'Estimación', link: '/backend/estimating' },
+            { text: 'Presupuestos', link: '/backend/budgets' },
             { text: 'Documentos', link: '/backend/documents' },
             { text: 'Migraciones', link: '/backend/migraciones' },
           ],

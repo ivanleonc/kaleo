@@ -27,6 +27,8 @@ import { DocumentsModule } from './documents/documents.module.js';
 import { PartiesModule } from './parties/parties.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
+import { EstimatingModule } from './estimating/estimating.module.js';
+import { BudgetsModule } from './budgets/budgets.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PasswordChangedGuard } from './auth/guards/password-changed.guard.js';
 import { CompanyAccessGuard } from './common/guards/company-access.guard.js';
@@ -119,6 +121,8 @@ import { databaseSslOptions } from './common/config/database-ssl.js';
     PartiesModule,
     CatalogModule,
     ProjectsModule,
+    EstimatingModule,
+    BudgetsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -41,6 +41,17 @@ vi.mock('@/composables/useToast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useRoute: () => ({ params: { companyId: 'company-1' }, path: '' }),
+}));
+
+vi.mock('@/composables/useCompanyPath', () => ({
+  useCompanyPath: () => ({
+    companyPath: (suffix: string) => `/companies/company-1${suffix}`,
+  }),
+}));
+
 const PROJECT = {
   id: 'project-1',
   company_id: 'company-1',
@@ -119,7 +130,7 @@ describe('ProjectsView', () => {
 
     await flushPromises();
 
-    const button = wrapper.findAll('button').find((item) => item.text() === 'Ver equipo');
+    const button = wrapper.findAll('button').find((item) => item.text() === 'Equipo');
     await button!.trigger('click');
     await flushPromises();
 

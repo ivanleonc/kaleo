@@ -21,6 +21,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.0.
 - `shared.catalog`: monedas, unidades de medida, conversiones e impuestos por empresa.
 - Ítems de catálogo, categorías jerárquicas, listas de precios y precios por cantidad mínima.
 - `construction.projects`: proyectos con cliente, sede, moneda, fechas y equipo por rol.
+- Workspace de proyecto con portada, métricas y accesos a presupuesto, equipo, documentos y auditoría.
+- `construction.estimating`: recursos, precios de proveedor, bases de APUs y APUs versionados.
+- Presupuesto WBS por proyecto, actividades desde APUs, indirectos, aprobación y snapshot.
 
 ---
 

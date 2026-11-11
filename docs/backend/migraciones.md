@@ -115,6 +115,9 @@ npm run migrate -- production --accept-checksum 000
 | `055-shared-catalog-foundations.sql` | Monedas, unidades/conversiones, impuestos y `shared.catalog`. |
 | `056-catalog-items-prices.sql` | Categorías, ítems, listas de precios y precios por ítem. |
 | `057-construction-projects.sql` | Proyectos, equipo, permisos y módulo `construction.projects`. |
+| `058-project-workspace.sql` | Categoría y portada de proyectos. |
+| `059-construction-estimating.sql` | Recursos, precios, bases de APUs y APUs versionados. |
+| `060-project-budgets.sql` | Presupuestos, WBS, indirectos y aprobaciones. |
 
 ## Verificar el estado
 

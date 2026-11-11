@@ -368,8 +368,9 @@ gantt
 > Estado: **7.1 completo.** `shared.parties` (054), monedas/unidades/impuestos
 > (055) e ítems/categorías/listas de precios (056) están implementados.
 >
-> **7.2 en curso:** `projects` y `project_members` implementados (057). Siguen
-> recursos, precios de proveedor, APUs, takeoff y presupuestos.
+> **7.2 en curso:** proyectos/equipo (057), workspace (058), recursos y APUs
+> (059) y presupuesto WBS (060) implementados. Siguen takeoff, presupuestos
+> aprobados multi-versión, reportes y listado total de insumos.
 
 ### 7.2 Construcción
 

@@ -137,6 +137,39 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/companies/:companyId/projects/:projectId',
+    name: 'ProjectWorkspace',
+    component: () => import('@/views/ProjectWorkspaceView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.PROJECTS.READ,
+      title: 'Proyecto',
+      moduleCode: 'construction.projects',
+    },
+  },
+  {
+    path: '/companies/:companyId/projects/:projectId/budget',
+    name: 'ProjectBudget',
+    component: () => import('@/views/ProjectBudgetView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.PROJECTS.BUDGET_READ,
+      title: 'Presupuesto',
+      moduleCode: 'construction.projects',
+    },
+  },
+  {
+    path: '/companies/:companyId/estimating',
+    name: 'Estimating',
+    component: () => import('@/views/EstimatingView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiredPermission: Permissions.ESTIMATING.READ,
+      title: 'Estimación',
+      moduleCode: 'construction.estimating',
+    },
+  },
+  {
     path: '/companies/:companyId/catalog',
     name: 'Catalog',
     component: () => import('@/views/CatalogView.vue'),

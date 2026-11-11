@@ -330,6 +330,39 @@ export const MODULE_MANIFESTS: ModuleManifest[] = [
     ],
   },
   {
+    code: 'construction.estimating',
+    name: 'Estimación',
+    version: '1.0.0',
+    vertical: 'construction',
+    isCore: false,
+    dependsOn: ['construction.projects', 'shared.catalog', 'shared.parties'],
+    permissions: [
+      Permissions.ESTIMATING.READ,
+      Permissions.ESTIMATING.CREATE,
+      Permissions.ESTIMATING.UPDATE,
+      Permissions.ESTIMATING.DELETE,
+    ],
+    routes: [
+      {
+        path: '/estimating',
+        name: 'Estimating',
+        title: 'Estimación',
+        permission: Permissions.ESTIMATING.READ,
+        icon: 'estimating',
+        nav: true,
+        order: 81,
+      },
+    ],
+    onboarding: [
+      {
+        code: 'build-apu-library',
+        title: 'Construye tu biblioteca de APUs',
+        description: 'Crea recursos, bases y análisis de precios unitarios reutilizables.',
+        route: '/estimating',
+      },
+    ],
+  },
+  {
     code: 'shared.catalog',
     name: 'Catálogo',
     version: '1.0.0',

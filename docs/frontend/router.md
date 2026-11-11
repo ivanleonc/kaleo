@@ -23,6 +23,9 @@
 | `/companies/:companyId/operations` | Auth | — | `OperationsView` |
 | `/companies/:companyId/notifications` | Auth | — | `NotificationsView` |
 | `/companies/:companyId/projects` | Auth | `construction.projects.read` | `ProjectsView` |
+| `/companies/:companyId/projects/:projectId` | Auth | `construction.projects.read` | `ProjectWorkspaceView` |
+| `/companies/:companyId/projects/:projectId/budget` | Auth | `construction.projects.budget.read` | `ProjectBudgetView` |
+| `/companies/:companyId/estimating` | Auth | `construction.estimating.read` | `EstimatingView` |
 | `/companies/:companyId/catalog` | Auth | `core.catalog.read` | `CatalogView` |
 | `/companies/:companyId/parties` | Auth | `core.parties.read` | `PartiesView` |
 | `/companies/:companyId/documents` | Auth | `core.documents.read` | `DocumentsView` |

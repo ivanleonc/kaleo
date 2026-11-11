@@ -67,11 +67,20 @@ export class ProjectsRepository {
       values.push(limit, (page - 1) * limit);
       const rows = (await queryRunner.query(
         `SELECT p.*, b.name AS branch_name, party.name AS client_name,
+                creator.name AS creator_name, creator.email AS creator_email,
                 (SELECT COUNT(*)::int FROM project_members pm WHERE pm.project_id = p.id)
-                  AS members_count
+                  AS members_count,
+                bud.id AS budget_id,
+                COALESCE(bud.total, 0)::float8 AS budget_total,
+                (SELECT COUNT(*)::int FROM budget_items bi
+                 WHERE bi.budget_id = bud.id AND bi.item_type = 'activity')
+                  AS activity_count
          FROM projects p
          LEFT JOIN branches b ON b.id = p.branch_id AND b.company_id = p.company_id
          LEFT JOIN parties party ON party.id = p.client_party_id AND party.company_id = p.company_id
+         LEFT JOIN users creator ON creator.id = p.created_by
+         LEFT JOIN budgets bud
+           ON bud.project_id = p.id AND bud.company_id = p.company_id AND bud.deleted_at IS NULL
          WHERE ${whereSql}
          ORDER BY p.created_at DESC, p.name
          LIMIT $${values.length - 1} OFFSET $${values.length}`,
@@ -86,11 +95,20 @@ export class ProjectsRepository {
     return withTenantTransaction(this.dataSource, this.tenantContext, async (queryRunner) => {
       const rows = (await queryRunner.query(
         `SELECT p.*, b.name AS branch_name, party.name AS client_name,
+                creator.name AS creator_name, creator.email AS creator_email,
                 (SELECT COUNT(*)::int FROM project_members pm WHERE pm.project_id = p.id)
-                  AS members_count
+                  AS members_count,
+                bud.id AS budget_id,
+                COALESCE(bud.total, 0)::float8 AS budget_total,
+                (SELECT COUNT(*)::int FROM budget_items bi
+                 WHERE bi.budget_id = bud.id AND bi.item_type = 'activity')
+                  AS activity_count
          FROM projects p
          LEFT JOIN branches b ON b.id = p.branch_id AND b.company_id = p.company_id
          LEFT JOIN parties party ON party.id = p.client_party_id AND party.company_id = p.company_id
+         LEFT JOIN users creator ON creator.id = p.created_by
+         LEFT JOIN budgets bud
+           ON bud.project_id = p.id AND bud.company_id = p.company_id AND bud.deleted_at IS NULL
          WHERE p.id = $1 AND p.company_id = $2 AND p.deleted_at IS NULL`,
         [id, companyId],
       )) as ProjectRow[];
@@ -127,9 +145,9 @@ export class ProjectsRepository {
         const rows = (await queryRunner.query(
           `INSERT INTO projects
              (company_id, branch_id, client_party_id, code, name, description,
-              status, currency_code, start_date, end_date, timezone, address,
-              created_by, updated_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
+              category, cover_url, status, currency_code, start_date, end_date,
+              timezone, address, created_by, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15)
            RETURNING id`,
           [
             companyId,
@@ -138,6 +156,8 @@ export class ProjectsRepository {
             input.code,
             input.name,
             input.description ?? null,
+            input.category ?? null,
+            input.coverUrl ?? null,
             input.status ?? 'draft',
             input.currencyCode,
             input.startDate ?? null,
@@ -169,6 +189,8 @@ export class ProjectsRepository {
           code: input.code,
           name: input.name,
           description: input.description,
+          category: input.category,
+          cover_url: input.coverUrl,
           status: input.status,
           currency_code: input.currencyCode,
           start_date: input.startDate,
@@ -183,6 +205,8 @@ export class ProjectsRepository {
           'code',
           'name',
           'description',
+          'category',
+          'cover_url',
           'status',
           'currency_code',
           'start_date',
@@ -196,6 +220,8 @@ export class ProjectsRepository {
             'branch_id',
             'client_party_id',
             'description',
+            'category',
+            'cover_url',
             'start_date',
             'end_date',
             'timezone',
