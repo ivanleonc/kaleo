@@ -231,10 +231,14 @@ export class DocumentsService {
     const entityType = link.entityType?.trim().toLowerCase();
     const entityId = link.entityId?.trim();
     if (!entityType || !ENTITY_TYPE_RE.test(entityType)) {
-      throw new BadRequestException('entityType inválido');
+      throw new BadRequestException(
+        'El tipo de vínculo debe usar minúsculas (ej: analysis, branch)',
+      );
     }
     if (!entityId || !UUID_RE.test(entityId)) {
-      throw new BadRequestException('entityId debe ser un UUID válido');
+      throw new BadRequestException(
+        'El UUID del vínculo no es válido. Deja ambos campos vacíos si no quieres asociar el documento.',
+      );
     }
     return { entityType, entityId };
   }

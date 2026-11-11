@@ -167,8 +167,20 @@
         <UiInput v-model="uploadForm.title" label="Título" placeholder="Se usa el nombre del archivo si lo dejas vacío" />
         <UiInput v-model="uploadForm.category" label="Categoría" placeholder="Contrato, factura, informe..." />
         <UiTextarea v-model="uploadForm.description" label="Descripción" class="span-2" />
-        <UiInput v-model="uploadForm.entityType" label="Vincular a (tipo)" placeholder="analysis, member, branch..." />
-        <UiInput v-model="uploadForm.entityId" label="ID de la entidad" placeholder="UUID" />
+        <p class="link-hint span-2">
+          Opcional. Para asociar el documento a un registro existente indica su tipo y el UUID
+          interno. Si no necesitas vincularlo, deja ambos campos vacíos.
+        </p>
+        <UiInput
+          v-model="uploadForm.entityType"
+          label="Tipo de vínculo (opcional)"
+          placeholder="analysis, branch, member..."
+        />
+        <UiInput
+          v-model="uploadForm.entityId"
+          label="UUID del registro (opcional)"
+          placeholder="Ej: 6f1e2d3c-4b5a-4e4e-8f8f-0a1b2c3d4e5f"
+        />
       </div>
     </UiFormModal>
 
@@ -285,6 +297,7 @@ import type {
 } from '@/types/document';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const toast = useToast();
 const entitlementsStore = useEntitlementsStore();
 
@@ -389,8 +402,16 @@ async function submitUpload(): Promise<void> {
     uploadError.value = 'Selecciona un archivo.';
     return;
   }
-  if (Boolean(uploadForm.entityType) !== Boolean(uploadForm.entityId)) {
-    uploadError.value = 'El tipo y el ID de la entidad deben enviarse juntos.';
+
+  const entityType = uploadForm.entityType.trim();
+  const entityId = uploadForm.entityId.trim();
+  if (Boolean(entityType) !== Boolean(entityId)) {
+    uploadError.value = 'El tipo y el UUID del vínculo deben enviarse juntos, o ambos vacíos.';
+    return;
+  }
+  if (entityId && !UUID_RE.test(entityId)) {
+    uploadError.value =
+      'El UUID del vínculo no es válido. Déjalo vacío si no quieres asociar el documento.';
     return;
   }
 
@@ -402,8 +423,8 @@ async function submitUpload(): Promise<void> {
       title: uploadForm.title || undefined,
       description: uploadForm.description || undefined,
       category: uploadForm.category || undefined,
-      entityType: uploadForm.entityType || undefined,
-      entityId: uploadForm.entityId || undefined,
+      entityType: entityType || undefined,
+      entityId: entityId || undefined,
     });
     isUploadOpen.value = false;
     toast.success('Documento subido');
@@ -548,6 +569,13 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.link-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .documents-list {
