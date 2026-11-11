@@ -6,6 +6,9 @@
         subtitle="Recursos, bases de APUs y análisis de precios unitarios."
       >
         <template #actions>
+          <UiTableColumnMenu v-if="activeTab === 'resources'" :table="resourceTable" />
+          <UiTableColumnMenu v-else-if="activeTab === 'bases'" :table="apuBaseTable" />
+          <UiTableColumnMenu v-else :table="apuTable" />
           <UiButton
             v-if="activeTab === 'resources'"
             v-permission="Permissions.ESTIMATING.CREATE"
@@ -44,118 +47,121 @@
 
       <UiAlert v-if="error" type="error">{{ error }}</UiAlert>
 
-      <div class="estimating-tabs" role="tablist" aria-label="Secciones de estimación">
-        <UiButton
-          v-for="tab in TABS"
-          :key="tab.value"
-          size="sm"
-          width="auto"
-          :variant="activeTab === tab.value ? 'primary' : 'outline'"
-          @click="activeTab = tab.value"
+      <UiTabs
+        v-model="activeTabModel"
+        :tabs="TABS"
+        group-label="Secciones de estimación"
+        variant="pills"
+        panel-id-prefix="estimating"
+      />
+
+      <UiCard
+        v-if="activeTab === 'resources'"
+        id="estimating-panel-resources"
+        role="tabpanel"
+        aria-labelledby="estimating-tab-resources"
+      >
+        <UiTableFilters
+          v-model="resourceFilterValues"
+          :filters="resourceFilterDefs"
+          class="estimating-filters"
+        />
+        <ResourceTable
+          :table="resourceTable"
+          :loading="isLoading"
+          :error="error"
+          error-title="No pudimos cargar los recursos"
+          :empty-title="hasResourceFilters ? 'Sin recursos que coincidan' : 'Sin recursos'"
+          :empty-description="
+            hasResourceFilters
+              ? 'Ajusta la búsqueda o el filtro de tipo.'
+              : 'Crea el primer recurso de tu catálogo de estimación.'
+          "
+          @retry="load"
+          @edit="openResourceEdit"
+          @delete="confirmResourceDelete"
         >
-          {{ tab.label }}
-        </UiButton>
-      </div>
-
-      <UiCard v-if="activeTab === 'resources'">
-        <div class="estimating-toolbar">
-          <UiSearchInput v-model="resourceSearch" placeholder="Buscar recurso..." aria-label="Buscar recursos" />
-          <UiSelect v-model="resourceTypeFilter" :options="resourceFilterOptions" aria-label="Filtrar por tipo" />
-        </div>
-        <div v-if="isLoading" class="estimating-loading" aria-hidden="true">
-          <UiSkeleton v-for="n in 5" :key="n" variant="text" width="100%" />
-        </div>
-        <ul v-else class="estimating-list">
-          <li v-for="resource in filteredResources" :key="resource.id" class="estimating-row">
-            <span class="estimating-badge">{{ resource.code }}</span>
-            <div class="estimating-copy">
-              <div class="estimating-title-row">
-                <h3>{{ resource.name }}</h3>
-                <UiBadge :label="resourceTypeLabel(resource.resource_type)" :variant="resourceTypeVariant(resource.resource_type)" size="sm" />
-                <UiBadge v-if="!resource.is_active" label="Inactivo" variant="warning" size="sm" />
-              </div>
-              <p class="estimating-meta">
-                {{ resource.unit_code }} · {{ formatMoney(resource.base_cost, resource.currency_code) }}
-              </p>
-            </div>
-            <div v-if="!entitlementsStore.isReadOnly" class="estimating-actions">
-              <UiButton v-permission="Permissions.ESTIMATING.UPDATE" size="sm" variant="ghost" width="auto" @click="openResourceEdit(resource)">
-                Editar
-              </UiButton>
-              <UiButton v-permission="Permissions.ESTIMATING.DELETE" size="sm" variant="ghost" width="auto" class="danger-action" @click="confirmResourceDelete(resource)">
-                Eliminar
-              </UiButton>
-            </div>
-          </li>
-          <li v-if="filteredResources.length === 0" class="estimating-empty">No hay recursos.</li>
-        </ul>
+          <template #empty-action>
+            <UiButton
+              v-if="!entitlementsStore.isReadOnly"
+              v-permission="Permissions.ESTIMATING.CREATE"
+              width="auto"
+              @click="openResourceCreate"
+            >
+              <IconPlus :size="16" /> Nuevo recurso
+            </UiButton>
+          </template>
+        </ResourceTable>
       </UiCard>
 
-      <UiCard v-else-if="activeTab === 'bases'">
-        <ul class="estimating-list">
-          <li v-for="base in bases" :key="base.id" class="estimating-row">
-            <span class="estimating-badge">{{ base.code }}</span>
-            <div class="estimating-copy">
-              <div class="estimating-title-row">
-                <h3>{{ base.name }}</h3>
-                <UiBadge v-if="base.source" :label="base.source" size="sm" />
-                <UiBadge v-if="!base.is_active" label="Inactiva" variant="warning" size="sm" />
-              </div>
-              <p class="estimating-meta">{{ base.apus_count }} APUs · {{ base.description || 'Sin descripción' }}</p>
-            </div>
-            <div v-if="!entitlementsStore.isReadOnly" class="estimating-actions">
-              <UiButton v-permission="Permissions.ESTIMATING.UPDATE" size="sm" variant="ghost" width="auto" @click="openBaseEdit(base)">
-                Editar
-              </UiButton>
-              <UiButton v-permission="Permissions.ESTIMATING.DELETE" size="sm" variant="ghost" width="auto" class="danger-action" @click="confirmBaseDelete(base)">
-                Eliminar
-              </UiButton>
-            </div>
-          </li>
-          <li v-if="bases.length === 0" class="estimating-empty">No hay bases de APUs.</li>
-        </ul>
+      <UiCard
+        v-else-if="activeTab === 'bases'"
+        id="estimating-panel-bases"
+        role="tabpanel"
+        aria-labelledby="estimating-tab-bases"
+      >
+        <ApuBaseTable
+          :table="apuBaseTable"
+          :loading="isLoading"
+          :error="error"
+          error-title="No pudimos cargar las bases"
+          empty-title="Sin bases de APUs"
+          empty-description="Una base agrupa tus análisis de precios unitarios para reutilizarlos entre proyectos."
+          @retry="load"
+          @edit="openBaseEdit"
+          @delete="confirmBaseDelete"
+        >
+          <template #empty-action>
+            <UiButton
+              v-if="!entitlementsStore.isReadOnly"
+              v-permission="Permissions.ESTIMATING.CREATE"
+              width="auto"
+              @click="openBaseCreate"
+            >
+              <IconPlus :size="16" /> Nueva base
+            </UiButton>
+          </template>
+        </ApuBaseTable>
       </UiCard>
 
-      <UiCard v-else>
-        <div class="estimating-toolbar">
-          <UiSearchInput v-model="apuSearch" placeholder="Buscar APU..." aria-label="Buscar APUs" />
-          <UiSelect v-model="apuBaseFilter" :options="baseFilterOptions" aria-label="Filtrar por base" />
-        </div>
-        <div v-if="isLoading" class="estimating-loading" aria-hidden="true">
-          <UiSkeleton v-for="n in 5" :key="n" variant="text" width="100%" />
-        </div>
-        <ul v-else class="estimating-list">
-          <li v-for="apu in filteredApus" :key="apu.id" class="estimating-row">
-            <span class="estimating-badge">{{ apu.code }}</span>
-            <div class="estimating-copy">
-              <div class="estimating-title-row">
-                <h3>{{ apu.name }}</h3>
-                <UiBadge :label="apu.base_name" size="sm" />
-                <UiBadge :label="`${apu.unit_code} · ${formatMoney(apu.unit_cost, 'COP')}`" size="sm" />
-                <UiBadge
-                  :label="apu.current_version_status === 'approved' ? 'Aprobado' : 'Borrador'"
-                  :variant="apu.current_version_status === 'approved' ? 'success' : 'warning'"
-                  size="sm"
-                />
-              </div>
-              <p class="estimating-meta">{{ apu.lines_count }} insumos · versión {{ apu.current_version_number ?? 1 }}</p>
-            </div>
-            <div class="estimating-actions">
-              <UiButton size="sm" variant="ghost" width="auto" @click="openApuLines(apu)">
-                Insumos
-              </UiButton>
-              <template v-if="!entitlementsStore.isReadOnly">
-                <UiButton v-permission="Permissions.ESTIMATING.UPDATE" size="sm" variant="ghost" width="auto" @click="openApuEdit(apu)">
-                  Editar
-                </UiButton>
-                <UiButton v-permission="Permissions.ESTIMATING.DELETE" size="sm" variant="ghost" width="auto" class="danger-action" @click="confirmApuDelete(apu)">
-                  Eliminar
-                </UiButton>
-              </template>
-            </div>
-          </li>
-          <li v-if="filteredApus.length === 0" class="estimating-empty">No hay APUs.</li>
-        </ul>
+      <UiCard
+        v-else
+        id="estimating-panel-apus"
+        role="tabpanel"
+        aria-labelledby="estimating-tab-apus"
+      >
+        <UiTableFilters
+          v-model="apuFilterValues"
+          :filters="apuFilterDefs"
+          class="estimating-filters"
+        />
+        <ApuTable
+          :table="apuTable"
+          :loading="isLoading"
+          :error="error"
+          error-title="No pudimos cargar los APUs"
+          :empty-title="hasApuFilters ? 'Sin APUs que coincidan' : 'Sin APUs'"
+          :empty-description="
+            hasApuFilters
+              ? 'Ajusta la búsqueda o el filtro de base.'
+              : 'Crea un APU dentro de una base para calcular precios unitarios a partir de insumos.'
+          "
+          @retry="load"
+          @lines="openApuLines"
+          @edit="openApuEdit"
+          @delete="confirmApuDelete"
+        >
+          <template #empty-action>
+            <UiButton
+              v-if="!entitlementsStore.isReadOnly"
+              v-permission="Permissions.ESTIMATING.CREATE"
+              width="auto"
+              @click="openApuCreate"
+            >
+              <IconPlus :size="16" /> Nuevo APU
+            </UiButton>
+          </template>
+        </ApuTable>
       </UiCard>
     </div>
 
@@ -163,62 +169,114 @@
     <UiFormModal
       v-model="isResourceOpen"
       :title="editingResource ? 'Editar recurso' : 'Nuevo recurso'"
+      :description="
+        editingResource
+          ? `Actualiza ${editingResource.code} · ${editingResource.name}.`
+          : 'Los recursos alimentan los APUs y conservan su costo al momento de usarse.'
+      "
       :submit-label="editingResource ? 'Guardar' : 'Crear recurso'"
       :loading="isSaving"
       size="large"
+      footer-hint="El costo base se congela en los insumos de APU ya creados; los cambios aplican a nuevos usos."
+      :dirty="isResourceDirty"
+      :confirm-on-dirty="true"
       @submit="saveResource"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiSelect v-model="resourceForm.resourceType" label="Tipo" :options="resourceTypeOptions" :clearable="false" />
-        <UiInput v-model="resourceForm.code" label="Código" required />
-        <UiInput v-model="resourceForm.name" label="Nombre" required class="span-2" />
-        <UiSelect v-model="resourceForm.unitId" label="Unidad" :options="unitOptions" :clearable="false" />
-        <UiInput v-model="resourceForm.baseCost" label="Costo base" type="number" />
-        <UiSelect v-model="resourceForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-        <UiInput v-model="resourceForm.description" label="Descripción" class="span-2" />
-      </div>
+      <UiFormSection
+        title="Identificación"
+        description="Código, nombre y tipo con el que aparecerá en los APUs."
+      >
+        <div class="form-grid">
+          <UiSelect v-model="resourceForm.resourceType" label="Tipo" :options="resourceTypeOptions" :clearable="false" />
+          <UiInput v-model="resourceForm.code" label="Código" required hint="Identificador único dentro de la empresa." />
+          <UiInput v-model="resourceForm.name" label="Nombre" required class="span-2" />
+          <UiInput v-model="resourceForm.description" label="Descripción" class="span-2" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Costo" description="Valor unitario de referencia y moneda del recurso.">
+        <div class="form-grid">
+          <UiSelect v-model="resourceForm.unitId" label="Unidad" :options="unitOptions" :clearable="false" />
+          <UiInput v-model="resourceForm.baseCost" label="Costo base" type="number" hint="Se usa como costo unitario al agregar el insumo a un APU." />
+          <UiSelect v-model="resourceForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Base -->
     <UiFormModal
       v-model="isBaseOpen"
       :title="editingBase ? 'Editar base' : 'Nueva base de APUs'"
+      :description="
+        editingBase
+          ? `Actualiza ${editingBase.code} · ${editingBase.name}.`
+          : 'Una base agrupa APUs reutilizables entre proyectos y presupuestos.'
+      "
       :submit-label="editingBase ? 'Guardar' : 'Crear base'"
       :loading="isSaving"
+      footer-hint="La base debe estar activa para poder importar APUs o agregarlos a un presupuesto."
+      :dirty="isBaseDirty"
+      :confirm-on-dirty="true"
       @submit="saveBase"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="baseForm.code" label="Código" required />
-        <UiInput v-model="baseForm.name" label="Nombre" required />
-        <UiInput v-model="baseForm.source" label="Fuente / proveedor" />
-        <UiInput v-model="baseForm.description" label="Descripción" />
-      </div>
+      <UiFormSection title="Identificación" description="Código y nombre visible en el selector de APUs.">
+        <div class="form-grid">
+          <UiInput v-model="baseForm.code" label="Código" required hint="Ej. BASE-2026." />
+          <UiInput v-model="baseForm.name" label="Nombre" required />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Origen" description="Fuente de precios y alcance de la base.">
+        <div class="form-grid">
+          <UiInput v-model="baseForm.source" label="Fuente / proveedor" placeholder="Propia, revista, proveedor…" />
+          <UiInput v-model="baseForm.description" label="Descripción" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- APU -->
     <UiFormModal
       v-model="isApuOpen"
       :title="editingApu ? 'Editar APU' : 'Nuevo APU'"
+      :description="
+        editingApu
+          ? `Actualiza ${editingApu.code} · ${editingApu.name}.`
+          : 'Un APU calcula el precio unitario de una actividad a partir de sus insumos.'
+      "
       :submit-label="editingApu ? 'Guardar' : 'Crear APU'"
       :loading="isSaving"
+      footer-hint="La unidad de salida debe coincidir con la unidad de la actividad para aplicar takeoff."
+      :dirty="isApuDirty"
+      :confirm-on-dirty="true"
       @submit="saveApu"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiSelect v-model="apuForm.baseId" label="Base" :options="baseOptions" :clearable="false" />
-        <UiInput v-model="apuForm.code" label="Código" required />
-        <UiInput v-model="apuForm.name" label="Nombre" required class="span-2" />
-        <UiSelect v-model="apuForm.unitId" label="Unidad de salida" :options="unitOptions" :clearable="false" />
-        <UiInput v-model="apuForm.description" label="Descripción" />
-      </div>
+      <UiFormSection title="Identificación" description="Base, código y nombre del análisis de precio unitario.">
+        <div class="form-grid">
+          <UiSelect v-model="apuForm.baseId" label="Base" :options="baseOptions" :clearable="false" />
+          <UiInput v-model="apuForm.code" label="Código" required hint="Ej. APU-MAMP-001." />
+          <UiInput v-model="apuForm.name" label="Nombre" required class="span-2" />
+          <UiInput v-model="apuForm.description" label="Descripción" class="span-2" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Unidad de salida" description="Unidad en la que se mide la actividad terminada.">
+        <div class="form-grid">
+          <UiSelect
+            v-model="apuForm.unitId"
+            label="Unidad de salida"
+            :options="unitOptions"
+            :clearable="false"
+            hint="Ej. m2, m3, un. Define cómo se compara con las actividades del presupuesto."
+          />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Insumos del APU -->
     <UiFormModal
       v-model="isLinesOpen"
       :title="apuDetail ? `${apuDetail.code} · ${apuDetail.name}` : 'Insumos del APU'"
+      description="Costo de la línea = cantidad × (1 + desperdicio %) × rendimiento × costo unitario del insumo."
       size="large"
       :hide-footer="true"
     >
@@ -257,7 +315,18 @@
           </div>
         </div>
 
-        <div class="line-groups">
+        <div v-if="apuDetail.lines.length > 0" class="line-table-scroll">
+          <div class="line-head" aria-hidden="true">
+            <span>Insumo</span>
+            <span>Unidad</span>
+            <span>Cantidad</span>
+            <span>Desperdicio %</span>
+            <span>Rendimiento</span>
+            <span>Costo unit.</span>
+            <span>Parcial</span>
+            <span></span>
+          </div>
+          <div class="line-groups">
           <section v-for="group in lineGroups" :key="group.type" class="line-group">
             <h4>{{ group.label }} <span>{{ formatMoney(group.total, apuDetail.lines[0]?.currency_code ?? 'COP') }}</span></h4>
             <div v-for="line in group.lines" :key="line.id" class="line-row">
@@ -320,18 +389,51 @@
                 </UiButton>
               </span>
             </div>
-            <p v-if="group.lines.length === 0" class="estimating-empty">Sin insumos.</p>
+            <p v-if="group.lines.length === 0" class="estimating-empty">Sin insumos de este tipo.</p>
           </section>
+          </div>
         </div>
+        <UiEmptyState
+          v-else
+          title="Sin insumos todavía"
+          description="Agrega el primer insumo para calcular el costo unitario del APU."
+        />
 
-        <div v-if="apuDetail.current_version_status !== 'approved' && !entitlementsStore.isReadOnly" v-permission="Permissions.ESTIMATING.UPDATE" class="inline-form">
-          <UiSelect v-model="lineForm.resourceId" :options="resourceOptions" placeholder="Insumo" :clearable="false" />
-          <UiInput v-model="lineForm.quantity" label="Cantidad" type="number" />
-          <UiInput v-model="lineForm.wastePct" label="Desperdicio %" type="number" />
-          <UiInput v-model="lineForm.performance" label="Rendimiento" type="number" />
-          <UiButton size="sm" variant="outline" width="auto" :disabled="!lineForm.resourceId" @click="addLine">
-            Agregar insumo
-          </UiButton>
+        <div
+          v-if="apuDetail.current_version_status !== 'approved' && !entitlementsStore.isReadOnly"
+          v-permission="Permissions.ESTIMATING.UPDATE"
+        >
+          <UiFormSection
+            title="Agregar insumo"
+            description="El desperdicio se suma a la cantidad y el rendimiento multiplica el costo de la línea."
+          >
+            <div class="inline-form">
+              <UiSelect
+                v-model="lineForm.resourceId"
+                label="Insumo"
+                :options="resourceOptions"
+                placeholder="Buscar insumo..."
+                searchable
+                :clearable="false"
+              />
+              <UiInput v-model="lineForm.quantity" label="Cantidad" type="number" />
+              <UiInput
+                v-model="lineForm.wastePct"
+                label="Desperdicio %"
+                type="number"
+                hint="Porcentaje adicional sobre la cantidad."
+              />
+              <UiInput
+                v-model="lineForm.performance"
+                label="Rendimiento"
+                type="number"
+                hint="Factor multiplicador: 1 no ajusta el costo."
+              />
+              <UiButton size="sm" variant="outline" width="auto" :disabled="!lineForm.resourceId" @click="addLine">
+                Agregar insumo
+              </UiButton>
+            </div>
+          </UiFormSection>
         </div>
         <p v-else-if="apuDetail.current_version_status === 'approved'" class="estimating-meta">
           APU aprobado. Crea una nueva versión para editar los insumos.
@@ -343,36 +445,42 @@
     <UiFormModal
       v-model="isPricesOpen"
       :title="priceTarget ? `Precios · ${priceTarget.resource_name}` : 'Precios de proveedor'"
+      description="Precios de referencia por proveedor. No modifican el costo del APU ni el de sus insumos."
       size="large"
       :hide-footer="true"
     >
-      <div class="price-add">
-        <UiSelect
-          v-model="priceForm.supplierPartyId"
-          :options="supplierOptions"
-          placeholder="Proveedor (opcional)"
-          label="Proveedor"
-        />
-        <UiInput v-model="priceForm.price" label="Precio" type="number" />
-        <UiSelect v-model="priceForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-        <UiInput v-model="priceForm.validFrom" label="Desde" type="date" />
-        <UiInput v-model="priceForm.validTo" label="Hasta" type="date" />
-        <UiButton
-          size="sm"
-          variant="outline"
-          width="auto"
-          :loading="isSaving"
-          :disabled="!priceTarget"
-          @click="addPrice"
-        >
-          Agregar precio
-        </UiButton>
-      </div>
+      <UiFormSection
+        title="Nuevo precio"
+        description="Registra el valor cotizado y, si aplica, su vigencia."
+      >
+        <div class="price-add">
+          <UiSelect
+            v-model="priceForm.supplierPartyId"
+            :options="supplierOptions"
+            placeholder="Proveedor (opcional)"
+            label="Proveedor"
+          />
+          <UiInput v-model="priceForm.price" label="Precio" type="number" />
+          <UiSelect v-model="priceForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+          <UiInput v-model="priceForm.validFrom" label="Desde" type="date" />
+          <UiInput v-model="priceForm.validTo" label="Hasta" type="date" />
+          <UiButton
+            size="sm"
+            variant="outline"
+            width="auto"
+            :loading="isSaving"
+            :disabled="!priceTarget"
+            @click="addPrice"
+          >
+            Agregar precio
+          </UiButton>
+        </div>
+      </UiFormSection>
 
       <div v-if="isLoadingPrices" class="estimating-loading" aria-hidden="true">
         <UiSkeleton v-for="n in 3" :key="n" variant="text" width="100%" />
       </div>
-      <ul v-else class="prices-list">
+      <ul v-else-if="prices.length > 0" class="prices-list">
         <li v-for="price in prices" :key="price.id" class="price-row">
           <span>{{ price.supplier_name || 'Sin proveedor' }}</span>
           <span>{{ formatMoney(price.price, price.currency_code) }}</span>
@@ -390,8 +498,12 @@
             Quitar
           </UiButton>
         </li>
-        <li v-if="prices.length === 0" class="estimating-empty">Sin precios de proveedor registrados.</li>
       </ul>
+      <UiEmptyState
+        v-else
+        title="Sin precios registrados"
+        description="Agrega una cotización para comparar proveedores de este insumo."
+      />
     </UiFormModal>
 
     <!-- Importar APUs -->
@@ -402,6 +514,7 @@
       submit-label="Importar"
       size="large"
       :loading="isImporting"
+      footer-hint="Máximo 500 filas y 10 MB. Reimportar el mismo archivo vuelve a agregar los insumos."
       @submit="importApus"
     >
       <UiAlert v-if="importError" type="error">{{ importError }}</UiAlert>
@@ -425,13 +538,13 @@
 
     <UiConfirmDialog
       v-model="isDeleteOpen"
-      title="Eliminar del catálogo"
+      :title="deleteCopy.title"
       variant="danger"
       confirm-label="Eliminar"
       :loading="isDeleting"
       @confirm="removeTarget"
     >
-      ¿Eliminar <strong>{{ deleteTarget?.item.name }}</strong>?
+      {{ deleteCopy.message }}
     </UiConfirmDialog>
   </AuthenticatedLayout>
 </template>
@@ -443,12 +556,18 @@ import UiPageHeader from '@/components/ui/UiPageHeader.vue';
 import UiCard from '@/components/ui/UiCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiAlert from '@/components/ui/UiAlert.vue';
-import UiBadge from '@/components/ui/UiBadge.vue';
 import UiSkeleton from '@/components/ui/UiSkeleton.vue';
-import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
+import UiTableFilters from '@/components/ui/UiTableFilters.vue';
+import UiTableColumnMenu from '@/components/ui/UiTableColumnMenu.vue';
+import ResourceTable from '@/components/estimating/ResourceTable.vue';
+import ApuBaseTable from '@/components/estimating/ApuBaseTable.vue';
+import ApuTable from '@/components/estimating/ApuTable.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiTabs from '@/components/ui/UiTabs.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiFileDropzone from '@/components/ui/UiFileDropzone.vue';
 import { IconFileImport, IconPlus } from '@tabler/icons-vue';
@@ -458,6 +577,14 @@ import { catalogService } from '@/services/catalog.service';
 import { partyService } from '@/services/party.service';
 import { useEntitlementsStore } from '@/stores/entitlements.store';
 import { useToast } from '@/composables/useToast';
+import { useDirtyForm } from '@/composables/useDirtyForm';
+import { useAppTable } from '@/composables/useAppTable';
+import {
+  useApuBaseColumns,
+  useApuColumns,
+  useResourceColumns,
+} from '@/composables/useEstimatingColumns';
+import type { TableFilterDef } from '@/components/ui/UiTableFilters.vue';
 import { apiErrorMessage } from '@/utils/error';
 import { formatDate } from '@/utils/date';
 import type {
@@ -472,6 +599,7 @@ import type {
 } from '@/types/estimating';
 import type { Currency, Unit } from '@/types/catalog';
 import type { PartyListItem } from '@/types/party';
+import type { UiTabItem } from '@/types/ui';
 
 type Tab = 'resources' | 'bases' | 'apus';
 type DeleteTarget =
@@ -479,11 +607,11 @@ type DeleteTarget =
   | { type: 'base'; item: ApuBase }
   | { type: 'apu'; item: Apu };
 
-const TABS = [
+const TABS: UiTabItem[] = [
   { label: 'Recursos', value: 'resources' },
   { label: 'Bases APU', value: 'bases' },
   { label: 'APUs', value: 'apus' },
-] as const;
+];
 
 const RESOURCE_TYPE_OPTIONS = [
   { label: 'Material', value: 'material' },
@@ -500,6 +628,12 @@ const toast = useToast();
 const entitlementsStore = useEntitlementsStore();
 
 const activeTab = ref<Tab>('resources');
+const activeTabModel = computed({
+  get: () => activeTab.value as string,
+  set: (value: string) => {
+    activeTab.value = value as Tab;
+  },
+});
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
@@ -552,16 +686,72 @@ const filteredApus = computed(() => {
   });
 });
 
-function resourceTypeLabel(type: ResourceType): string {
-  return RESOURCE_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? type;
-}
+const resourceFilterValues = computed<Record<string, string>>({
+  get: () => ({ search: resourceSearch.value, type: resourceTypeFilter.value }),
+  set: (values) => {
+    resourceSearch.value = values.search ?? '';
+    resourceTypeFilter.value = (values.type ?? '') as '' | ResourceType;
+  },
+});
+const resourceFilterDefs: TableFilterDef[] = [
+  {
+    key: 'search',
+    type: 'search',
+    label: 'Buscar recursos',
+    placeholder: 'Buscar recurso...',
+    grow: true,
+  },
+  {
+    key: 'type',
+    type: 'select',
+    label: 'Filtrar por tipo',
+    placeholder: 'Todos los tipos',
+    options: resourceFilterOptions,
+  },
+];
+const hasResourceFilters = computed(
+  () => resourceSearch.value.trim() !== '' || resourceTypeFilter.value !== '',
+);
 
-function resourceTypeVariant(type: ResourceType): 'info' | 'warning' | 'success' | 'neutral' {
-  if (type === 'material') return 'info';
-  if (type === 'labor') return 'warning';
-  if (type === 'equipment') return 'success';
-  return 'neutral';
-}
+const apuFilterValues = computed<Record<string, string>>({
+  get: () => ({ search: apuSearch.value, base: apuBaseFilter.value }),
+  set: (values) => {
+    apuSearch.value = values.search ?? '';
+    apuBaseFilter.value = values.base ?? '';
+  },
+});
+const apuFilterDefs = computed<TableFilterDef[]>(() => [
+  {
+    key: 'search',
+    type: 'search',
+    label: 'Buscar APUs',
+    placeholder: 'Buscar APU...',
+    grow: true,
+  },
+  {
+    key: 'base',
+    type: 'select',
+    label: 'Filtrar por base',
+    placeholder: 'Todas las bases',
+    options: baseFilterOptions.value,
+  },
+]);
+const hasApuFilters = computed(
+  () => apuSearch.value.trim() !== '' || apuBaseFilter.value !== '',
+);
+
+const resourceTable = useAppTable<Resource>({
+  columns: useResourceColumns(),
+  data: computed(() => filteredResources.value),
+});
+const apuBaseTable = useAppTable<ApuBase>({
+  columns: useApuBaseColumns(),
+  data: computed(() => bases.value),
+});
+const apuTable = useAppTable<Apu>({
+  columns: useApuColumns(),
+  data: computed(() => filteredApus.value),
+});
 
 function formatMoney(value: number, currency = 'COP'): string {
   try {
@@ -612,6 +802,9 @@ const resourceForm = reactive({
   currencyCode: 'COP',
   description: '',
 });
+const { isDirty: isResourceDirty, capture: captureResourceForm } = useDirtyForm(() => ({
+  ...resourceForm,
+}));
 
 function openResourceCreate(): void {
   editingResource.value = null;
@@ -624,6 +817,7 @@ function openResourceCreate(): void {
     currencyCode: currencies.value.find((currency) => currency.code === 'COP')?.code ?? 'COP',
     description: '',
   });
+  captureResourceForm();
   formError.value = null;
   isResourceOpen.value = true;
 }
@@ -639,6 +833,7 @@ function openResourceEdit(resource: Resource): void {
     currencyCode: resource.currency_code,
     description: resource.description ?? '',
   });
+  captureResourceForm();
   formError.value = null;
   isResourceOpen.value = true;
 }
@@ -679,10 +874,12 @@ async function saveResource(): Promise<void> {
 const isBaseOpen = ref(false);
 const editingBase = ref<ApuBase | null>(null);
 const baseForm = reactive({ code: '', name: '', source: '', description: '' });
+const { isDirty: isBaseDirty, capture: captureBaseForm } = useDirtyForm(() => ({ ...baseForm }));
 
 function openBaseCreate(): void {
   editingBase.value = null;
   Object.assign(baseForm, { code: '', name: '', source: '', description: '' });
+  captureBaseForm();
   formError.value = null;
   isBaseOpen.value = true;
 }
@@ -695,6 +892,7 @@ function openBaseEdit(base: ApuBase): void {
     source: base.source ?? '',
     description: base.description ?? '',
   });
+  captureBaseForm();
   formError.value = null;
   isBaseOpen.value = true;
 }
@@ -732,6 +930,7 @@ async function saveBase(): Promise<void> {
 const isApuOpen = ref(false);
 const editingApu = ref<Apu | null>(null);
 const apuForm = reactive({ baseId: '', code: '', name: '', unitId: '', description: '' });
+const { isDirty: isApuDirty, capture: captureApuForm } = useDirtyForm(() => ({ ...apuForm }));
 
 function openApuCreate(): void {
   editingApu.value = null;
@@ -742,6 +941,7 @@ function openApuCreate(): void {
     unitId: units.value[0]?.id ?? '',
     description: '',
   });
+  captureApuForm();
   formError.value = null;
   isApuOpen.value = true;
 }
@@ -755,6 +955,7 @@ function openApuEdit(apu: Apu): void {
     unitId: apu.unit_id,
     description: apu.description ?? '',
   });
+  captureApuForm();
   formError.value = null;
   isApuOpen.value = true;
 }
@@ -1047,6 +1248,27 @@ const isDeleteOpen = ref(false);
 const isDeleting = ref(false);
 const deleteTarget = ref<DeleteTarget | null>(null);
 
+const deleteCopy = computed(() => {
+  const target = deleteTarget.value;
+  if (!target) return { title: 'Eliminar registro', message: '' };
+  if (target.type === 'resource') {
+    return {
+      title: 'Eliminar recurso',
+      message: `¿Eliminar ${target.item.code} · ${target.item.name}? Los APUs que ya lo usan conservan su costo congelado.`,
+    };
+  }
+  if (target.type === 'base') {
+    return {
+      title: 'Eliminar base de APUs',
+      message: `¿Eliminar ${target.item.code} · ${target.item.name}? La base debe estar vacía: elimina o mueve sus APUs primero.`,
+    };
+  }
+  return {
+    title: 'Eliminar APU',
+    message: `¿Eliminar ${target.item.code} · ${target.item.name}? Se eliminarán sus versiones e insumos; las actividades de presupuesto conservan el precio con el que se agregaron.`,
+  };
+});
+
 function confirmResourceDelete(resource: Resource): void {
   deleteTarget.value = { type: 'resource', item: resource };
   isDeleteOpen.value = true;
@@ -1194,15 +1416,42 @@ onMounted(load);
   align-items: flex-start;
 }
 
+.line-table-scroll {
+  overflow-x: auto;
+  margin: 0 calc(var(--space-1) * -1);
+  padding: 0 var(--space-1);
+}
+
 .line-groups {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
+.line-head,
+.line-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) 55px 70px 80px 80px 100px 100px 160px;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 815px;
+}
+
+.line-head {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
 .line-group {
   border-top: 1px solid var(--border);
   padding-top: var(--space-2);
+}
+
+.line-group:first-child {
+  border-top: none;
 }
 
 .line-group h4 {
@@ -1213,10 +1462,6 @@ onMounted(load);
 }
 
 .line-row {
-  display: grid;
-  grid-template-columns: minmax(170px, 1fr) 55px 70px 70px 70px 100px 100px 160px;
-  gap: var(--space-2);
-  align-items: center;
   padding: var(--space-2) 0;
   font-size: var(--text-xs);
   border-top: 1px solid var(--border);
@@ -1270,12 +1515,19 @@ onMounted(load);
 
 .inline-form {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: var(--space-2);
   flex-wrap: wrap;
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-3);
-  margin-top: var(--space-3);
+}
+
+.inline-form > * {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.inline-form > .ui-button {
+  flex: 0 0 auto;
+  margin-top: 1.65rem;
 }
 
 @media (max-width: 800px) {

@@ -16,6 +16,23 @@
           >
             <IconCalculator :size="16" /> Presupuesto
           </UiButton>
+          <UiTableColumnMenu
+            v-if="activeTab === 'schedule'"
+            :table="scheduleTable"
+          />
+          <UiTableColumnMenu
+            v-else-if="activeTab === 'contracts'"
+            :table="contractTable"
+          />
+          <UiTableColumnMenu
+            v-else-if="activeTab === 'payroll'"
+            :table="payrollTable"
+          />
+          <UiTableColumnMenu
+            v-else-if="activeTab === 'warehouse'"
+            :table="warehouseTable"
+          />
+          <UiTableColumnMenu v-else :table="purchaseTable" />
         </template>
       </UiPageHeader>
 
@@ -27,23 +44,21 @@
       </div>
 
       <template v-else>
-        <nav class="execution-tabs" aria-label="Secciones de ejecución">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            type="button"
-            class="execution-tab"
-            :class="{ 'is-active': activeTab === tab.id }"
-            :aria-current="activeTab === tab.id ? 'page' : undefined"
-            @click="selectTab(tab.id)"
-          >
-            <component :is="tab.icon" :size="16" stroke-width="1.8" aria-hidden="true" />
-            {{ tab.label }}
-          </button>
-        </nav>
+        <UiTabs
+          v-model="activeTabModel"
+          :tabs="tabItems"
+          group-label="Secciones de ejecución"
+          scrollable
+          panel-id-prefix="execution"
+        />
 
         <!-- Programación -->
-        <UiCard v-if="activeTab === 'schedule'">
+        <UiCard
+          v-if="activeTab === 'schedule'"
+          id="execution-panel-schedule"
+          role="tabpanel"
+          aria-labelledby="execution-tab-schedule"
+        >
           <div class="execution-heading">
             <div>
               <h2 class="execution-title">Programación de obra</h2>
@@ -54,62 +69,32 @@
             </UiButton>
           </div>
 
-          <div v-if="isLoadingSection" class="execution-loading" aria-hidden="true">
-            <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
-          </div>
-          <div v-else class="execution-table">
-            <div class="schedule-head">
-              <span>Actividad</span><span>Inicio</span><span>Fin</span><span>Avance</span>
-              <span>Estado</span><span>Notas</span><span></span>
-            </div>
-            <div v-for="activity in schedule" :key="activity.id" class="schedule-row">
-              <span class="cell-name">{{ activity.name }}</span>
-              <span>{{ activity.start_date ? formatDate(activity.start_date) : '—' }}</span>
-              <span>{{ activity.end_date ? formatDate(activity.end_date) : '—' }}</span>
-              <span>
-                <span class="progress-track">
-                  <span class="progress-fill" :style="{ width: `${activity.progress_pct}%` }"></span>
-                </span>
-                {{ activity.progress_pct }}%
-              </span>
-              <span>
-                <UiBadge
-                  :label="scheduleStatusLabel(activity.status)"
-                  :variant="scheduleStatusVariant(activity.status)"
-                  size="sm"
-                />
-              </span>
-              <span class="cell-muted">{{ activity.notes || '—' }}</span>
-              <span class="cell-actions">
-                <UiButton
-                  v-permission="Permissions.EXECUTION.UPDATE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  @click="openSchedule(activity)"
-                >
-                  Editar
-                </UiButton>
-                <UiButton
-                  v-permission="Permissions.EXECUTION.DELETE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  class="danger-action"
-                  @click="confirmRemove(`¿Eliminar la actividad ${activity.name}?`, () => removeSchedule(activity.id))"
-                >
-                  Eliminar
-                </UiButton>
-              </span>
-            </div>
-            <p v-if="schedule.length === 0" class="execution-empty">
-              Todavía no hay actividades programadas.
-            </p>
-          </div>
+          <ScheduleTable
+            :table="scheduleTable"
+            :loading="isLoadingSection"
+            :error="error"
+            error-title="No pudimos cargar la programación"
+            empty-title="Sin actividades programadas"
+            empty-description="Crea la primera actividad para hacer seguimiento al avance físico de la obra."
+            @retry="loadSection('schedule')"
+            @edit="openSchedule"
+            @delete="(activity) => confirmRemove(`¿Eliminar la actividad ${activity.name}?`, () => removeSchedule(activity.id))"
+          >
+            <template #empty-action>
+              <UiButton v-permission="Permissions.EXECUTION.CREATE" width="auto" @click="openSchedule()">
+                <IconPlus :size="16" /> Programar actividad
+              </UiButton>
+            </template>
+          </ScheduleTable>
         </UiCard>
 
         <!-- Contratos -->
-        <UiCard v-else-if="activeTab === 'contracts'">
+        <UiCard
+          v-else-if="activeTab === 'contracts'"
+          id="execution-panel-contracts"
+          role="tabpanel"
+          aria-labelledby="execution-tab-contracts"
+        >
           <div class="execution-heading">
             <div>
               <h2 class="execution-title">Contratos</h2>
@@ -120,59 +105,32 @@
             </UiButton>
           </div>
 
-          <div v-if="isLoadingSection" class="execution-loading" aria-hidden="true">
-            <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
-          </div>
-          <div v-else class="execution-table">
-            <div class="contracts-head">
-              <span>Código</span><span>Contrato</span><span>Tercero</span><span>Tipo</span>
-              <span>Valor</span><span>Vigencia</span><span>Estado</span><span></span>
-            </div>
-            <div v-for="contract in contracts" :key="contract.id" class="contracts-row">
-              <span class="cell-muted">{{ contract.code }}</span>
-              <span class="cell-name">{{ contract.name }}</span>
-              <span>{{ contract.party_name || '—' }}</span>
-              <span>{{ contractTypeLabel(contract.contract_type) }}</span>
-              <span class="cell-amount">{{ formatMoney(contract.amount, contract.currency_code) }}</span>
-              <span>
-                {{ contract.start_date ? formatDate(contract.start_date) : '—' }} →
-                {{ contract.end_date ? formatDate(contract.end_date) : '—' }}
-              </span>
-              <span>
-                <UiBadge
-                  :label="contractStatusLabel(contract.status)"
-                  :variant="contractStatusVariant(contract.status)"
-                  size="sm"
-                />
-              </span>
-              <span class="cell-actions">
-                <UiButton
-                  v-permission="Permissions.EXECUTION.UPDATE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  @click="openContract(contract)"
-                >
-                  Editar
-                </UiButton>
-                <UiButton
-                  v-permission="Permissions.EXECUTION.DELETE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  class="danger-action"
-                  @click="confirmRemove(`¿Eliminar el contrato ${contract.code}?`, () => removeContract(contract.id))"
-                >
-                  Eliminar
-                </UiButton>
-              </span>
-            </div>
-            <p v-if="contracts.length === 0" class="execution-empty">Todavía no hay contratos.</p>
-          </div>
+          <ContractsTable
+            :table="contractTable"
+            :loading="isLoadingSection"
+            :error="error"
+            error-title="No pudimos cargar los contratos"
+            empty-title="Sin contratos registrados"
+            empty-description="Registra contratos de obra, subcontratos, servicios y suministros del proyecto."
+            @retry="loadSection('contracts')"
+            @edit="openContract"
+            @delete="(contract) => confirmRemove(`¿Eliminar el contrato ${contract.code}?`, () => removeContract(contract.id))"
+          >
+            <template #empty-action>
+              <UiButton v-permission="Permissions.EXECUTION.CREATE" width="auto" @click="openContract()">
+                <IconPlus :size="16" /> Nuevo contrato
+              </UiButton>
+            </template>
+          </ContractsTable>
         </UiCard>
 
         <!-- Nómina -->
-        <UiCard v-else-if="activeTab === 'payroll'">
+        <UiCard
+          v-else-if="activeTab === 'payroll'"
+          id="execution-panel-payroll"
+          role="tabpanel"
+          aria-labelledby="execution-tab-payroll"
+        >
           <div class="execution-heading">
             <div>
               <h2 class="execution-title">Nómina de obra</h2>
@@ -183,55 +141,33 @@
             </UiButton>
           </div>
 
-          <div v-if="isLoadingSection" class="execution-loading" aria-hidden="true">
-            <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
-          </div>
-          <div v-else class="execution-table">
-            <div class="payroll-head">
-              <span>Trabajador</span><span>Período</span><span>Días</span><span>Valor</span>
-              <span>Estado</span><span>Notas</span><span></span>
-            </div>
-            <div v-for="entry in payroll" :key="entry.id" class="payroll-row">
-              <span class="cell-name">{{ entry.worker_name }}</span>
-              <span>{{ formatDate(entry.period_start) }} → {{ formatDate(entry.period_end) }}</span>
-              <span class="cell-amount">{{ formatNumber(entry.days, 2) }}</span>
-              <span class="cell-amount">{{ formatMoney(entry.amount, entry.currency_code) }}</span>
-              <span>
-                <UiBadge
-                  :label="payrollStatusLabel(entry.status)"
-                  :variant="payrollStatusVariant(entry.status)"
-                  size="sm"
-                />
-              </span>
-              <span class="cell-muted">{{ entry.notes || '—' }}</span>
-              <span class="cell-actions">
-                <UiButton
-                  v-permission="Permissions.EXECUTION.UPDATE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  @click="openPayroll(entry)"
-                >
-                  Editar
-                </UiButton>
-                <UiButton
-                  v-permission="Permissions.EXECUTION.DELETE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  class="danger-action"
-                  @click="confirmRemove(`¿Eliminar el registro de ${entry.worker_name}?`, () => removePayroll(entry.id))"
-                >
-                  Eliminar
-                </UiButton>
-              </span>
-            </div>
-            <p v-if="payroll.length === 0" class="execution-empty">Todavía no hay registros de nómina.</p>
-          </div>
+          <PayrollTable
+            :table="payrollTable"
+            :loading="isLoadingSection"
+            :error="error"
+            error-title="No pudimos cargar la nómina"
+            empty-title="Sin registros de nómina"
+            empty-description="Registra los periodos de nómina para controlar la mano de obra ejecutada."
+            @retry="loadSection('payroll')"
+            @edit="openPayroll"
+            @delete="(entry) => confirmRemove(`¿Eliminar el registro de ${entry.worker_name}?`, () => removePayroll(entry.id))"
+          >
+            <template #empty-action>
+              <UiButton v-permission="Permissions.EXECUTION.CREATE" width="auto" @click="openPayroll()">
+                <IconPlus :size="16" /> Nuevo registro
+              </UiButton>
+            </template>
+          </PayrollTable>
         </UiCard>
 
         <!-- Almacén -->
-        <div v-else-if="activeTab === 'warehouse'" class="warehouse-layout">
+        <div
+          v-else-if="activeTab === 'warehouse'"
+          id="execution-panel-warehouse"
+          class="warehouse-layout"
+          role="tabpanel"
+          aria-labelledby="execution-tab-warehouse"
+        >
           <UiCard>
             <div class="execution-heading">
               <div>
@@ -243,49 +179,25 @@
               </UiButton>
             </div>
 
-            <div v-if="isLoadingSection" class="execution-loading" aria-hidden="true">
-              <UiSkeleton v-for="n in 3" :key="n" variant="text" width="100%" />
-            </div>
-            <ul v-else class="warehouse-list">
-              <li v-for="warehouse in warehouses" :key="warehouse.id">
-                <button
-                  type="button"
-                  class="warehouse-item"
-                  :class="{ 'is-active': selectedWarehouseId === warehouse.id }"
-                  @click="selectWarehouse(warehouse.id)"
-                >
-                  <span class="warehouse-name">{{ warehouse.code }} · {{ warehouse.name }}</span>
-                  <span class="warehouse-meta">
-                    {{ warehouse.location || 'Sin ubicación' }} ·
-                    {{ warehouse.is_active ? 'Activo' : 'Inactivo' }}
-                  </span>
-                </button>
-                <span class="warehouse-actions">
-                  <UiButton
-                    v-permission="Permissions.EXECUTION.UPDATE"
-                    size="sm"
-                    variant="ghost"
-                    width="auto"
-                    @click="openWarehouse(warehouse)"
-                  >
-                    Editar
-                  </UiButton>
-                  <UiButton
-                    v-permission="Permissions.EXECUTION.DELETE"
-                    size="sm"
-                    variant="ghost"
-                    width="auto"
-                    class="danger-action"
-                    @click="confirmRemove(`¿Eliminar el almacén ${warehouse.code}?`, () => removeWarehouse(warehouse.id))"
-                  >
-                    Eliminar
-                  </UiButton>
-                </span>
-              </li>
-              <li v-if="warehouses.length === 0" class="execution-empty">
-                Todavía no hay almacenes. Crea el primero para registrar movimientos.
-              </li>
-            </ul>
+            <WarehouseTable
+              :table="warehouseTable"
+              :selected-id="selectedWarehouseId"
+              :loading="isLoadingSection"
+              :error="error"
+              error-title="No pudimos cargar los almacenes"
+              empty-title="Sin almacenes"
+              empty-description="Crea el primer almacén para registrar entradas, salidas y ajustes de stock."
+              @retry="loadSection('warehouse')"
+              @select="(warehouse) => selectWarehouse(warehouse.id)"
+              @edit="openWarehouse"
+              @delete="(warehouse) => confirmRemove(`¿Eliminar el almacén ${warehouse.code}?`, () => removeWarehouse(warehouse.id))"
+            >
+              <template #empty-action>
+                <UiButton v-permission="Permissions.EXECUTION.CREATE" width="auto" @click="openWarehouse()">
+                  <IconPlus :size="16" /> Nuevo almacén
+                </UiButton>
+              </template>
+            </WarehouseTable>
           </UiCard>
 
           <UiCard>
@@ -307,42 +219,30 @@
               </UiButton>
             </div>
 
-            <div v-if="!selectedWarehouse" class="execution-empty">Selecciona un almacén de la lista.</div>
-            <div v-else-if="isLoadingMovements" class="execution-loading" aria-hidden="true">
-              <UiSkeleton v-for="n in 3" :key="n" variant="text" width="100%" />
-            </div>
-            <div v-else class="execution-table">
-              <div class="movements-head">
-                <span>Fecha</span><span>Insumo</span><span>Tipo</span><span>Cantidad</span>
-                <span>Costo unitario</span><span>Referencia</span><span></span>
-              </div>
-              <div v-for="movement in movements" :key="movement.id" class="movements-row">
-                <span>{{ formatDate(movement.occurred_at) }}</span>
-                <span class="cell-name">{{ movement.resource_code }} · {{ movement.resource_name }}</span>
-                <span>{{ movementTypeLabel(movement.movement_type) }}</span>
-                <span class="cell-amount">{{ formatNumber(movement.quantity, 4) }} {{ movement.unit_code }}</span>
-                <span class="cell-amount">{{ formatMoney(movement.unit_cost, project?.currency_code) }}</span>
-                <span class="cell-muted">{{ movement.reference || '—' }}</span>
-                <span class="cell-actions">
-                  <UiButton
-                    v-permission="Permissions.EXECUTION.DELETE"
-                    size="sm"
-                    variant="ghost"
-                    width="auto"
-                    class="danger-action"
-                    @click="confirmRemove('¿Eliminar este movimiento?', () => removeMovement(movement.id))"
-                  >
-                    Eliminar
-                  </UiButton>
-                </span>
-              </div>
-              <p v-if="movements.length === 0" class="execution-empty">Sin movimientos registrados.</p>
-            </div>
+            <UiEmptyState
+              v-if="!selectedWarehouse"
+              title="Selecciona un almacén"
+              description="Elige un almacén de la lista para ver y registrar sus movimientos."
+            />
+            <MovementsTable
+              v-else
+              :table="movementTable"
+              :currency="project?.currency_code"
+              :loading="isLoadingMovements"
+              empty-title="Sin movimientos registrados"
+              empty-description="Registra entradas, salidas o ajustes para controlar el stock del almacén."
+              @delete="(movement) => confirmRemove('¿Eliminar este movimiento?', () => removeMovement(movement.id))"
+            />
           </UiCard>
         </div>
 
         <!-- Compras -->
-        <UiCard v-else-if="activeTab === 'purchases'">
+        <UiCard
+          v-else-if="activeTab === 'purchases'"
+          id="execution-panel-purchases"
+          role="tabpanel"
+          aria-labelledby="execution-tab-purchases"
+        >
           <div class="execution-heading">
             <div>
               <h2 class="execution-title">Órdenes de compra</h2>
@@ -356,44 +256,23 @@
           <div v-if="isLoadingSection" class="execution-loading" aria-hidden="true">
             <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
           </div>
-          <div v-else class="execution-table">
-            <div class="purchases-head">
-              <span>Código</span><span>Proveedor</span><span>Líneas</span><span>Total</span>
-              <span>Estado</span><span>Creada</span><span></span>
-            </div>
-            <div v-for="order in purchaseOrders" :key="order.id" class="purchases-row">
-              <span class="cell-muted">{{ order.code }}</span>
-              <span class="cell-name">{{ order.supplier_name || 'Sin proveedor' }}</span>
-              <span class="cell-amount">{{ order.lines_count }}</span>
-              <span class="cell-amount">{{ formatMoney(order.total, order.currency_code) }}</span>
-              <span>
-                <UiBadge
-                  :label="purchaseStatusLabel(order.status)"
-                  :variant="purchaseStatusVariant(order.status)"
-                  size="sm"
-                />
-              </span>
-              <span>{{ formatDate(order.created_at) }}</span>
-              <span class="cell-actions">
-                <UiButton size="sm" variant="ghost" width="auto" @click="openPurchaseDetail(order.id)">
-                  Ver
-                </UiButton>
-                <UiButton
-                  v-permission="Permissions.EXECUTION.DELETE"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  class="danger-action"
-                  @click="confirmRemove(`¿Eliminar la orden ${order.code}?`, () => removePurchase(order.id))"
-                >
-                  Eliminar
-                </UiButton>
-              </span>
-            </div>
-            <p v-if="purchaseOrders.length === 0" class="execution-empty">
-              Todavía no hay órdenes de compra.
-            </p>
-          </div>
+          <PurchaseOrdersTable
+            :table="purchaseTable"
+            :loading="isLoadingSection"
+            :error="error"
+            error-title="No pudimos cargar las órdenes"
+            empty-title="Sin órdenes de compra"
+            empty-description="Crea una orden para solicitar insumos y controlar su recepción."
+            @retry="loadSection('purchases')"
+            @open="(order) => openPurchaseDetail(order.id)"
+            @delete="(order) => confirmRemove(`¿Eliminar la orden ${order.code}?`, () => removePurchase(order.id))"
+          >
+            <template #empty-action>
+              <UiButton v-permission="Permissions.EXECUTION.CREATE" width="auto" @click="openPurchase()">
+                <IconPlus :size="16" /> Nueva orden
+              </UiButton>
+            </template>
+          </PurchaseOrdersTable>
         </UiCard>
       </template>
     </div>
@@ -402,158 +281,225 @@
     <UiFormModal
       v-model="isScheduleOpen"
       :title="scheduleForm.id ? 'Editar actividad' : 'Nueva actividad'"
+      description="Actividad del cronograma con fechas, avance físico y estado."
       submit-label="Guardar"
       size="large"
       :loading="isSaving"
+      footer-hint="El avance se expresa de 0 a 100 y se muestra en la tabla de programación."
+      :dirty="isScheduleDirty"
+      :confirm-on-dirty="true"
       @submit="saveSchedule"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="scheduleForm.name" label="Actividad" required class="span-2" />
-        <UiInput v-model="scheduleForm.startDate" label="Inicio" type="date" />
-        <UiInput v-model="scheduleForm.endDate" label="Fin" type="date" />
-        <UiInput v-model="scheduleForm.progressPct" label="Avance %" type="number" />
-        <UiSelect v-model="scheduleForm.status" label="Estado" :options="scheduleStatusOptions" :clearable="false" />
-        <UiInput v-model="scheduleForm.notes" label="Notas" class="span-2" />
-      </div>
+      <UiFormSection title="Actividad" description="Nombre visible en el cronograma.">
+        <UiInput v-model="scheduleForm.name" label="Actividad" required />
+      </UiFormSection>
+      <UiFormSection title="Fechas y avance" description="Programación y estado actual de la actividad.">
+        <div class="form-grid">
+          <UiInput v-model="scheduleForm.startDate" label="Inicio" type="date" />
+          <UiInput v-model="scheduleForm.endDate" label="Fin" type="date" />
+          <UiInput
+            v-model="scheduleForm.progressPct"
+            label="Avance %"
+            type="number"
+            hint="Valor entre 0 y 100."
+          />
+          <UiSelect v-model="scheduleForm.status" label="Estado" :options="scheduleStatusOptions" :clearable="false" />
+          <UiInput v-model="scheduleForm.notes" label="Notas" class="span-2" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Contratos -->
     <UiFormModal
       v-model="isContractOpen"
       :title="contractForm.id ? 'Editar contrato' : 'Nuevo contrato'"
+      description="Contratos de obra, subcontratos, servicios y suministros del proyecto."
       submit-label="Guardar"
       size="large"
       :loading="isSaving"
+      footer-hint="Los contratos son control de ejecución y no modifican el presupuesto."
+      :dirty="isContractDirty"
+      :confirm-on-dirty="true"
       @submit="saveContract"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="contractForm.code" label="Código" required />
-        <UiSelect v-model="contractForm.contractType" label="Tipo" :options="contractTypeOptions" :clearable="false" />
-        <UiInput v-model="contractForm.name" label="Nombre" required class="span-2" />
-        <UiSelect v-model="contractForm.partyId" label="Tercero" :options="partyOptions" />
-        <UiInput v-model="contractForm.amount" label="Valor" type="number" />
-        <UiSelect v-model="contractForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-        <UiSelect v-model="contractForm.status" label="Estado" :options="contractStatusOptions" :clearable="false" />
-        <UiInput v-model="contractForm.startDate" label="Inicio" type="date" />
-        <UiInput v-model="contractForm.endDate" label="Fin" type="date" />
-        <UiInput v-model="contractForm.notes" label="Notas" class="span-2" />
-      </div>
+      <UiFormSection title="Identificación" description="Código, tipo y nombre del contrato.">
+        <div class="form-grid">
+          <UiInput v-model="contractForm.code" label="Código" required />
+          <UiSelect v-model="contractForm.contractType" label="Tipo" :options="contractTypeOptions" :clearable="false" />
+          <UiInput v-model="contractForm.name" label="Nombre" required class="span-2" />
+          <UiSelect v-model="contractForm.partyId" label="Tercero" :options="partyOptions" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Valor y vigencia" description="Monto contratado, estado y fechas.">
+        <div class="form-grid">
+          <UiInput v-model="contractForm.amount" label="Valor" type="number" />
+          <UiSelect v-model="contractForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+          <UiSelect v-model="contractForm.status" label="Estado" :options="contractStatusOptions" :clearable="false" />
+          <UiInput v-model="contractForm.startDate" label="Inicio" type="date" />
+          <UiInput v-model="contractForm.endDate" label="Fin" type="date" />
+          <UiInput v-model="contractForm.notes" label="Notas" class="span-2" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Nómina -->
     <UiFormModal
       v-model="isPayrollOpen"
       :title="payrollForm.id ? 'Editar registro de nómina' : 'Nuevo registro de nómina'"
+      description="Controla la mano de obra ejecutada por periodo y trabajador."
       submit-label="Guardar"
       size="large"
       :loading="isSaving"
+      footer-hint="El valor es informativo para el control de ejecución y no genera asientos contables."
+      :dirty="isPayrollDirty"
+      :confirm-on-dirty="true"
       @submit="savePayroll"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="payrollForm.workerName" label="Trabajador" required class="span-2" />
-        <UiSelect v-model="payrollForm.membershipId" label="Miembro del equipo" :options="memberOptions" />
-        <UiSelect v-model="payrollForm.status" label="Estado" :options="payrollStatusOptions" :clearable="false" />
-        <UiInput v-model="payrollForm.periodStart" label="Desde" type="date" required />
-        <UiInput v-model="payrollForm.periodEnd" label="Hasta" type="date" required />
-        <UiInput v-model="payrollForm.days" label="Días" type="number" />
-        <UiInput v-model="payrollForm.amount" label="Valor" type="number" />
-        <UiSelect v-model="payrollForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-        <UiInput v-model="payrollForm.notes" label="Notas" class="span-2" />
-      </div>
+      <UiFormSection title="Trabajador" description="Nombre y vínculo con el equipo del proyecto.">
+        <div class="form-grid">
+          <UiInput v-model="payrollForm.workerName" label="Trabajador" required class="span-2" />
+          <UiSelect v-model="payrollForm.membershipId" label="Miembro del equipo" :options="memberOptions" />
+          <UiSelect v-model="payrollForm.status" label="Estado" :options="payrollStatusOptions" :clearable="false" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Periodo y valor" description="Fechas trabajadas, días y monto del registro.">
+        <div class="form-grid">
+          <UiInput v-model="payrollForm.periodStart" label="Desde" type="date" required />
+          <UiInput v-model="payrollForm.periodEnd" label="Hasta" type="date" required />
+          <UiInput v-model="payrollForm.days" label="Días" type="number" />
+          <UiInput v-model="payrollForm.amount" label="Valor" type="number" />
+          <UiSelect v-model="payrollForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+          <UiInput v-model="payrollForm.notes" label="Notas" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Almacén -->
     <UiFormModal
       v-model="isWarehouseOpen"
       :title="warehouseForm.id ? 'Editar almacén' : 'Nuevo almacén'"
+      description="Los almacenes agrupan el stock de insumos del proyecto."
       submit-label="Guardar"
       :loading="isSaving"
+      footer-hint="Un almacén inactivo conserva su historial, pero no admite movimientos nuevos."
+      :dirty="isWarehouseDirty"
+      :confirm-on-dirty="true"
       @submit="saveWarehouse"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="warehouseForm.code" label="Código" required />
-        <UiInput v-model="warehouseForm.name" label="Nombre" required class="span-2" />
-        <UiInput v-model="warehouseForm.location" label="Ubicación" class="span-2" />
-        <UiSelect v-model="warehouseForm.isActive" label="Estado" :options="activeOptions" :clearable="false" />
-      </div>
+      <UiFormSection title="Datos del almacén" description="Código, nombre y ubicación física.">
+        <div class="form-grid">
+          <UiInput v-model="warehouseForm.code" label="Código" required />
+          <UiInput v-model="warehouseForm.name" label="Nombre" required class="span-2" />
+          <UiInput v-model="warehouseForm.location" label="Ubicación" class="span-2" />
+          <UiSelect v-model="warehouseForm.isActive" label="Estado" :options="activeOptions" :clearable="false" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <UiFormModal
       v-model="isMovementOpen"
       title="Registrar movimiento"
+      :description="`Entrada, salida o ajuste de stock${selectedWarehouse ? ` en ${selectedWarehouse.code}` : ''}.`"
       submit-label="Registrar"
       size="large"
       :loading="isSaving"
+      footer-hint="La salida descuenta stock; el ajuste fija la cantidad según el conteo físico."
+      :dirty="isMovementDirty"
+      :confirm-on-dirty="true"
       @submit="saveMovement"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiSelect v-model="movementForm.resourceId" label="Insumo" :options="resourceOptions" searchable class="span-2" />
-        <UiSelect v-model="movementForm.movementType" label="Tipo" :options="movementTypeOptions" :clearable="false" />
-        <UiInput v-model="movementForm.quantity" label="Cantidad" type="number" required />
-        <UiInput v-model="movementForm.unitCost" label="Costo unitario" type="number" />
-        <UiInput v-model="movementForm.occurredAt" label="Fecha" type="date" />
-        <UiInput v-model="movementForm.reference" label="Referencia" />
-        <UiInput v-model="movementForm.notes" label="Notas" />
-      </div>
+      <UiFormSection title="Insumo y tipo" description="Qué se mueve y con qué operación.">
+        <div class="form-grid">
+          <UiSelect v-model="movementForm.resourceId" label="Insumo" :options="resourceOptions" searchable class="span-2" />
+          <UiSelect v-model="movementForm.movementType" label="Tipo" :options="movementTypeOptions" :clearable="false" />
+          <UiInput v-model="movementForm.quantity" label="Cantidad" type="number" required />
+          <UiInput v-model="movementForm.unitCost" label="Costo unitario" type="number" hint="Opcional; si se omite se usa el costo del recurso." />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Trazabilidad" description="Fecha, documento de referencia y notas.">
+        <div class="form-grid">
+          <UiInput v-model="movementForm.occurredAt" label="Fecha" type="date" />
+          <UiInput v-model="movementForm.reference" label="Referencia" placeholder="Remisión, factura, acta…" />
+          <UiInput v-model="movementForm.notes" label="Notas" class="span-2" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Orden de compra -->
     <UiFormModal
       v-model="isPurchaseOpen"
       title="Nueva orden de compra"
+      description="Solicita insumos a un proveedor y controla su recepción."
       submit-label="Crear orden"
       size="large"
       :loading="isSaving"
+      footer-hint="La orden queda en borrador hasta que la envíes y recibas los insumos."
+      :dirty="isPurchaseDirty"
+      :confirm-on-dirty="true"
       @submit="savePurchase"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="purchaseForm.code" label="Código" required />
-        <UiSelect v-model="purchaseForm.supplierPartyId" label="Proveedor" :options="supplierOptions" />
-        <UiSelect v-model="purchaseForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
-        <UiSelect v-model="purchaseForm.status" label="Estado" :options="purchaseStatusOptions" :clearable="false" />
-        <UiInput v-model="purchaseForm.notes" label="Notas" class="span-2" />
-      </div>
+      <UiFormSection title="Datos de la orden" description="Código, proveedor, moneda y estado inicial.">
+        <div class="form-grid">
+          <UiInput v-model="purchaseForm.code" label="Código" required />
+          <UiSelect v-model="purchaseForm.supplierPartyId" label="Proveedor" :options="supplierOptions" />
+          <UiSelect v-model="purchaseForm.currencyCode" label="Moneda" :options="currencyOptions" :clearable="false" />
+          <UiSelect v-model="purchaseForm.status" label="Estado" :options="purchaseStatusOptions" :clearable="false" />
+          <UiInput v-model="purchaseForm.notes" label="Notas" class="span-2" />
+        </div>
+      </UiFormSection>
 
-      <div class="po-lines">
-        <div class="po-lines-head">
-          <span>Insumo (opcional)</span><span>Descripción</span><span>Cantidad</span>
-          <span>Valor unitario</span><span></span>
+      <UiFormSection
+        title="Líneas"
+        description="Asocia un insumo del catálogo o escribe una descripción libre."
+      >
+        <div class="po-lines">
+          <div class="po-lines-head">
+            <span>Insumo (opcional)</span><span>Descripción</span><span>Cantidad</span>
+            <span>Valor unitario</span><span></span>
+          </div>
+          <div v-for="(line, index) in purchaseForm.lines" :key="index" class="po-line">
+            <UiSelect v-model="line.resourceId" :options="resourceOptions" searchable aria-label="Insumo" />
+            <UiInput v-model="line.description" aria-label="Descripción" placeholder="Descripción" />
+            <UiInput v-model="line.quantity" type="number" aria-label="Cantidad" />
+            <UiInput v-model="line.unitPrice" type="number" aria-label="Valor unitario" />
+            <UiButton
+              size="sm"
+              variant="ghost"
+              width="auto"
+              class="danger-action"
+              :disabled="purchaseForm.lines.length === 1"
+              @click="removePurchaseLine(index)"
+            >
+              Quitar
+            </UiButton>
+          </div>
+          <div class="po-lines-footer">
+            <UiButton size="sm" variant="outline" width="auto" @click="addPurchaseLine">
+              <IconPlus :size="15" /> Línea
+            </UiButton>
+            <span class="po-lines-total">
+              Total: <strong>{{ formatMoney(purchaseTotal, purchaseForm.currencyCode) }}</strong>
+            </span>
+          </div>
         </div>
-        <div v-for="(line, index) in purchaseForm.lines" :key="index" class="po-line">
-          <UiSelect v-model="line.resourceId" :options="resourceOptions" searchable aria-label="Insumo" />
-          <UiInput v-model="line.description" aria-label="Descripción" placeholder="Descripción" />
-          <UiInput v-model="line.quantity" type="number" aria-label="Cantidad" />
-          <UiInput v-model="line.unitPrice" type="number" aria-label="Valor unitario" />
-          <UiButton
-            size="sm"
-            variant="ghost"
-            width="auto"
-            class="danger-action"
-            :disabled="purchaseForm.lines.length === 1"
-            @click="removePurchaseLine(index)"
-          >
-            Quitar
-          </UiButton>
-        </div>
-        <UiButton size="sm" variant="outline" width="auto" @click="addPurchaseLine">
-          <IconPlus :size="15" /> Línea
-        </UiButton>
-      </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Detalle orden de compra -->
     <UiFormModal
       v-model="isPurchaseDetailOpen"
       title="Orden de compra"
+      description="Detalle de insumos, valores y estado de recepción."
       submit-label="Guardar estado"
       size="large"
       :loading="isSaving"
+      footer-hint="Al marcar la orden como recibida se actualiza el stock del almacén."
       :hide-footer="!purchaseDetail || purchaseDetail.status === 'received'"
       @submit="savePurchaseStatus"
     >
@@ -576,18 +522,10 @@
           :options="purchaseStatusOptions"
           :clearable="false"
         />
-        <div class="execution-table">
-          <div class="po-detail-head">
-            <span>Insumo</span><span>Descripción</span><span>Cantidad</span><span>Valor unitario</span><span>Valor</span>
-          </div>
-          <div v-for="line in purchaseDetail.lines" :key="line.id" class="po-detail-row">
-            <span>{{ line.resource_code || '—' }}</span>
-            <span class="cell-name">{{ line.description }}</span>
-            <span class="cell-amount">{{ formatNumber(line.quantity, 4) }}</span>
-            <span class="cell-amount">{{ formatMoney(line.unit_price, purchaseDetail.currency_code) }}</span>
-            <span class="cell-amount">{{ formatMoney(line.amount, purchaseDetail.currency_code) }}</span>
-          </div>
-        </div>
+        <PurchaseLinesTable
+          :table="purchaseLineTable"
+          :currency="purchaseDetail.currency_code"
+        />
       </template>
     </UiFormModal>
 
@@ -617,6 +555,17 @@ import UiSkeleton from '@/components/ui/UiSkeleton.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiTableColumnMenu from '@/components/ui/UiTableColumnMenu.vue';
+import UiTabs from '@/components/ui/UiTabs.vue';
+import UiEmptyState from '@/components/ui/UiEmptyState.vue';
+import ScheduleTable from '@/components/execution/ScheduleTable.vue';
+import ContractsTable from '@/components/execution/ContractsTable.vue';
+import PayrollTable from '@/components/execution/PayrollTable.vue';
+import WarehouseTable from '@/components/execution/WarehouseTable.vue';
+import MovementsTable from '@/components/execution/MovementsTable.vue';
+import PurchaseOrdersTable from '@/components/execution/PurchaseOrdersTable.vue';
+import PurchaseLinesTable from '@/components/execution/PurchaseLinesTable.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import {
   IconArrowLeft,
@@ -630,6 +579,17 @@ import {
 } from '@tabler/icons-vue';
 import { useCompanyPath } from '@/composables/useCompanyPath';
 import { useToast } from '@/composables/useToast';
+import { useDirtyForm } from '@/composables/useDirtyForm';
+import { useAppTable } from '@/composables/useAppTable';
+import {
+  useContractColumns,
+  useMovementColumns,
+  usePayrollColumns,
+  usePurchaseColumns,
+  usePurchaseLineColumns,
+  useScheduleColumns,
+  useWarehouseColumns,
+} from '@/composables/useExecutionColumns';
 import { executionService } from '@/services/execution.service';
 import { projectService } from '@/services/project.service';
 import { catalogService } from '@/services/catalog.service';
@@ -637,13 +597,13 @@ import { memberService } from '@/services/member.service';
 import { partyService } from '@/services/party.service';
 import { estimatingService } from '@/services/estimating.service';
 import { apiErrorMessage } from '@/utils/error';
-import { formatDate } from '@/utils/date';
 import { Permissions } from '@/constants/permissions';
 import type { Project } from '@/types/project';
 import type { Currency } from '@/types/catalog';
 import type { Member } from '@/types/member';
 import type { PartyListItem } from '@/types/party';
 import type { Resource } from '@/types/estimating';
+import type { UiTabItem } from '@/types/ui';
 import type {
   Contract,
   ContractStatus,
@@ -652,6 +612,7 @@ import type {
   PayrollStatus,
   PurchaseOrder,
   PurchaseOrderDetail,
+  PurchaseOrderLine,
   PurchaseOrderLinePayload,
   PurchaseOrderStatus,
   ScheduleActivity,
@@ -683,6 +644,15 @@ const tabs: Array<{ id: ExecutionTab; label: string; icon: Component }> = [
 ];
 
 const activeTab = ref<ExecutionTab>('schedule');
+const tabItems = computed<UiTabItem[]>(() =>
+  tabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon })),
+);
+const activeTabModel = computed({
+  get: () => activeTab.value as string,
+  set: (value: string) => {
+    void selectTab(value as ExecutionTab);
+  },
+});
 const currencies = ref<Currency[]>([]);
 const parties = ref<PartyListItem[]>([]);
 const members = ref<Member[]>([]);
@@ -752,10 +722,6 @@ const activeOptions = [
   { label: 'Inactivo', value: 'false' },
 ];
 
-function formatNumber(value: number, digits = 2): string {
-  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: digits }).format(value);
-}
-
 function formatMoney(value: number, currency = 'COP'): string {
   try {
     return new Intl.NumberFormat('es-CO', {
@@ -766,57 +732,6 @@ function formatMoney(value: number, currency = 'COP'): string {
   } catch {
     return `${value}`;
   }
-}
-
-function scheduleStatusLabel(status: ScheduleStatus): string {
-  return {
-    pending: 'Pendiente',
-    in_progress: 'En progreso',
-    completed: 'Completada',
-    delayed: 'Retrasada',
-  }[status];
-}
-
-function scheduleStatusVariant(status: ScheduleStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
-  return {
-    pending: 'neutral',
-    in_progress: 'info',
-    completed: 'success',
-    delayed: 'danger',
-  }[status] as 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-}
-
-function contractTypeLabel(type: ContractType): string {
-  return contractTypeOptions.find((option) => option.value === type)?.label ?? type;
-}
-
-function contractStatusLabel(status: ContractStatus): string {
-  return contractStatusOptions.find((option) => option.value === status)?.label ?? status;
-}
-
-function contractStatusVariant(status: ContractStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
-  return {
-    draft: 'neutral',
-    active: 'info',
-    completed: 'success',
-    terminated: 'danger',
-  }[status] as 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-}
-
-function payrollStatusLabel(status: PayrollStatus): string {
-  return payrollStatusOptions.find((option) => option.value === status)?.label ?? status;
-}
-
-function payrollStatusVariant(status: PayrollStatus): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
-  return {
-    draft: 'neutral',
-    paid: 'success',
-    cancelled: 'danger',
-  }[status] as 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-}
-
-function movementTypeLabel(type: StockMovement['movement_type']): string {
-  return movementTypeOptions.find((option) => option.value === type)?.label ?? type;
 }
 
 function purchaseStatusLabel(status: PurchaseOrderStatus): string {
@@ -914,6 +829,9 @@ const scheduleForm = reactive({
   status: 'pending' as ScheduleStatus,
   notes: '',
 });
+const { isDirty: isScheduleDirty, capture: captureScheduleForm } = useDirtyForm(() => ({
+  ...scheduleForm,
+}));
 
 function openSchedule(activity?: ScheduleActivity): void {
   Object.assign(scheduleForm, {
@@ -925,6 +843,7 @@ function openSchedule(activity?: ScheduleActivity): void {
     status: activity?.status ?? 'pending',
     notes: activity?.notes ?? '',
   });
+  captureScheduleForm();
   formError.value = null;
   isScheduleOpen.value = true;
 }
@@ -986,6 +905,9 @@ const contractForm = reactive({
   status: 'draft' as ContractStatus,
   notes: '',
 });
+const { isDirty: isContractDirty, capture: captureContractForm } = useDirtyForm(() => ({
+  ...contractForm,
+}));
 
 function openContract(contract?: Contract): void {
   Object.assign(contractForm, {
@@ -1001,6 +923,7 @@ function openContract(contract?: Contract): void {
     status: contract?.status ?? 'draft',
     notes: contract?.notes ?? '',
   });
+  captureContractForm();
   formError.value = null;
   isContractOpen.value = true;
 }
@@ -1065,6 +988,9 @@ const payrollForm = reactive({
   status: 'draft' as PayrollStatus,
   notes: '',
 });
+const { isDirty: isPayrollDirty, capture: capturePayrollForm } = useDirtyForm(() => ({
+  ...payrollForm,
+}));
 
 function openPayroll(entry?: PayrollEntry): void {
   Object.assign(payrollForm, {
@@ -1079,6 +1005,7 @@ function openPayroll(entry?: PayrollEntry): void {
     status: entry?.status ?? 'draft',
     notes: entry?.notes ?? '',
   });
+  capturePayrollForm();
   formError.value = null;
   isPayrollOpen.value = true;
 }
@@ -1140,6 +1067,9 @@ const warehouseForm = reactive({
   location: '',
   isActive: 'true',
 });
+const { isDirty: isWarehouseDirty, capture: captureWarehouseForm } = useDirtyForm(() => ({
+  ...warehouseForm,
+}));
 const movementForm = reactive({
   resourceId: '',
   movementType: 'in' as 'in' | 'out' | 'adjustment',
@@ -1149,6 +1079,9 @@ const movementForm = reactive({
   reference: '',
   notes: '',
 });
+const { isDirty: isMovementDirty, capture: captureMovementForm } = useDirtyForm(() => ({
+  ...movementForm,
+}));
 
 const selectedWarehouse = computed(
   () => warehouses.value.find((warehouse) => warehouse.id === selectedWarehouseId.value) ?? null,
@@ -1174,6 +1107,7 @@ function openWarehouse(warehouse?: Warehouse): void {
     location: warehouse?.location ?? '',
     isActive: warehouse?.is_active === false ? 'false' : 'true',
   });
+  captureWarehouseForm();
   formError.value = null;
   isWarehouseOpen.value = true;
 }
@@ -1234,6 +1168,7 @@ function openMovement(): void {
     reference: '',
     notes: '',
   });
+  captureMovementForm();
   formError.value = null;
   isMovementOpen.value = true;
 }
@@ -1280,6 +1215,35 @@ async function removeMovement(id: string): Promise<void> {
 // --- Compras ---
 const purchaseOrders = ref<PurchaseOrder[]>([]);
 const purchaseDetail = ref<PurchaseOrderDetail | null>(null);
+
+const scheduleTable = useAppTable<ScheduleActivity>({
+  columns: useScheduleColumns(),
+  data: computed(() => schedule.value),
+});
+const contractTable = useAppTable<Contract>({
+  columns: useContractColumns(),
+  data: computed(() => contracts.value),
+});
+const payrollTable = useAppTable<PayrollEntry>({
+  columns: usePayrollColumns(),
+  data: computed(() => payroll.value),
+});
+const warehouseTable = useAppTable<Warehouse>({
+  columns: useWarehouseColumns(),
+  data: computed(() => warehouses.value),
+});
+const movementTable = useAppTable<StockMovement>({
+  columns: useMovementColumns(),
+  data: computed(() => movements.value),
+});
+const purchaseTable = useAppTable<PurchaseOrder>({
+  columns: usePurchaseColumns(),
+  data: computed(() => purchaseOrders.value),
+});
+const purchaseLineTable = useAppTable<PurchaseOrderLine>({
+  columns: usePurchaseLineColumns(),
+  data: computed(() => purchaseDetail.value?.lines ?? []),
+});
 const purchaseStatusDraft = ref<PurchaseOrderStatus>('draft');
 const isPurchaseOpen = ref(false);
 const isPurchaseDetailOpen = ref(false);
@@ -1296,6 +1260,16 @@ const purchaseForm = reactive({
     unitPrice: string;
   }>,
 });
+const { isDirty: isPurchaseDirty, capture: capturePurchaseForm } = useDirtyForm(() => ({
+  ...purchaseForm,
+  lines: purchaseForm.lines.map((line) => ({ ...line })),
+}));
+const purchaseTotal = computed(() =>
+  purchaseForm.lines.reduce(
+    (sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0),
+    0,
+  ),
+);
 
 function addPurchaseLine(): void {
   purchaseForm.lines.push({ resourceId: '', description: '', quantity: '1', unitPrice: '0' });
@@ -1314,6 +1288,7 @@ function openPurchase(): void {
     notes: '',
     lines: [{ resourceId: '', description: '', quantity: '1', unitPrice: '0' }],
   });
+  capturePurchaseForm();
   formError.value = null;
   isPurchaseOpen.value = true;
 }
@@ -1675,9 +1650,24 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-top: var(--space-3);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-3);
+}
+
+.po-lines-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+}
+
+.po-lines-total {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.po-lines-total strong {
+  color: var(--text-main);
 }
 
 .po-lines-head,

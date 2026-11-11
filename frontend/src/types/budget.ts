@@ -57,6 +57,12 @@ export interface BudgetDetail extends Budget {
   items: BudgetItem[];
 }
 
+/** Fila aplanada del árbol de capítulos/actividades que consume la tabla. */
+export interface BudgetTreeRow extends BudgetItem {
+  depth: number;
+  has_children: boolean;
+}
+
 export interface CreateBudgetItemPayload {
   parentId?: string | null;
   code?: string;

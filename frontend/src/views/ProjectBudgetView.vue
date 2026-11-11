@@ -12,6 +12,10 @@
           <UiButton variant="outline" width="auto" @click="router.push(companyPath('/estimating'))">
             <IconStack2 :size="16" /> Estimación
           </UiButton>
+          <UiTableColumnMenu v-if="budget && activeTab === 'budget'" :table="budgetTable" />
+          <UiTableColumnMenu v-else-if="activeTab === 'materials'" :table="materialTable" />
+          <UiTableColumnMenu v-else-if="activeTab === 'versions'" :table="versionTable" />
+          <UiTableColumnMenu v-else-if="activeTab === 'takeoff'" :table="takeoffLineTable" />
           <UiButton
             v-if="!budget || editable"
             variant="outline"
@@ -57,22 +61,20 @@
       </UiCard>
 
       <template v-else>
-        <nav class="budget-tabs" aria-label="Secciones del presupuesto">
-          <button
-            v-for="tab in budgetTabs"
-            :key="tab.id"
-            type="button"
-            class="budget-tab"
-            :class="{ 'is-active': activeTab === tab.id }"
-            :aria-current="activeTab === tab.id ? 'page' : undefined"
-            @click="selectTab(tab.id)"
-          >
-            <component :is="tab.icon" :size="16" stroke-width="1.8" aria-hidden="true" />
-            {{ tab.label }}
-          </button>
-        </nav>
+        <UiTabs
+          v-model="activeTabModel"
+          :tabs="budgetTabItems"
+          group-label="Secciones del presupuesto"
+          scrollable
+          panel-id-prefix="budget"
+        />
 
-        <template v-if="activeTab === 'budget'">
+        <div
+          v-if="activeTab === 'budget'"
+          id="budget-panel-budget"
+          role="tabpanel"
+          aria-labelledby="budget-tab-budget"
+        >
         <UiCard>
           <div class="budget-toolbar">
             <div class="budget-toolbar-left">
@@ -119,103 +121,35 @@
             </div>
           </div>
 
-          <div class="budget-table">
-            <div class="budget-head">
-              <span></span>
-              <span>Código</span>
-              <span>Actividad</span>
-              <span>Unidad</span>
-              <span>Cantidad</span>
-              <span>Valor unitario</span>
-              <span>Valor parcial</span>
-              <span>Responsable</span>
-              <span>Comandos</span>
-            </div>
-
-            <div
-              v-for="row in visibleRows"
-              :key="row.id"
-              class="budget-row"
-              :class="{ 'is-chapter': row.item_type === 'chapter' }"
-            >
-              <button
-                v-if="row.item_type === 'chapter' && row.has_children"
-                type="button"
-                class="expand-btn"
-                :aria-label="expanded.has(row.id) ? 'Colapsar capítulo' : 'Expandir capítulo'"
-                @click="toggleChapter(row.id)"
-              >
-                <IconChevronDown :size="15" :class="{ 'is-collapsed': !expanded.has(row.id) }" />
-              </button>
-              <span v-else></span>
-
-              <span class="budget-code">{{ row.code }}</span>
-              <span class="budget-name" :style="{ paddingLeft: `${row.depth * 14}px` }">
-                {{ row.name }}
-              </span>
-              <span>{{ row.unit_code || '' }}</span>
-              <span>
-                <input
-                  v-if="row.item_type === 'activity' && editable"
-                  v-model.number="row.quantity"
-                  type="number"
-                  class="grid-input"
-                  min="0"
-                  aria-label="Cantidad"
-                  @change="updateItem(row.id, { quantity: Number(row.quantity) })"
-                />
-                <span v-else>{{ row.item_type === 'activity' ? formatNumber(row.quantity, 4) : '' }}</span>
-              </span>
-              <span>
-                <input
-                  v-if="row.item_type === 'activity' && editable && !row.apu_id"
-                  v-model.number="row.unit_price"
-                  type="number"
-                  class="grid-input"
-                  min="0"
-                  aria-label="Valor unitario"
-                  @change="updateItem(row.id, { unitPrice: Number(row.unit_price) })"
-                />
-                <span v-else>{{ row.item_type === 'activity' ? formatMoney(row.unit_price, budget.currency_code) : '' }}</span>
-              </span>
-              <span class="budget-amount">{{ formatMoney(row.partial_amount, budget.currency_code) }}</span>
-              <span class="budget-assignee">{{ row.assigned_user_name || '—' }}</span>
-              <span class="budget-actions">
-                <UiButton
-                  v-if="row.item_type === 'activity' && row.apu_id"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  @click="openApu(row.apu_id)"
-                >
-                  Ver APU
-                </UiButton>
-                <UiButton
-                  v-if="editable"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  @click="openEdit(row)"
-                >
-                  Editar
-                </UiButton>
-                <UiButton
-                  v-if="editable"
-                  size="sm"
-                  variant="ghost"
-                  width="auto"
-                  class="danger-action"
-                  @click="confirmDelete(row)"
-                >
-                  Eliminar
-                </UiButton>
-              </span>
-            </div>
-
-            <p v-if="visibleRows.length === 0" class="budget-empty">
-              No hay actividades. Agrega un capítulo o importa APUs.
-            </p>
-          </div>
+          <BudgetItemsTable
+            :table="budgetTable"
+            :editable="editable"
+            :currency="budget.currency_code"
+            :expanded="expanded"
+            error-title="No pudimos cargar las actividades"
+            :empty-title="search.trim() ? 'Sin actividades que coincidan' : 'El presupuesto está vacío'"
+            :empty-description="
+              search.trim()
+                ? 'Ajusta la búsqueda o limpia el filtro.'
+                : 'Agrega un capítulo, una actividad manual o importa actividades desde APUs.'
+            "
+            @retry="load"
+            @toggle="toggleChapter"
+            @view-apu="openApu"
+            @edit="openEdit"
+            @delete="confirmDelete"
+            @update-quantity="(id, value) => updateItem(id, { quantity: value })"
+            @update-price="(id, value) => updateItem(id, { unitPrice: value })"
+          >
+            <template #empty-action>
+              <UiButton v-if="editable" variant="outline" width="auto" @click="openChapter">
+                <IconPlus :size="15" /> Capítulo
+              </UiButton>
+              <UiButton v-if="editable" width="auto" @click="openApus">
+                <IconStack2 :size="15" /> Desde APUs
+              </UiButton>
+            </template>
+          </BudgetItemsTable>
 
           <template #footer>
             <div class="budget-footer">
@@ -251,10 +185,15 @@
             </div>
           </template>
         </UiCard>
-        </template>
+        </div>
 
         <!-- Insumos -->
-        <template v-else-if="activeTab === 'materials'">
+        <div
+          v-else-if="activeTab === 'materials'"
+          id="budget-panel-materials"
+          role="tabpanel"
+          aria-labelledby="budget-tab-materials"
+        >
           <UiCard>
             <div class="section-heading">
               <div>
@@ -275,44 +214,30 @@
               </div>
             </div>
 
-            <div v-if="isLoadingMaterials" class="budget-loading" aria-hidden="true">
-              <UiSkeleton v-for="n in 5" :key="n" variant="text" width="100%" />
-            </div>
-            <div v-else class="materials-table">
-              <div class="materials-head">
-                <span>Código</span>
-                <span>Insumo</span>
-                <span>Tipo</span>
-                <span>Unidad</span>
-                <span>Cantidad</span>
-                <span>Costo unitario</span>
-                <span>Costo total</span>
-                <span>APUs</span>
-              </div>
-              <div
-                v-for="row in materials"
-                :key="`${row.resource_code}-${row.unit_code}-${row.component_type}`"
-                class="materials-row"
-              >
-                <span class="budget-code">{{ row.resource_code }}</span>
-                <span class="budget-name">{{ row.resource_name }}</span>
-                <span>{{ componentTypeLabel(row.component_type) }}</span>
-                <span>{{ row.unit_code }}</span>
-                <span class="budget-amount">{{ formatNumber(row.quantity, 4) }}</span>
-                <span class="budget-amount">{{ formatMoney(row.unit_cost, row.currency_code) }}</span>
-                <span class="budget-amount">{{ formatMoney(row.total_cost, row.currency_code) }}</span>
-                <span>{{ row.apu_count }}</span>
-              </div>
-              <p v-if="materials.length === 0" class="budget-empty">
-                El presupuesto todavía no tiene insumos. Agrega actividades desde APUs para
-                consolidarlos aquí.
-              </p>
-            </div>
+            <MaterialsTable
+              :table="materialTable"
+              :loading="isLoadingMaterials"
+              error-title="No pudimos cargar los insumos"
+              empty-title="Sin insumos consolidados"
+              empty-description="Agrega actividades desde APUs para consolidar cantidades y costos aquí."
+              @retry="loadMaterials"
+            >
+              <template #empty-action>
+                <UiButton v-if="editable" width="auto" @click="openApus">
+                  <IconStack2 :size="15" /> Desde APUs
+                </UiButton>
+              </template>
+            </MaterialsTable>
           </UiCard>
-        </template>
+        </div>
 
         <!-- Versiones -->
-        <template v-else-if="activeTab === 'versions'">
+        <div
+          v-else-if="activeTab === 'versions'"
+          id="budget-panel-versions"
+          role="tabpanel"
+          aria-labelledby="budget-tab-versions"
+        >
           <UiCard>
             <div class="section-heading">
               <div>
@@ -331,50 +256,17 @@
               </UiButton>
             </div>
 
-            <div v-if="isLoadingVersions" class="budget-loading" aria-hidden="true">
-              <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
-            </div>
-            <div v-else class="versions-table">
-              <div class="versions-head">
-                <span>Versión</span>
-                <span>Etiqueta</span>
-                <span>Estado</span>
-                <span>Directo</span>
-                <span>Total</span>
-                <span>Ítems</span>
-                <span></span>
-              </div>
-              <div
-                v-for="version in versions"
-                :key="version.id"
-                class="versions-row"
-                :class="{ 'is-current': version.id === budget.id }"
-              >
-                <span>v{{ version.version }}</span>
-                <span>{{ version.label || '—' }}</span>
-                <span>
-                  <UiBadge
-                    :label="budgetStatusLabel(version.status)"
-                    :variant="budgetStatusVariant(version.status)"
-                    size="sm"
-                  />
-                </span>
-                <span class="budget-amount">{{ formatMoney(version.subtotal, budget.currency_code) }}</span>
-                <span class="budget-amount">{{ formatMoney(version.total, budget.currency_code) }}</span>
-                <span>{{ version.items_count }}</span>
-                <span class="versions-actions">
-                  <UiButton
-                    size="sm"
-                    variant="ghost"
-                    width="auto"
-                    :disabled="version.id === budget.id"
-                    @click="openVersion(version.id)"
-                  >
-                    {{ version.id === budget.id ? 'Actual' : 'Abrir' }}
-                  </UiButton>
-                </span>
-              </div>
-            </div>
+            <VersionsTable
+              :table="versionTable"
+              :current-id="budget.id"
+              :currency="budget.currency_code"
+              :loading="isLoadingVersions"
+              error-title="No pudimos cargar las versiones"
+              empty-title="Sin versiones registradas"
+              empty-description="La versión actual aparecerá aquí cuando se cree el historial."
+              @retry="loadVersions"
+              @open="openVersion"
+            />
 
             <div v-if="editable" class="version-label">
               <UiInput
@@ -425,42 +317,24 @@
                   </span>
                 </div>
 
-                <div class="compare-table">
-                  <div class="compare-head">
-                    <span>Código</span>
-                    <span>Actividad</span>
-                    <span>Cantidad base</span>
-                    <span>Cantidad nueva</span>
-                    <span>Valor base</span>
-                    <span>Valor nuevo</span>
-                    <span>Diferencia</span>
-                    <span>Cambio</span>
-                  </div>
-                  <div
-                    v-for="row in compareResult.rows"
-                    :key="row.code"
-                    class="compare-row"
-                    :class="`is-${row.change}`"
-                  >
-                    <span class="budget-code">{{ row.code }}</span>
-                    <span class="budget-name">{{ row.name }}</span>
-                    <span class="budget-amount">{{ row.base_quantity ?? '—' }}</span>
-                    <span class="budget-amount">{{ row.target_quantity ?? '—' }}</span>
-                    <span class="budget-amount">{{ row.base_partial === null ? '—' : formatMoney(row.base_partial, budget.currency_code) }}</span>
-                    <span class="budget-amount">{{ row.target_partial === null ? '—' : formatMoney(row.target_partial, budget.currency_code) }}</span>
-                    <span class="budget-amount">{{ formatMoney(row.delta, budget.currency_code) }}</span>
-                    <span>
-                      <UiBadge :label="changeLabel(row.change)" :variant="changeVariant(row.change)" size="sm" />
-                    </span>
-                  </div>
-                </div>
+                <CompareTable
+                  :table="compareTable"
+                  :currency="budget.currency_code"
+                  empty-title="Sin diferencias"
+                  empty-description="Las versiones comparadas no tienen actividades para mostrar."
+                />
               </template>
             </div>
           </UiCard>
-        </template>
+        </div>
 
         <!-- Takeoff -->
-        <template v-else-if="activeTab === 'takeoff'">
+        <div
+          v-else-if="activeTab === 'takeoff'"
+          id="budget-panel-takeoff"
+          role="tabpanel"
+          aria-labelledby="budget-tab-takeoff"
+        >
           <div class="takeoff-layout">
             <UiCard>
               <div class="section-heading">
@@ -538,47 +412,16 @@
                 </div>
               </div>
 
-              <div class="takeoff-table">
-                <div class="takeoff-head">
-                  <span>Descripción</span>
-                  <span>Unidad</span>
-                  <span>Piezas</span>
-                  <span>Largo</span>
-                  <span>Ancho</span>
-                  <span>Alto</span>
-                  <span>Cantidad</span>
-                  <span>Notas</span>
-                  <span></span>
-                </div>
-                <div v-for="line in takeoffDetail.lines" :key="line.id" class="takeoff-row">
-                  <span class="budget-name">{{ line.description }}</span>
-                  <span>{{ line.unit_code }}</span>
-                  <span class="budget-amount">{{ formatNumber(line.parts, 4) }}</span>
-                  <span class="budget-amount">{{ formatNumber(line.length, 4) }}</span>
-                  <span class="budget-amount">{{ formatNumber(line.width, 4) }}</span>
-                  <span class="budget-amount">{{ formatNumber(line.height, 4) }}</span>
-                  <span class="budget-amount">{{ formatNumber(line.quantity, 4) }}</span>
-                  <span>{{ line.notes || '—' }}</span>
-                  <span class="budget-actions">
-                    <UiButton v-if="editable" size="sm" variant="ghost" width="auto" @click="openTakeoffLine(line)">
-                      Editar
-                    </UiButton>
-                    <UiButton
-                      v-if="editable"
-                      size="sm"
-                      variant="ghost"
-                      width="auto"
-                      class="danger-action"
-                      @click="removeTakeoffLine(line)"
-                    >
-                      Quitar
-                    </UiButton>
-                  </span>
-                </div>
-                <p v-if="takeoffDetail.lines.length === 0" class="budget-empty">
-                  Agrega líneas con dimensiones (largo × ancho × alto) o una cantidad explícita.
-                </p>
-              </div>
+              <TakeoffLinesTable
+                :table="takeoffLineTable"
+                :editable="editable"
+                error-title="No pudimos cargar las líneas"
+                empty-title="Sin líneas de medición"
+                empty-description="Agrega líneas con dimensiones (largo × ancho × alto) o una cantidad explícita."
+                @retry="loadTakeoff"
+                @edit="openTakeoffLine"
+                @delete="removeTakeoffLine"
+              />
             </UiCard>
 
             <UiCard v-else-if="!isLoadingTakeoff">
@@ -590,7 +433,7 @@
               </UiEmptyState>
             </UiCard>
           </div>
-        </template>
+        </div>
       </template>
 
       <!-- Reporte imprimible / PDF -->
@@ -667,70 +510,141 @@
     <UiFormModal
       v-model="isChapterOpen"
       title="Nuevo capítulo"
+      description="Los capítulos agrupan y ordenan las actividades del presupuesto."
       submit-label="Crear capítulo"
       :loading="isSavingItem"
+      footer-hint="Puedes mover actividades entre capítulos editando cada actividad."
+      :dirty="isChapterDirty"
+      :confirm-on-dirty="true"
       @submit="saveChapter"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <UiInput v-model="chapterForm.name" label="Nombre" required />
-      <UiInput v-model="chapterForm.code" label="Código (opcional)" placeholder="01" />
+      <UiFormSection title="Datos del capítulo" description="El código es opcional y se usa para ordenar el WBS.">
+        <div class="form-grid">
+          <UiInput v-model="chapterForm.name" label="Nombre" required />
+          <UiInput
+            v-model="chapterForm.code"
+            label="Código (opcional)"
+            placeholder="01"
+            hint="Ej. 01, 02. Se muestra antes del nombre en la tabla."
+          />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <UiFormModal
       v-model="isActivityOpen"
       title="Nueva actividad manual"
+      description="Crea una actividad con precio propio cuando no proviene de un APU."
       submit-label="Crear actividad"
       :loading="isSavingItem"
       size="large"
+      footer-hint="Las actividades manuales no consolidan insumos; para eso usa una actividad desde APU."
+      :dirty="isActivityDirty"
+      :confirm-on-dirty="true"
       @submit="saveActivity"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid">
-        <UiSelect v-model="activityForm.parentId" label="Capítulo" :options="chapterOptions" />
-        <UiInput v-model="activityForm.code" label="Código (opcional)" />
-        <UiInput v-model="activityForm.name" label="Actividad" required class="span-2" />
-        <UiSelect v-model="activityForm.unitId" label="Unidad" :options="unitOptions" :clearable="false" />
-        <UiInput v-model="activityForm.quantity" label="Cantidad" type="number" />
-        <UiInput v-model="activityForm.unitPrice" label="Valor unitario" type="number" />
-        <UiSelect v-model="activityForm.assignedMembershipId" label="Responsable" :options="memberOptions" />
-      </div>
+      <UiFormSection title="Ubicación" description="Capítulo y código con el que se ordena la actividad.">
+        <div class="form-grid">
+          <UiSelect v-model="activityForm.parentId" label="Capítulo" :options="chapterOptions" />
+          <UiInput v-model="activityForm.code" label="Código (opcional)" placeholder="PRE-002" />
+          <UiInput v-model="activityForm.name" label="Actividad" required class="span-2" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Medición y costo" description="Unidad, cantidad y valor unitario de la actividad.">
+        <div class="form-grid">
+          <UiSelect v-model="activityForm.unitId" label="Unidad" :options="unitOptions" :clearable="false" />
+          <UiInput
+            v-model="activityForm.quantity"
+            label="Cantidad"
+            type="number"
+            hint="Cantidad 0 no suma al presupuesto ni a los insumos."
+          />
+          <UiInput v-model="activityForm.unitPrice" label="Valor unitario" type="number" />
+          <UiSelect v-model="activityForm.assignedMembershipId" label="Responsable" :options="memberOptions" />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <UiFormModal
       v-model="isEditOpen"
       title="Editar actividad"
+      description="Ajusta la cantidad, el responsable o las notas de la actividad."
       submit-label="Guardar"
       :loading="isSavingItem"
       size="large"
+      :footer-hint="
+        editForm?.apu_id
+          ? 'El valor unitario proviene del APU y no se edita aquí; para cambiarlo actualiza el APU.'
+          : 'El valor parcial se recalcula al guardar.'
+      "
+      :dirty="isEditDirty"
+      :confirm-on-dirty="true"
       @submit="saveEdit"
     >
       <UiAlert v-if="formError" type="error">{{ formError }}</UiAlert>
-      <div class="form-grid" v-if="editForm">
-        <UiInput v-model="editForm.name" label="Actividad" required class="span-2" />
-        <UiInput v-model="editForm.quantity" label="Cantidad" type="number" />
-        <UiInput v-model="editForm.unit_price" label="Valor unitario" type="number" :disabled="Boolean(editForm.apu_id)" />
-        <UiSelect v-model="editForm.assigned_membership_id" label="Responsable" :options="memberOptions" />
-        <UiInput v-model="editForm.notes" label="Notas" />
-      </div>
+      <template v-if="editForm">
+        <UiFormSection title="Actividad" description="Nombre visible y notas internas.">
+          <div class="form-grid">
+            <UiInput v-model="editForm.name" label="Actividad" required class="span-2" />
+            <UiInput v-model="editForm.notes" label="Notas" class="span-2" />
+          </div>
+        </UiFormSection>
+        <UiFormSection title="Medición y costo" description="Cantidad, precio y responsable del seguimiento.">
+          <div class="form-grid">
+            <UiInput
+              v-model="editForm.quantity"
+              label="Cantidad"
+              type="number"
+              hint="Cantidad 0 no suma al presupuesto ni a los insumos."
+            />
+            <UiInput
+              v-model="editForm.unit_price"
+              label="Valor unitario"
+              type="number"
+              :disabled="Boolean(editForm.apu_id)"
+              :hint="editForm.apu_id ? 'Definido por el APU.' : ''"
+            />
+            <UiSelect v-model="editForm.assigned_membership_id" label="Responsable" :options="memberOptions" />
+          </div>
+        </UiFormSection>
+      </template>
     </UiFormModal>
 
     <UiFormModal
       v-model="isApusOpen"
       title="Añadir actividades desde APUs"
+      description="Selecciona APUs de una base y el capítulo donde se crearán las actividades."
       size="large"
       :hide-footer="true"
     >
       <div class="apus-picker">
-        <div class="apus-picker-toolbar">
-          <UiSelect v-model="apuBaseId" :options="apuBaseOptions" placeholder="Base de APUs" :clearable="false" />
-          <UiSelect v-model="apuParentId" :options="chapterOptions" placeholder="Capítulo destino" />
-          <UiSearchInput v-model="apuSearch" placeholder="Buscar APU..." aria-label="Buscar APU" />
+        <UiFormSection title="Filtros" description="Elige la base y busca por código o nombre.">
+          <div class="apus-picker-toolbar">
+            <UiSelect v-model="apuBaseId" label="Base de APUs" :options="apuBaseOptions" :clearable="false" />
+            <UiSelect v-model="apuParentId" label="Capítulo destino" :options="chapterOptions" />
+            <UiSearchInput v-model="apuSearch" placeholder="Buscar APU..." aria-label="Buscar APU" />
+          </div>
+        </UiFormSection>
+
+        <div class="apus-picker-list-head">
+          <span>{{ selectedApus.length }} seleccionados de {{ filteredApus.length }}</span>
+          <UiButton
+            v-if="filteredApus.length > 0"
+            size="sm"
+            variant="ghost"
+            width="auto"
+            @click="toggleSelectAllApus"
+          >
+            {{ selectedApus.length === filteredApus.length ? 'Quitar selección' : 'Seleccionar todos' }}
+          </UiButton>
         </div>
 
         <div v-if="isLoadingApus" class="budget-loading" aria-hidden="true">
           <UiSkeleton v-for="n in 4" :key="n" variant="text" width="100%" />
         </div>
-        <ul v-else class="apus-list">
+        <ul v-else-if="filteredApus.length > 0" class="apus-list">
           <li v-for="apu in filteredApus" :key="apu.id">
             <label class="apu-check">
               <input v-model="selectedApus" type="checkbox" :value="apu.id" />
@@ -740,19 +654,35 @@
               </span>
             </label>
           </li>
-          <li v-if="filteredApus.length === 0" class="budget-empty">No hay APUs para esta base.</li>
         </ul>
+        <UiEmptyState
+          v-else
+          :title="apus.length === 0 ? 'La base no tiene APUs' : 'Sin APUs que coincidan'"
+          :description="
+            apus.length === 0
+              ? 'Crea APUs en Estimación o elige otra base.'
+              : 'Prueba con otro código o nombre.'
+          "
+        />
 
         <div class="apus-picker-actions">
-          <UiButton variant="ghost" width="auto" @click="isApusOpen = false">Cancelar</UiButton>
-          <UiButton
-            width="auto"
-            :loading="isSavingItem"
-            :disabled="selectedApus.length === 0"
-            @click="sendApus"
-          >
-            Enviar ({{ selectedApus.length }})
-          </UiButton>
+          <p class="section-hint">
+            Las actividades se crean con cantidad 0; escribe la cantidad en la tabla.
+            <template v-if="selectedApus.length > 0">
+              Total estimado por unidad: {{ formatMoney(selectedApusTotal, budget?.currency_code) }}.
+            </template>
+          </p>
+          <div class="apus-picker-buttons">
+            <UiButton variant="ghost" width="auto" @click="isApusOpen = false">Cancelar</UiButton>
+            <UiButton
+              width="auto"
+              :loading="isSavingItem"
+              :disabled="selectedApus.length === 0"
+              @click="sendApus"
+            >
+              Enviar ({{ selectedApus.length }})
+            </UiButton>
+          </div>
         </div>
       </div>
     </UiFormModal>
@@ -788,6 +718,7 @@
       submit-label="Importar"
       size="large"
       :loading="isImporting"
+      footer-hint="Máximo 500 filas y 10 MB. Las actividades se actualizan por código dentro de cada capítulo."
       @submit="importBudget"
     >
       <UiAlert v-if="importError" type="error">{{ importError }}</UiAlert>
@@ -809,6 +740,7 @@
       :description="budget ? `Se copiarán las actividades de la versión v${budget.version}.` : ''"
       submit-label="Crear versión"
       :loading="isCreatingVersion"
+      footer-hint="La versión actual queda aprobada hasta que apruebes la nueva."
       @submit="createVersion"
     >
       <UiAlert v-if="versionFormError" type="error">{{ versionFormError }}</UiAlert>
@@ -823,54 +755,83 @@
     <UiFormModal
       v-model="isTakeoffSheetOpen"
       title="Nueva hoja de takeoff"
+      description="Una hoja agrupa mediciones y aplica su cantidad total a una actividad."
       submit-label="Crear hoja"
       :loading="isSavingTakeoff"
+      footer-hint="Solo se suman las líneas con la misma unidad que la actividad destino."
+      :dirty="isTakeoffSheetDirty"
+      :confirm-on-dirty="true"
       @submit="createTakeoffSheet"
     >
       <UiAlert v-if="takeoffError" type="error">{{ takeoffError }}</UiAlert>
-      <UiInput v-model="takeoffSheetForm.name" label="Nombre" required />
-      <UiInput v-model="takeoffSheetForm.description" label="Descripción" />
-      <UiSelect
-        v-model="takeoffSheetForm.budgetItemId"
-        label="Actividad del presupuesto"
-        :options="activityOptions"
-      />
+      <UiFormSection title="Datos de la hoja" description="Nombre, descripción y actividad destino.">
+        <div class="form-grid">
+          <UiInput v-model="takeoffSheetForm.name" label="Nombre" required class="span-2" />
+          <UiInput v-model="takeoffSheetForm.description" label="Descripción" class="span-2" />
+          <UiSelect
+            v-model="takeoffSheetForm.budgetItemId"
+            label="Actividad del presupuesto"
+            :options="activityOptions"
+            class="span-2"
+            hint="Solo se listan actividades del presupuesto actual."
+          />
+        </div>
+      </UiFormSection>
     </UiFormModal>
 
     <!-- Línea de takeoff -->
     <UiFormModal
       v-model="isTakeoffLineOpen"
       :title="takeoffLineForm.id ? 'Editar línea' : 'Nueva línea de takeoff'"
+      description="Mide por dimensiones o escribe una cantidad explícita."
       submit-label="Guardar línea"
       size="large"
       :loading="isSavingTakeoffLine"
+      footer-hint="Solo se suman al presupuesto las líneas con la unidad de la actividad."
+      :dirty="isTakeoffLineDirty"
+      :confirm-on-dirty="true"
       @submit="saveTakeoffLine"
     >
       <UiAlert v-if="takeoffError" type="error">{{ takeoffError }}</UiAlert>
-      <div class="form-grid">
-        <UiInput v-model="takeoffLineForm.description" label="Descripción" required class="span-2" />
-        <UiSelect
-          v-model="takeoffLineForm.unitId"
-          label="Unidad"
-          :options="unitOptions"
-          :clearable="false"
-        />
-        <UiInput v-model="takeoffLineForm.parts" label="Piezas" type="number" />
-        <UiInput v-model="takeoffLineForm.length" label="Largo" type="number" />
-        <UiInput v-model="takeoffLineForm.width" label="Ancho" type="number" />
-        <UiInput v-model="takeoffLineForm.height" label="Alto" type="number" />
-        <UiInput
-          v-model="takeoffLineForm.quantity"
-          label="Cantidad explícita (opcional)"
-          type="number"
-          class="span-2"
-        />
-        <UiInput v-model="takeoffLineForm.notes" label="Notas" class="span-2" />
-      </div>
-      <p class="section-hint">
-        Si dejas la cantidad vacía, se calcula como piezas × largo × ancho × alto usando solo
-        dimensiones mayores a cero.
-      </p>
+      <UiFormSection title="Descripción" description="Identifica la medición dentro de la hoja.">
+        <div class="form-grid">
+          <UiInput v-model="takeoffLineForm.description" label="Descripción" required class="span-2" />
+          <UiSelect
+            v-model="takeoffLineForm.unitId"
+            label="Unidad"
+            :options="unitOptions"
+            :clearable="false"
+            hint="Debe coincidir con la unidad de la actividad para aplicar el takeoff."
+          />
+          <UiInput v-model="takeoffLineForm.notes" label="Notas" />
+        </div>
+      </UiFormSection>
+      <UiFormSection
+        title="Medidas"
+        description="La cantidad se calcula como piezas × largo × ancho × alto, usando solo valores mayores a cero."
+      >
+        <div class="form-grid">
+          <UiInput v-model="takeoffLineForm.parts" label="Piezas" type="number" hint="Por defecto 1." />
+          <UiInput v-model="takeoffLineForm.length" label="Largo" type="number" />
+          <UiInput v-model="takeoffLineForm.width" label="Ancho" type="number" />
+          <UiInput v-model="takeoffLineForm.height" label="Alto" type="number" />
+        </div>
+      </UiFormSection>
+      <UiFormSection title="Cantidad" description="La cantidad explícita tiene prioridad sobre las dimensiones.">
+        <div class="form-grid">
+          <UiInput
+            v-model="takeoffLineForm.quantity"
+            label="Cantidad explícita (opcional)"
+            type="number"
+            class="span-2"
+            hint="Déjala vacía o en 0 para usar las medidas."
+          />
+        </div>
+        <p class="takeoff-preview">
+          Cantidad resultante: <strong>{{ formatNumber(takeoffLinePreview, 6) }}</strong>
+          {{ takeoffLineUnitLabel }}
+        </p>
+      </UiFormSection>
     </UiFormModal>
 
     <UiConfirmDialog
@@ -917,6 +878,14 @@ import UiSearchInput from '@/components/ui/UiSearchInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiFormModal from '@/components/ui/UiFormModal.vue';
+import UiFormSection from '@/components/ui/UiFormSection.vue';
+import UiTableColumnMenu from '@/components/ui/UiTableColumnMenu.vue';
+import UiTabs from '@/components/ui/UiTabs.vue';
+import BudgetItemsTable from '@/components/budgets/BudgetItemsTable.vue';
+import MaterialsTable from '@/components/budgets/MaterialsTable.vue';
+import VersionsTable from '@/components/budgets/VersionsTable.vue';
+import CompareTable from '@/components/budgets/CompareTable.vue';
+import TakeoffLinesTable from '@/components/budgets/TakeoffLinesTable.vue';
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue';
 import UiExportMenu from '@/components/ui/UiExportMenu.vue';
 import UiFileDropzone from '@/components/ui/UiFileDropzone.vue';
@@ -924,7 +893,6 @@ import ApuDetailModal from '@/components/estimating/ApuDetailModal.vue';
 import {
   IconArrowLeft,
   IconCalculator,
-  IconChevronDown,
   IconFileImport,
   IconGitCompare,
   IconHistory,
@@ -943,6 +911,15 @@ import { estimatingService } from '@/services/estimating.service';
 import { catalogService } from '@/services/catalog.service';
 import { memberService } from '@/services/member.service';
 import { useToast } from '@/composables/useToast';
+import { useDirtyForm } from '@/composables/useDirtyForm';
+import { useAppTable } from '@/composables/useAppTable';
+import {
+  useBudgetItemColumns,
+  useCompareColumns,
+  useMaterialColumns,
+  useTakeoffLineColumns,
+  useVersionColumns,
+} from '@/composables/useBudgetColumns';
 import { apiErrorMessage } from '@/utils/error';
 import type { ExportedFile, ExportFormat } from '@/api/export';
 import type { Project } from '@/types/project';
@@ -951,8 +928,9 @@ import type {
   BudgetImportSummary,
   BudgetItem,
   BudgetStatus,
+  BudgetTreeRow,
   BudgetVersionSummary,
-  CompareChange,
+  CompareDiffRow,
   CompareResult,
   MaterialRow,
   TakeoffLine,
@@ -962,11 +940,7 @@ import type {
 import type { Apu, ApuBase } from '@/types/estimating';
 import type { Unit } from '@/types/catalog';
 import type { Member } from '@/types/member';
-
-interface BudgetTreeRow extends BudgetItem {
-  depth: number;
-  has_children: boolean;
-}
+import type { UiTabItem } from '@/types/ui';
 
 const route = useRoute();
 const router = useRouter();
@@ -1003,6 +977,15 @@ const budgetTabs: Array<{ id: BudgetTab; label: string; icon: Component }> = [
   { id: 'versions', label: 'Versiones y comparador', icon: IconHistory },
   { id: 'takeoff', label: 'Takeoff', icon: IconRulerMeasure },
 ];
+const budgetTabItems = computed<UiTabItem[]>(() =>
+  budgetTabs.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon })),
+);
+const activeTabModel = computed({
+  get: () => activeTab.value as string,
+  set: (value: string) => {
+    void selectTab(value as BudgetTab);
+  },
+});
 
 const editable = computed(() => budget.value?.status !== 'approved');
 const unitOptions = computed(() =>
@@ -1207,6 +1190,9 @@ const isEditOpen = ref(false);
 const isSavingItem = ref(false);
 const formError = ref<string | null>(null);
 const chapterForm = reactive({ name: '', code: '' });
+const { isDirty: isChapterDirty, capture: captureChapterForm } = useDirtyForm(() => ({
+  ...chapterForm,
+}));
 const activityForm = reactive({
   parentId: '',
   code: '',
@@ -1216,6 +1202,9 @@ const activityForm = reactive({
   unitPrice: '0',
   assignedMembershipId: '',
 });
+const { isDirty: isActivityDirty, capture: captureActivityForm } = useDirtyForm(() => ({
+  ...activityForm,
+}));
 interface EditBudgetItemForm {
   id: string;
   name: string;
@@ -1227,10 +1216,14 @@ interface EditBudgetItemForm {
 }
 
 const editForm = ref<EditBudgetItemForm | null>(null);
+const { isDirty: isEditDirty, capture: captureEditForm } = useDirtyForm(() => ({
+  ...(editForm.value ?? {}),
+}));
 
 function openChapter(): void {
   chapterForm.name = '';
   chapterForm.code = '';
+  captureChapterForm();
   formError.value = null;
   isChapterOpen.value = true;
 }
@@ -1245,6 +1238,7 @@ function openActivity(): void {
     unitPrice: '0',
     assignedMembershipId: '',
   });
+  captureActivityForm();
   formError.value = null;
   isActivityOpen.value = true;
 }
@@ -1259,6 +1253,7 @@ function openEdit(row: BudgetItem): void {
     notes: row.notes ?? '',
     apu_id: row.apu_id,
   };
+  captureEditForm();
   formError.value = null;
   isEditOpen.value = true;
 }
@@ -1334,6 +1329,20 @@ async function saveEdit(): Promise<void> {
 const isApusOpen = ref(false);
 const selectedApus = ref<string[]>([]);
 const apuParentId = ref('');
+const selectedApusTotal = computed(() =>
+  filteredApus.value
+    .filter((apu) => selectedApus.value.includes(apu.id))
+    .reduce((sum, apu) => sum + apu.unit_cost, 0),
+);
+
+function toggleSelectAllApus(): void {
+  const visible = filteredApus.value.map((apu) => apu.id);
+  if (visible.every((id) => selectedApus.value.includes(id))) {
+    selectedApus.value = selectedApus.value.filter((id) => !visible.includes(id));
+  } else {
+    selectedApus.value = Array.from(new Set([...selectedApus.value, ...visible]));
+  }
+}
 
 async function openApus(): Promise<void> {
   selectedApus.value = [];
@@ -1438,17 +1447,6 @@ function budgetStatusLabel(status: BudgetStatus): string {
   }[status];
 }
 
-function budgetStatusVariant(
-  status: BudgetStatus,
-): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
-  return {
-    draft: 'neutral',
-    in_review: 'info',
-    approved: 'success',
-    superseded: 'warning',
-  }[status] as 'success' | 'warning' | 'danger' | 'info' | 'neutral';
-}
-
 function componentTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     material: 'Material',
@@ -1459,26 +1457,6 @@ function componentTypeLabel(type: string): string {
     mano_de_obra: 'Mano de obra',
   };
   return labels[type] ?? type;
-}
-
-function changeLabel(change: CompareChange): string {
-  return {
-    added: 'Agregado',
-    removed: 'Eliminado',
-    modified: 'Modificado',
-    unchanged: 'Sin cambio',
-  }[change];
-}
-
-function changeVariant(
-  change: CompareChange,
-): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
-  return {
-    added: 'success',
-    removed: 'danger',
-    modified: 'warning',
-    unchanged: 'neutral',
-  }[change] as 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 }
 
 const activityOptions = computed(() =>
@@ -1639,6 +1617,29 @@ async function runCompare(): Promise<void> {
 // --- Takeoff ---
 const takeoffSheets = ref<TakeoffSheet[]>([]);
 const takeoffDetail = ref<TakeoffSheetDetail | null>(null);
+
+const budgetTable = useAppTable<BudgetTreeRow>({
+  columns: useBudgetItemColumns(),
+  data: computed(() => visibleRows.value),
+});
+const materialTable = useAppTable<MaterialRow>({
+  columns: useMaterialColumns(),
+  data: computed(() => materials.value),
+  getRowId: (row) => row.resource_code,
+});
+const versionTable = useAppTable<BudgetVersionSummary>({
+  columns: useVersionColumns(),
+  data: computed(() => versions.value),
+});
+const compareTable = useAppTable<CompareDiffRow>({
+  columns: useCompareColumns(),
+  data: computed(() => compareResult.value?.rows ?? []),
+  getRowId: (row) => `${row.item_type}-${row.code}-${row.name}`,
+});
+const takeoffLineTable = useAppTable<TakeoffLine>({
+  columns: useTakeoffLineColumns(),
+  data: computed(() => takeoffDetail.value?.lines ?? []),
+});
 const isLoadingTakeoff = ref(false);
 const isSavingTakeoff = ref(false);
 const isSavingTakeoffLine = ref(false);
@@ -1650,6 +1651,9 @@ const isApplyTakeoffOpen = ref(false);
 const isDeleteTakeoffOpen = ref(false);
 const takeoffError = ref<string | null>(null);
 const takeoffSheetForm = reactive({ name: '', description: '', budgetItemId: '' });
+const { isDirty: isTakeoffSheetDirty, capture: captureTakeoffSheetForm } = useDirtyForm(() => ({
+  ...takeoffSheetForm,
+}));
 const takeoffLineForm = reactive({
   id: '',
   description: '',
@@ -1661,6 +1665,21 @@ const takeoffLineForm = reactive({
   quantity: '',
   notes: '',
 });
+const takeoffLinePreview = computed(() =>
+  calculateTakeoffQuantity(
+    Number(takeoffLineForm.parts) || 0,
+    Number(takeoffLineForm.length) || 0,
+    Number(takeoffLineForm.width) || 0,
+    Number(takeoffLineForm.height) || 0,
+    takeoffLineForm.quantity === '' ? undefined : Number(takeoffLineForm.quantity),
+  ),
+);
+const takeoffLineUnitLabel = computed(
+  () => units.value.find((unit) => unit.id === takeoffLineForm.unitId)?.code ?? '',
+);
+const { isDirty: isTakeoffLineDirty, capture: captureTakeoffLineForm } = useDirtyForm(() => ({
+  ...takeoffLineForm,
+}));
 
 async function loadTakeoff(): Promise<void> {
   isLoadingTakeoff.value = true;
@@ -1688,6 +1707,7 @@ function openTakeoffSheet(): void {
   takeoffSheetForm.name = '';
   takeoffSheetForm.description = '';
   takeoffSheetForm.budgetItemId = '';
+  captureTakeoffSheetForm();
   takeoffError.value = null;
   isTakeoffSheetOpen.value = true;
 }
@@ -1716,13 +1736,25 @@ async function createTakeoffSheet(): Promise<void> {
   }
 }
 
-function computedLineQuantity(line: TakeoffLine): number {
-  const parts = line.parts > 0 ? line.parts : 1;
-  let quantity = parts;
-  if (line.length > 0) quantity *= line.length;
-  if (line.width > 0) quantity *= line.width;
-  if (line.height > 0) quantity *= line.height;
+function calculateTakeoffQuantity(
+  parts: number,
+  length: number,
+  width: number,
+  height: number,
+  explicit?: number,
+): number {
+  if (explicit !== undefined && explicit > 0) {
+    return Math.round(explicit * 1_000_000) / 1_000_000;
+  }
+  let quantity = parts > 0 ? parts : 1;
+  if (length > 0) quantity *= length;
+  if (width > 0) quantity *= width;
+  if (height > 0) quantity *= height;
   return Math.round(quantity * 1_000_000) / 1_000_000;
+}
+
+function computedLineQuantity(line: TakeoffLine): number {
+  return calculateTakeoffQuantity(line.parts, line.length, line.width, line.height);
 }
 
 function openTakeoffLine(line?: TakeoffLine): void {
@@ -1753,6 +1785,7 @@ function openTakeoffLine(line?: TakeoffLine): void {
       notes: '',
     });
   }
+  captureTakeoffLineForm();
   isTakeoffLineOpen.value = true;
 }
 
@@ -2084,12 +2117,42 @@ onMounted(async () => {
   color: var(--text-muted);
 }
 
+.apus-picker-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
 .apus-picker-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
+}
+
+.apus-picker-buttons {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-2);
+}
+
+.takeoff-preview {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.takeoff-preview strong {
+  color: var(--text-main);
 }
 
 /* --- Tabs y secciones --- */
@@ -2479,6 +2542,15 @@ onMounted(async () => {
 
   .apus-picker-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .apus-picker-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .apus-picker-buttons {
+    justify-content: flex-end;
   }
 
   .budget-footer {
